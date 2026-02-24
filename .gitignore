@@ -1,0 +1,60 @@
+# Unity 기본 파일 무시
+[Ll]ibrary/
+[Tt]emp/
+[Oo]bj/
+[Bb]uild/
+[Bb]uilds/
+[Ll]ogs/
+UserSettings/
+BuildFiles/
+Include/
+Protobuf/
+env/
+
+# 음원 파일 무시
+[Ss]ounds/
+[Aa]udio/
+
+# Unity 에셋 스토어 관련 파일 무시
+TinyRPGTown/
+Tiny RPG Forest/
+TextMesh Pro/
+Unity UI Samples/
+UI Toolkit/
+LowPolyAssetBundle/
+Haons SD series Pack/
+uchwch/
+unity-chan!/
+Packages/
+LocalPackages/
+
+# Baked된 광원 효과 무시
+MiniGameClient/Assets/Scenes/Login/
+
+# Fonts 무시
+Fonts/
+
+# Visual Studio 관련 파일 무시
+.vs/
+*.csproj
+3D practice.sln
+UnityClient.sln
+*.userprefs
+
+# OS별 불필요한 파일 무시
+.DS_Store
+Thumbs.db
+
+# 빌드된 실행 파일 무시
+*.apk
+*.exe
+*.dll
+
+# 환경변수 무시
+.env
+GitIgnores.cs
+
+# 인증서 관련 파일 무시
+*.crt
+*.csr
+*.key
