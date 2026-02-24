@@ -18,6 +18,9 @@ public class Managers : MonoBehaviour {
     InputManager _input = new InputManager();
     public static InputManager Input { get { return Instance._input; } }
 
+    NetworkManager _network = new NetworkManager();
+    public static NetworkManager Network { get { return Instance._network; } }
+
     PoolManager _pool = new PoolManager();
     public static PoolManager Pool { get { return Instance._pool; } }
 
