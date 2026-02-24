@@ -1,6 +1,27 @@
+using System.Diagnostics;
 using UnityEngine;
 
 public class Util {
+    #region Custom Logging
+    // 에디터에서만 일반 로그 출력
+    [Conditional("UNITY_EDITOR")]
+    public static void Log(object message) {
+        UnityEngine.Debug.Log(message);
+    }
+
+    // 에디터에서만 경고 로그 출력
+    [Conditional("UNITY_EDITOR")]
+    public static void LogWarning(object message) {
+        UnityEngine.Debug.LogWarning(message);
+    }
+
+    // 에디터에서만 에러 로그 출력
+    [Conditional("UNITY_EDITOR")]
+    public static void LogError(object message) {
+        UnityEngine.Debug.LogError(message);
+    }
+    #endregion
+
     public static T GetOrAddComponent<T>(GameObject go) where T : UnityEngine.Component {
         T component = go.GetComponent<T>();
         if (component == null)

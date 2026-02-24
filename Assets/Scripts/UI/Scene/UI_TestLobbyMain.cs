@@ -17,8 +17,7 @@ public class UI_TestLobbyMain : UI_Scene {
         base.Init();
         Bind<TextMeshProUGUI>(typeof(Texts));
 
-        //TODO : 버전 정보는 Manager클래스에서 가져올것
-        GetText((int)Texts.version).text = "v1.0.0";
+        GetText((int)Texts.version).text = "v." + Managers.Network.version;
 
         GameObject versionTextGo = GetText((int)Texts.versionRequest).gameObject;
         BindEvent(versionTextGo, OnClickVersionText, Define.UIEvent.Click);
