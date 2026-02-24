@@ -8,8 +8,6 @@
 UserSettings/
 BuildFiles/
 Include/
-Protobuf/
-env/
 
 # 음원 파일 무시
 [Ss]ounds/
@@ -28,8 +26,8 @@ unity-chan!/
 Packages/
 LocalPackages/
 
-# Baked된 광원 효과 무시
-MiniGameClient/Assets/Scenes/Login/
+# 프로젝트 세팅 폴더 무시
+ProjectSettings
 
 # Fonts 무시
 Fonts/
@@ -52,9 +50,13 @@ Thumbs.db
 
 # 환경변수 무시
 .env
+env/
 GitIgnores.cs
 
 # 인증서 관련 파일 무시
 *.crt
 *.csr
 *.key
+
+# 프로토버프
+Protobuf/
