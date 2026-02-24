@@ -39,7 +39,6 @@ public class UI_Base : MonoBehaviour {
     protected Button GetButton(int idx) { return Get<Button>(idx); }
     protected Image GetImage(int idx) { return Get<Image>(idx); }
 
-    /*
     public static void AddUIEvent(GameObject go, Action<PointerEventData> action, Define.UIEvent type = Define.UIEvent.Click) {
         UI_EventHandler evt = Util.GetOrAddComponent<UI_EventHandler>(go);
 
@@ -54,5 +53,8 @@ public class UI_Base : MonoBehaviour {
                 break;
         }
     }
-    */
+
+    protected void BindEvent(GameObject go, Action<PointerEventData> action, Define.UIEvent type = Define.UIEvent.Click) {
+        AddUIEvent(go, action, type);
+    }
 }
