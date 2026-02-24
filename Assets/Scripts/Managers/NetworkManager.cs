@@ -1,33 +1,45 @@
 using System;
 using System.Net.Http;
+using System.Threading;
+using System.Threading.Tasks;
 using UnityEngine;
 
 public class NetworkManager {
-    private static readonly HttpClient _httpClient = new HttpClient();
+    private static readonly HttpClient _httpClient = new HttpClient {
+        BaseAddress = new Uri(GitIgnores.baseUrl)
+    };
 
-    public async void TestCall() {
+    private const string VersionUrl = "api/version";
+    private const string LoginUrl = "api/login";
+
+    public async Task<bool> TestCall(CancellationToken cancelToken = default) {
         Managers.ExecuteAtMainThread(() => {
-            Debug.Log("NetworkManager.TestCall()이 메인 스레드에서 실행되었습니다!");
+            Debug.Log("서버로 요청을 보냅니다...");
         });
 
-        string url = "http://localhost:3000/api/version";
-
         try {
-            // 요청 (응답이 올 때까지 백그라운드 스레드에서 비동기로 대기)
-            HttpResponseMessage response = await _httpClient.GetAsync(url);
+            //cts가 취소되면, 즉 통신을 보낸 객체가 파괴되서 OnDestroy가 호출되면, OperationCanceledException이 발생함.
+            HttpResponseMessage response = await _httpClient.GetAsync(VersionUrl, cancelToken);
 
-            // HTTP 상태 코드가 200(OK)번대가 아니면 즉시 catch 문으로 빠짐
             response.EnsureSuccessStatusCode();
-
             string responseText = await response.Content.ReadAsStringAsync();
+
             Managers.ExecuteAtMainThread(() => {
                 Debug.Log($"서버 응답 성공: {responseText}");
             });
+            return true;
+        }
+        catch (OperationCanceledException) {
+            Managers.ExecuteAtMainThread(() => {
+                Debug.Log("네트워크 요청이 사용자에 의해 안전하게 취소되었습니다.");
+            });
+            return false;
         }
         catch (Exception e) {
             Managers.ExecuteAtMainThread(() => {
                 Debug.LogError($"네트워크 에러 발생: {e.Message}");
             });
+            return false;
         }
     }
 }
