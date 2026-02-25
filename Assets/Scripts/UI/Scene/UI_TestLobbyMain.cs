@@ -32,6 +32,8 @@ public class UI_TestLobbyMain : UI_Scene {
         
         GameObject optionGo = GetText((int)Texts.option).gameObject;
         BindEvent(optionGo, OnClickOptionText, Define.UIEvent.Click);
+        GameObject guestLoginRequestGo = GetText((int)Texts.guestLoginRequest).gameObject;
+        BindEvent(guestLoginRequestGo, OnGuestTestFunc, Define.UIEvent.Click);
 
         BaseScene scene = Managers.Scene.CurrentScene;
         if (scene is TestLobbyScene lobbyScene)
@@ -51,6 +53,13 @@ public class UI_TestLobbyMain : UI_Scene {
 
     private void OnLoginTestFunc(PointerEventData data) {
         
+    }
+
+    private async void OnGuestTestFunc(PointerEventData data) {
+        GetText((int)Texts.versionRequest).raycastTarget = false;
+        bool isSuccess = await Managers.Network.GuestLoginCall(_cts.Token);
+        if (this == null) return;
+        GetText((int)Texts.versionRequest).raycastTarget = true;
     }
 
     private void OnClickOptionText(PointerEventData data) {
