@@ -52,9 +52,13 @@ public class NetworkManager {
                 }
 
                 HttpResponseMessage response = await _httpClient.SendAsync(request, cancelToken);
-                response.EnsureSuccessStatusCode();
+                string responseText = await response.Content.ReadAsStringAsync();
 
-                return await response.Content.ReadAsStringAsync();
+                if (!response.IsSuccessStatusCode) {
+                    Managers.ExecuteAtMainThread(() => Util.LogWarning($"[{url}] 상태 코드 에러: {response.StatusCode}"));
+                }
+
+                return responseText;
             }
         }
         catch (OperationCanceledException) {
