@@ -4,11 +4,16 @@ using System.Threading;
 using TMPro;
 
 public class UI_TestLobbyMain : UI_Scene {
+    TestLobbyScene _scene;
+
     enum Texts {
         version,
         versionRequest,
         loginRequest,
         newAccountRequest,
+        option,
+        guestLoginRequest,
+        exit,
     }
 
     private CancellationTokenSource _cts = new CancellationTokenSource();
@@ -23,6 +28,14 @@ public class UI_TestLobbyMain : UI_Scene {
         BindEvent(versionTextGo, OnClickVersionText, Define.UIEvent.Click);
         GameObject loginRequestGo = GetText((int)Texts.loginRequest).gameObject;
         BindEvent(loginRequestGo, OnLoginTestFunc, Define.UIEvent.Click);
+        GameObject newAccountRequestGo = GetText((int)Texts.newAccountRequest).gameObject;
+        
+        GameObject optionGo = GetText((int)Texts.option).gameObject;
+        BindEvent(optionGo, OnClickOptionText, Define.UIEvent.Click);
+
+        BaseScene scene = Managers.Scene.CurrentScene;
+        if (scene is TestLobbyScene lobbyScene)
+            _scene = lobbyScene;
     }
 
     private async void OnClickVersionText(PointerEventData data) {
@@ -38,6 +51,10 @@ public class UI_TestLobbyMain : UI_Scene {
 
     private void OnLoginTestFunc(PointerEventData data) {
         
+    }
+
+    private void OnClickOptionText(PointerEventData data) {
+        _scene.ShowSettingUI();
     }
 
     private void OnDestroy() {
