@@ -29,11 +29,13 @@ public class UI_TestLobbyMain : UI_Scene {
         GameObject loginRequestGo = GetText((int)Texts.loginRequest).gameObject;
         BindEvent(loginRequestGo, OnLoginTestFunc, Define.UIEvent.Click);
         GameObject newAccountRequestGo = GetText((int)Texts.newAccountRequest).gameObject;
-        
+        BindEvent(newAccountRequestGo, OnCreateAccountTestFunc, Define.UIEvent.Click);
         GameObject optionGo = GetText((int)Texts.option).gameObject;
         BindEvent(optionGo, OnClickOptionText, Define.UIEvent.Click);
         GameObject guestLoginRequestGo = GetText((int)Texts.guestLoginRequest).gameObject;
         BindEvent(guestLoginRequestGo, OnGuestTestFunc, Define.UIEvent.Click);
+        GameObject exitGo = GetText((int)Texts.exit).gameObject;
+        BindEvent(exitGo, OnClickExitText, Define.UIEvent.Click);
 
         BaseScene scene = Managers.Scene.CurrentScene;
         if (scene is TestLobbyScene lobbyScene)
@@ -51,8 +53,20 @@ public class UI_TestLobbyMain : UI_Scene {
         GetText((int)Texts.versionRequest).raycastTarget = true;
     }
 
-    private void OnLoginTestFunc(PointerEventData data) {
-        
+    private async void OnLoginTestFunc(PointerEventData data) {
+        GetText((int)Texts.loginRequest).raycastTarget = false;
+        // 당연히 내 비밀번호는 qwe123따위가 아니다.
+        bool isSuccess = await Managers.Network.TestLoginCall("tetepiti149", "qwe123", _cts.Token);
+        if (this == null) return;
+        GetText((int)Texts.loginRequest).raycastTarget = true;
+    }
+
+    private async void OnCreateAccountTestFunc(PointerEventData data) {
+        GetText((int)Texts.newAccountRequest).raycastTarget = false;
+        // 당연히 내 비밀번호는 qwe123따위가 아니다.
+        bool isSuccess = await Managers.Network.TestCreateAccountCall("tetepiti149", "qwe123", _cts.Token);
+        if (this == null) return;
+        GetText((int)Texts.newAccountRequest).raycastTarget = true;
     }
 
     private async void OnGuestTestFunc(PointerEventData data) {
@@ -60,6 +74,13 @@ public class UI_TestLobbyMain : UI_Scene {
         bool isSuccess = await Managers.Network.GuestLoginCall(_cts.Token);
         if (this == null) return;
         GetText((int)Texts.versionRequest).raycastTarget = true;
+    }
+
+    private async void OnClickExitText(PointerEventData data) {
+        GetText((int)Texts.exit).raycastTarget = false;
+        bool isSuccess = await Managers.Network.TestLogoutCall(_cts.Token);
+        if (this == null) return;
+        GetText((int)Texts.exit).raycastTarget = true;
     }
 
     private void OnClickOptionText(PointerEventData data) {
