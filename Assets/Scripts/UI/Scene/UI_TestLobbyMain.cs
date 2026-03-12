@@ -13,6 +13,8 @@ public class UI_TestLobbyMain : UI_Scene {
         newAccountRequest,
         option,
         guestLoginRequest,
+        matchRequest,
+        matchCancelRequest,
         exit,
     }
 
@@ -36,6 +38,10 @@ public class UI_TestLobbyMain : UI_Scene {
         BindEvent(guestLoginRequestGo, OnGuestTestFunc, Define.UIEvent.Click);
         GameObject exitGo = GetText((int)Texts.exit).gameObject;
         BindEvent(exitGo, OnClickExitText, Define.UIEvent.Click);
+        GameObject matchRequestGo = GetText((int)Texts.matchRequest).gameObject;
+        BindEvent(matchRequestGo, OnClickMatchText, Define.UIEvent.Click);
+        GameObject matchCancelRequest = GetText((int)Texts.matchCancelRequest).gameObject;
+        BindEvent(matchCancelRequest, OnClickMatchCancelText, Define.UIEvent.Click);
 
         BaseScene scene = Managers.Scene.CurrentScene;
         if (scene is TestLobbyScene lobbyScene)
@@ -81,6 +87,21 @@ public class UI_TestLobbyMain : UI_Scene {
         bool isSuccess = await Managers.Network.TestLogoutCall(_cts.Token);
         if (this == null) return;
         GetText((int)Texts.exit).raycastTarget = true;
+    }
+
+    private async void OnClickMatchText(PointerEventData data) {
+        GetText((int)Texts.matchRequest).raycastTarget = false;
+        EquippedItem[] emptyEquippedItems = new EquippedItem[0];
+        bool isSuccess = await Managers.Network.StartMatchCall(0, "FREE", emptyEquippedItems, _cts.Token);
+        if (this == null) return;
+        GetText((int)Texts.matchRequest).raycastTarget = true;
+    }
+
+    private async void OnClickMatchCancelText(PointerEventData data) {
+        GetText((int)Texts.matchCancelRequest).raycastTarget = false;
+        bool isSuccess = await Managers.Network.CancelMatchCall(_cts.Token);
+        if (this == null) return;
+        GetText((int)Texts.matchCancelRequest).raycastTarget = true;
     }
 
     private void OnClickOptionText(PointerEventData data) {

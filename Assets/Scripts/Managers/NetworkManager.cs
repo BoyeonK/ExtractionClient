@@ -13,6 +13,7 @@ public class NetworkManager {
     };
     public string sessionId = null;
     public string guestId = null;
+    public string ticketId = null;
     public int uid = 0;
 
     public string version = "alphaTest";
@@ -20,6 +21,10 @@ public class NetworkManager {
     private const string _signupUrl = "api/signup";
     private const string _loginUrl = "api/login";
     private const string _guestLoginUrl = "api/guest";
+
+    private const string _matchStartUrl = "api/game/match/start";
+    private const string _matchStatusUrl = "api/game/match/status";
+    private const string _matchCancelUrl = "api/game/match/cancel";
 
     #region 유효성 검사 헬퍼
     private bool IsValidId(string id) {
@@ -184,13 +189,120 @@ public class NetworkManager {
         string responseText = await SendRequestAsync(HttpMethod.Post, "api/logout", null, true, cancelToken);
         if (responseText == null) return false;
 
-        Managers.ExecuteAtMainThread(() => {
-            Util.Log($"로그아웃 성공: {responseText}");
-            // 로컬 상태 초기화
-            sessionId = null;
-            guestId = null;
-            uid = 0;
-        });
-        return true;
+        AuthResponse resData = JsonUtility.FromJson<AuthResponse>(responseText);
+        if (resData != null && resData.success) {
+            Managers.ExecuteAtMainThread(() => {
+                Util.Log($"로그아웃 성공: {responseText}");
+                // 로컬 상태 초기화
+                sessionId = null;
+                guestId = null;
+                uid = 0;
+            });
+            return true;
+        }
+
+        Managers.ExecuteAtMainThread(() => Util.LogError("로그아웃 처리에 실패했습니다."));
+        return false;
+    }
+
+    public async Task<bool> StartMatchCall(int mapId, string loadoutType, EquippedItem[] equippedItems, CancellationToken cancelToken = default) {
+        if (string.IsNullOrEmpty(sessionId)) {
+            Managers.ExecuteAtMainThread(() => Util.LogWarning("로그인이 필요한 기능입니다."));
+            return false;
+        }
+
+        if (loadoutType == "CUSTOM" && (equippedItems == null || equippedItems.Length == 0)) {
+            Managers.ExecuteAtMainThread(() => Util.LogWarning("CUSTOM 모드에서는 장착한 아이템 정보가 필수입니다."));
+            return false;
+        }
+
+        Managers.ExecuteAtMainThread(() => Util.Log("매치메이킹 큐 진입을 요청합니다..."));
+
+        // JSON으로 보낼 데이터 조립
+        MatchStartRequest reqData = new MatchStartRequest {
+            mapId = mapId,
+            loadoutType = loadoutType,
+            equippedItems = equippedItems ?? new EquippedItem[0] // null 방어
+        };
+        string jsonString = JsonUtility.ToJson(reqData);
+
+        // requireAuth 플래그를 true로 주어 헤더에 x-session-id를 자동으로 포함시킵니다!
+        string responseText = await SendRequestAsync(HttpMethod.Post, _matchStartUrl, jsonString, true, cancelToken);
+        if (responseText == null) return false;
+
+
+
+        Managers.ExecuteAtMainThread(() => Util.Log($"[매칭 시작 응답 원본] {responseText}"));
+        if (!responseText.Trim().StartsWith("{"))
+        {
+            Managers.ExecuteAtMainThread(() => Util.LogError("서버 응답이 JSON 형식이 아닙니다."));
+            return false;
+        }
+
+
+
+        // 응답 데이터 파싱
+        MatchStartResponse resData = JsonUtility.FromJson<MatchStartResponse>(responseText);
+
+        if (resData != null) {
+            if (resData.success) {
+                Managers.ExecuteAtMainThread(() => {
+                    ticketId = resData.data.ticketId;
+                    Util.Log($"매칭 큐 진입 성공! [Ticket ID: {ticketId}]");
+                });
+                return true;
+            }
+            else {
+                Managers.ExecuteAtMainThread(() => {
+                    Util.LogError($"매칭 큐 진입 실패");
+                });
+                return false;
+            }
+        }
+        return false;
+    }
+
+    public async Task<bool> CancelMatchCall(CancellationToken cancelToken = default) {
+        if (string.IsNullOrEmpty(sessionId)) {
+            Managers.ExecuteAtMainThread(() => Util.LogWarning("로그인이 필요한 기능입니다."));
+            return false;
+        }
+
+        if (string.IsNullOrEmpty(ticketId)) {
+            Managers.ExecuteAtMainThread(() => Util.LogWarning("취소할 매칭 티켓이 없습니다."));
+            return false;
+        }
+
+        Managers.ExecuteAtMainThread(() => Util.Log("매치메이킹 취소를 요청합니다..."));
+
+        // JSON 데이터 조립
+        MatchTicket reqData = new MatchTicket {
+            ticketId = ticketId
+        };
+        string jsonString = JsonUtility.ToJson(reqData);
+
+        // API 호출 (POST, requireAuth = true)
+        string responseText = await SendRequestAsync(HttpMethod.Post, _matchCancelUrl, jsonString, true, cancelToken);
+        if (responseText == null) return false;
+
+        // 응답 파싱
+        BaseResponse resData = JsonUtility.FromJson<BaseResponse>(responseText);
+
+        if (resData != null) {
+            if (resData.success) {
+                Managers.ExecuteAtMainThread(() => {
+                    Util.Log("매칭 취소 완료!");
+                    ticketId = null;
+                });
+                return true;
+            }
+            else {
+                Managers.ExecuteAtMainThread(() => {
+                    Util.LogError($"매칭 취소 실패: {resData.message}");
+                });
+                return false;
+            }
+        }
+        return false;
     }
 }
