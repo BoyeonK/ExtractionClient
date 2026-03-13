@@ -305,4 +305,46 @@ public class NetworkManager {
         }
         return false;
     }
+
+    public async Task<bool> CheckMatchStatusCall(CancellationToken cancelToken = default) {
+        if (string.IsNullOrEmpty(sessionId) || string.IsNullOrEmpty(ticketId)) {
+            return false;
+        }
+
+        string url = $"{_matchStatusUrl}?ticketId={ticketId}";
+        string responseText = await SendRequestAsync(HttpMethod.Get, url, null, true, cancelToken);
+
+        if (string.IsNullOrEmpty(responseText)) return false;
+
+        MatchStatusResponse resData = JsonUtility.FromJson<MatchStatusResponse>(responseText);
+
+        if (resData != null) {
+            if (resData.success) {
+                if (resData.data.status == "WAITING") {
+                    Managers.ExecuteAtMainThread(() => Util.Log("매칭 대기 중... (서버 응답 확인)"));
+                    return false;
+                }
+                else if (resData.data.status == "SUCCESS") {
+                    Managers.ExecuteAtMainThread(() => {
+                        Util.Log($"매칭 성공! [방 접속 정보 - IP: {resData.data.udpServerIp}, Port: {resData.data.udpServerPort}]");
+                        ticketId = null; // 티켓 파기
+                    });
+
+                    Managers.ExecuteAtMainThread(() => {
+                        // TODO : 받아온 정보를 토대로 게임 서버에 접속하는 로직 추가 (UDP 세션 생성 등)
+                    });
+                    return true;
+                }
+            }
+            else {
+                // 서버 로직 실패 (티켓 만료 등)
+                Managers.ExecuteAtMainThread(() => {
+                    Util.LogError($"매칭 상태 확인 실패");
+                    ticketId = null;
+                });
+                return false;
+            }
+        }
+        return false;
+    }
 }

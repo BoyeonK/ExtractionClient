@@ -15,6 +15,7 @@ public class UI_TestLobbyMain : UI_Scene {
         guestLoginRequest,
         matchRequest,
         matchCancelRequest,
+        matchStatus,
         exit,
     }
 
@@ -42,6 +43,8 @@ public class UI_TestLobbyMain : UI_Scene {
         BindEvent(matchRequestGo, OnClickMatchText, Define.UIEvent.Click);
         GameObject matchCancelRequest = GetText((int)Texts.matchCancelRequest).gameObject;
         BindEvent(matchCancelRequest, OnClickMatchCancelText, Define.UIEvent.Click);
+        GameObject matchStatus = GetText((int)Texts.matchStatus).gameObject;
+        BindEvent(matchStatus, OnClickMatchStatusText, Define.UIEvent.Click);
 
         BaseScene scene = Managers.Scene.CurrentScene;
         if (scene is TestLobbyScene lobbyScene)
@@ -102,6 +105,13 @@ public class UI_TestLobbyMain : UI_Scene {
         bool isSuccess = await Managers.Network.CancelMatchCall(_cts.Token);
         if (this == null) return;
         GetText((int)Texts.matchCancelRequest).raycastTarget = true;
+    }
+
+    private async void OnClickMatchStatusText(PointerEventData data) {
+        GetText((int)Texts.matchStatus).raycastTarget = false;
+        bool isSuccess = await Managers.Network.CheckMatchStatusCall(_cts.Token);
+        if (this == null) return;
+        GetText((int)Texts.matchStatus).raycastTarget = true;
     }
 
     private void OnClickOptionText(PointerEventData data) {
