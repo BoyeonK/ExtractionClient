@@ -327,7 +327,6 @@ public class NetworkManager {
                 else if (resData.data.status == "SUCCESS") {
                     Managers.ExecuteAtMainThread(() => {
                         Util.Log($"매칭 성공! [방 접속 정보 - IP: {resData.data.udpServerIp}, Port: {resData.data.udpServerPort}]");
-                        ticketId = null; // 티켓 파기
                     });
 
                     Managers.ExecuteAtMainThread(() => {
