@@ -9,8 +9,9 @@ using UnityEngine;
 
 public class NetworkManager {
     private static readonly HttpClient _httpClient = new HttpClient {
-        BaseAddress = new Uri(GitIgnores.baseUrl)
+        BaseAddress = new Uri(Gitignores.baseUrl)
     };
+
     public string sessionId = null;
     public string guestId = null;
     public string ticketId = null;

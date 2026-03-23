@@ -29,7 +29,7 @@ public class SceneManagerEx {
     private readonly object _loadingProgressLock = new object();
     List<int> _loadingProgress = Enumerable.Repeat(0, 4).ToList();
 
-    public BaseScene CurrentScene { get { return GameObject.FindFirstObjectByType<BaseScene>(); } }
+    public BaseScene CurrentScene { get { return GameObject.FindAnyObjectByType<BaseScene>(); } }
 
     public void OnUpdate() {
         if (_loadingState != LoadingState.Loading || _asyncLoadSceneOp == null)

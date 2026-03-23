@@ -9,7 +9,7 @@ public class BaseScene : MonoBehaviour {
     }
 
     protected virtual void Init() {
-        Object obj = GameObject.FindFirstObjectByType(typeof(EventSystem));
+        Object obj = GameObject.FindAnyObjectByType(typeof(EventSystem));
         if (obj == null) {
             Debug.Log("Make EventSys");
             Managers.Resource.Instantiate("UI/EventSystem").name = "@EventSyetem";
