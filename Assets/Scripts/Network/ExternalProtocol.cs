@@ -26,10 +26,11 @@ namespace GameProtocol {
           string.Concat(
             "ChdFeHRlcm5hbF9Qcm90b2NvbC5wcm90bxIWRXh0ZXJuYWxfR2FtZV9Qcm90",
             "b2NvbCIaCgpDMkRUZXN0UGt0EgwKBGVjaG8YASABKAkiGgoKRDJDVGVzdFBr",
-            "dBIMCgRlY2hvGAEgASgJQg+qAgxHYW1lUHJvdG9jb2xiBnByb3RvMw=="));
+            "dBIMCgRlY2hvGAEgASgJKisKBVBrdElkEhAKDEMyRF9URVNUX1BLVBAAEhAK",
+            "DEQyQ19URVNUX1BLVBABQg+qAgxHYW1lUHJvdG9jb2xiBnByb3RvMw=="));
       descriptor = pbr::FileDescriptor.FromGeneratedCode(descriptorData,
           new pbr::FileDescriptor[] { },
-          new pbr::GeneratedClrTypeInfo(null, null, new pbr::GeneratedClrTypeInfo[] {
+          new pbr::GeneratedClrTypeInfo(new[] {typeof(global::GameProtocol.PktId), }, null, new pbr::GeneratedClrTypeInfo[] {
             new pbr::GeneratedClrTypeInfo(typeof(global::GameProtocol.C2DTestPkt), global::GameProtocol.C2DTestPkt.Parser, new[]{ "Echo" }, null, null, null, null),
             new pbr::GeneratedClrTypeInfo(typeof(global::GameProtocol.D2CTestPkt), global::GameProtocol.D2CTestPkt.Parser, new[]{ "Echo" }, null, null, null, null)
           }));
@@ -37,6 +38,14 @@ namespace GameProtocol {
     #endregion
 
   }
+  #region Enums
+  public enum PktId {
+    [pbr::OriginalName("C2D_TEST_PKT")] C2DTestPkt = 0,
+    [pbr::OriginalName("D2C_TEST_PKT")] D2CTestPkt = 1,
+  }
+
+  #endregion
+
   #region Messages
   public sealed partial class C2DTestPkt : pb::IMessage<C2DTestPkt>
   #if !GOOGLE_PROTOBUF_REFSTRUCT_COMPATIBILITY_MODE
