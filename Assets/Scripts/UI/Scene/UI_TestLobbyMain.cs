@@ -25,7 +25,7 @@ public class UI_TestLobbyMain : UI_Scene {
         base.Init();
         Bind<TextMeshProUGUI>(typeof(Texts));
 
-        GetText((int)Texts.version).text = "v." + Managers.Network.version;
+        GetText((int)Texts.version).text = "v." + Managers.Network.httpManager.version;
 
         GameObject versionTextGo = GetText((int)Texts.versionRequest).gameObject;
         BindEvent(versionTextGo, OnClickVersionText, Define.UIEvent.Click);
@@ -53,7 +53,7 @@ public class UI_TestLobbyMain : UI_Scene {
 
     private async void OnClickVersionText(PointerEventData data) {
         GetText((int)Texts.versionRequest).raycastTarget = false;
-        bool isSuccess = await Managers.Network.TestCall(_cts.Token);
+        bool isSuccess = await Managers.Network.httpManager.TestCall(_cts.Token);
         //동작 원리 : await를 만난 이후의 코드는, 응답을 받기 전까지 실행되지 않음.
         //이것이 블로킹된다는 것을 의미하지는 않는다.
         //다만, await 이후의 코드는 언제 실행될지 모름.
@@ -65,7 +65,7 @@ public class UI_TestLobbyMain : UI_Scene {
     private async void OnLoginTestFunc(PointerEventData data) {
         GetText((int)Texts.loginRequest).raycastTarget = false;
         // 당연히 내 비밀번호는 qwe123따위가 아니다.
-        bool isSuccess = await Managers.Network.TestLoginCall("tetepiti149", "qwe123", _cts.Token);
+        bool isSuccess = await Managers.Network.httpManager.TestLoginCall("tetepiti149", "qwe123", _cts.Token);
         if (this == null) return;
         GetText((int)Texts.loginRequest).raycastTarget = true;
     }
@@ -73,21 +73,21 @@ public class UI_TestLobbyMain : UI_Scene {
     private async void OnCreateAccountTestFunc(PointerEventData data) {
         GetText((int)Texts.newAccountRequest).raycastTarget = false;
         // 당연히 내 비밀번호는 qwe123따위가 아니다.
-        bool isSuccess = await Managers.Network.TestCreateAccountCall("tetepiti149", "qwe123", _cts.Token);
+        bool isSuccess = await Managers.Network.httpManager.TestCreateAccountCall("tetepiti149", "qwe123", _cts.Token);
         if (this == null) return;
         GetText((int)Texts.newAccountRequest).raycastTarget = true;
     }
 
     private async void OnGuestTestFunc(PointerEventData data) {
         GetText((int)Texts.versionRequest).raycastTarget = false;
-        bool isSuccess = await Managers.Network.GuestLoginCall(_cts.Token);
+        bool isSuccess = await Managers.Network.httpManager.GuestLoginCall(_cts.Token);
         if (this == null) return;
         GetText((int)Texts.versionRequest).raycastTarget = true;
     }
 
     private async void OnClickExitText(PointerEventData data) {
         GetText((int)Texts.exit).raycastTarget = false;
-        bool isSuccess = await Managers.Network.TestLogoutCall(_cts.Token);
+        bool isSuccess = await Managers.Network.httpManager.TestLogoutCall(_cts.Token);
         if (this == null) return;
         GetText((int)Texts.exit).raycastTarget = true;
     }
@@ -95,21 +95,21 @@ public class UI_TestLobbyMain : UI_Scene {
     private async void OnClickMatchText(PointerEventData data) {
         GetText((int)Texts.matchRequest).raycastTarget = false;
         EquippedItem[] emptyEquippedItems = new EquippedItem[0];
-        bool isSuccess = await Managers.Network.StartMatchCall(0, "FREE", emptyEquippedItems, _cts.Token);
+        bool isSuccess = await Managers.Network.httpManager.StartMatchCall(0, "FREE", emptyEquippedItems, _cts.Token);
         if (this == null) return;
         GetText((int)Texts.matchRequest).raycastTarget = true;
     }
 
     private async void OnClickMatchCancelText(PointerEventData data) {
         GetText((int)Texts.matchCancelRequest).raycastTarget = false;
-        bool isSuccess = await Managers.Network.CancelMatchCall(_cts.Token);
+        bool isSuccess = await Managers.Network.httpManager.CancelMatchCall(_cts.Token);
         if (this == null) return;
         GetText((int)Texts.matchCancelRequest).raycastTarget = true;
     }
 
     private async void OnClickMatchStatusText(PointerEventData data) {
         GetText((int)Texts.matchStatus).raycastTarget = false;
-        bool isSuccess = await Managers.Network.CheckMatchStatusCall(_cts.Token);
+        bool isSuccess = await Managers.Network.httpManager.CheckMatchStatusCall(_cts.Token);
         if (this == null) return;
         GetText((int)Texts.matchStatus).raycastTarget = true;
     }
