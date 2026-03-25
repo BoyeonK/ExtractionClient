@@ -29,6 +29,7 @@ public class UDPManager {
     public void RegisterEndPointAndStart(string ip, string port, string roomToken) {
         try {
             Disconnect(); // 기존 연결 및 스레드 정리
+            Util.Log($"Register를 위해 기존 연결을 해제");
 
             if (int.TryParse(port, out int portInt) == false) {
                 Util.LogWarning($"RegisterServerEndPoint : 올바르지 않은 port 형식 ({port})");
@@ -80,6 +81,7 @@ public class UDPManager {
                 break;
             }
             catch (ThreadAbortException) {
+                Managers.ExecuteAtMainThread(() => Util.LogWarning($"[UDP 수신 루프] 스레드가 강제 종료되었습니다."));
                 break;
             }
             catch (Exception e) {
@@ -113,7 +115,19 @@ public class UDPManager {
         if (_receiveThread != null && _receiveThread.IsAlive) {
             _receiveThread = null;
         }
+    }
 
-        Util.Log("[UDP] 소켓 닫힘 및 자원 정리 완료");
+    // ====================
+    // 게임 로직 함수
+    // ====================
+
+    public void RequestSessionIdAndSecurityKey() {
+        GameProtocol.C2DTestPkt pkt = new GameProtocol.C2DTestPkt {
+            Echo = "What is Attribute of F.G.D?",
+        };
+
+        SendPacket(Handler.MakeSendBuffer(pkt));
+
+        Util.Log("RequestSessionIdAndSecurityKey : C2DTestPkt 전송");
     }
 }

@@ -332,6 +332,10 @@ public class HTTPManager {
                         Util.Log($"매칭 성공! [방 접속 정보 - IP: {resData.data.udpServerIp}, Port: {resData.data.udpServerPort}]");
                         Util.Log($"Token: {resData.data.roomToken}");
                         Managers.Network.udpManager.RegisterEndPointAndStart(resData.data.udpServerIp, resData.data.udpServerPort, resData.data.roomToken);
+
+                        // TODO : 원래는 이후에 비동기적으로 GameScene의 로딩을 진행하고
+                        // 로딩이 완료된 후에 매칭 성공 처리(게임 서버 접속 등)를 해야 하지만, 테스트 단계에서는 바로 게임 서버 접속 로직을 실행하도록 함
+                        Managers.Network.udpManager.RequestSessionIdAndSecurityKey();
                     });
                     return true;
                 }
