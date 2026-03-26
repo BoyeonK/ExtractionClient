@@ -15,6 +15,7 @@ public class HTTPManager {
     public string sessionId = null;
     public string guestId = null;
     public string ticketId = null;
+    private string _token = null;
     public int uid = 0;
 
     public string version = "alphaTest";
@@ -326,17 +327,12 @@ public class HTTPManager {
                     return false;
                 }
                 else if (resData.data.status == "SUCCESS") {
-                    // TODO : 받아온 정보를 토대로 게임 서버에 접속하는 로직 추가 (UDP 세션 생성 등)
-
+                    _token = resData.data.roomToken;
                     Managers.ExecuteAtMainThread(() => {
-                        Util.Log($"매칭 성공! [방 접속 정보 - IP: {resData.data.udpServerIp}, Port: {resData.data.udpServerPort}]");
                         Util.Log($"Token: {resData.data.roomToken}");
-                        Managers.Network.udpManager.RegisterEndPointAndStart(resData.data.udpServerIp, resData.data.udpServerPort, resData.data.roomToken);
-
-                        // TODO : 원래는 이후에 비동기적으로 GameScene의 로딩을 진행하고
-                        // 로딩이 완료된 후에 매칭 성공 처리(게임 서버 접속 등)를 해야 하지만, 테스트 단계에서는 바로 게임 서버 접속 로직을 실행하도록 함
-                        Managers.Network.udpManager.RequestSessionIdAndSecurityKey();
                     });
+
+                    //TODO : /connect연결 바로 요청.
                     return true;
                 }
             }

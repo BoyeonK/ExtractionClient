@@ -49,8 +49,6 @@ public class MatchStatusResponse {
 [Serializable]
 public class MatchStatusData {
     public string status;
-    public string udpServerIp;
-    public string udpServerPort;
     public string roomToken;
 }
 

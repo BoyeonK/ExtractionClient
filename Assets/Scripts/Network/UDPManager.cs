@@ -120,14 +120,4 @@ public class UDPManager {
     // ====================
     // 게임 로직 함수
     // ====================
-
-    public void RequestSessionIdAndSecurityKey() {
-        GameProtocol.C2DTestPkt pkt = new GameProtocol.C2DTestPkt {
-            Echo = "What is Attribute of F.G.D?",
-        };
-
-        SendPacket(Handler.MakeSendBuffer(pkt));
-
-        Util.Log("RequestSessionIdAndSecurityKey : C2DTestPkt 전송");
-    }
 }
