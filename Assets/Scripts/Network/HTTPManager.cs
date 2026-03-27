@@ -27,6 +27,7 @@ public class HTTPManager {
     private const string _matchStartUrl = "api/game/match/start";
     private const string _matchStatusUrl = "api/game/match/status";
     private const string _matchCancelUrl = "api/game/match/cancel";
+    private const string _connectUrl = "api/game/match/connect";
 
     #region 유효성 검사 헬퍼
     private bool IsValidId(string id) {
@@ -106,7 +107,7 @@ public class HTTPManager {
 
         Managers.ExecuteAtMainThread(() => Util.Log("계정 생성 요청을 보냅니다..."));
 
-        string jsonString = JsonUtility.ToJson(new CreateAccountRequestData { id = id, password = password });
+        string jsonString = JsonUtility.ToJson(new AuthRequest { id = id, password = password });
         string responseText = await SendRequestAsync(HttpMethod.Post, _signupUrl, jsonString, false, cancelToken);
         if (responseText == null) return false;
 
@@ -136,7 +137,7 @@ public class HTTPManager {
 
         Managers.ExecuteAtMainThread(() => Util.Log("로그인 요청을 보냅니다..."));
 
-        string jsonString = JsonUtility.ToJson(new LoginRequestData { id = id, password = password });
+        string jsonString = JsonUtility.ToJson(new AuthRequest { id = id, password = password });
         string responseText = await SendRequestAsync(HttpMethod.Post, _loginUrl, jsonString, false, cancelToken);
         if (responseText == null) return false;
 
@@ -165,7 +166,7 @@ public class HTTPManager {
         string responseText = await SendRequestAsync(HttpMethod.Post, _guestLoginUrl, null, false, cancelToken);
         if (responseText == null) return false;
 
-        AuthResponse resData = JsonUtility.FromJson<AuthResponse>(responseText);
+        GuestAuthResponse resData = JsonUtility.FromJson<GuestAuthResponse>(responseText);
         if (resData != null && resData.success) {
             Managers.ExecuteAtMainThread(() => {
                 Util.Log($"게스트 로그인 성공! [Session: {resData.data.sessionId} | GuestID: {resData.data.guestId}]");
@@ -278,7 +279,7 @@ public class HTTPManager {
         Managers.ExecuteAtMainThread(() => Util.Log("매치메이킹 취소를 요청합니다..."));
 
         // JSON 데이터 조립
-        MatchTicket reqData = new MatchTicket {
+        MatchCancelRequest reqData = new MatchCancelRequest {
             ticketId = ticketId
         };
         string jsonString = JsonUtility.ToJson(reqData);
@@ -332,7 +333,9 @@ public class HTTPManager {
                         Util.Log($"Token: {resData.data.roomToken}");
                     });
 
-                    //TODO : /connect연결 바로 요청.
+                    Managers.ExecuteAtMainThread(() => {
+                        // 여기서 받아온 ConnectToken을 가지고 connect요청.
+                    });
                     return true;
                 }
             }
@@ -345,6 +348,16 @@ public class HTTPManager {
                 return false;
             }
         }
+        return false;
+    }
+
+    public async Task<bool> TryConnectCall(CancellationToken cancelToken = default) {
+        if (string.IsNullOrEmpty(sessionId) || string.IsNullOrEmpty(_token)) {
+            return false;
+        }
+
+        string url = $"{_connectUrl}";
+        
         return false;
     }
 }

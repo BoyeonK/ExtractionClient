@@ -1,72 +1,88 @@
 using System;
 
+// ----------------------------------------------------
+// 공통 응답 구조 (Base Wrapper)
+// ----------------------------------------------------
 [Serializable]
-public class CreateAccountRequestData {
-    public string id;
-    public string password;
-}
-
-[Serializable]
-public class LoginRequestData {
-    public string id;
-    public string password;
-}
-
-[Serializable]
-public class AuthResponse {
+public class BaseResponse {
     public bool success;
-    public int status;
-    public AuthData data; // makeResponse의 'data' 필드에 대응
+    public int code; // ?? OpenAPI 명세서의 'code' 필드에 맞춤 (기존 status)
+    public string message; // 에러 발생 시 읽어올 메시지
 }
 
+// ----------------------------------------------------
+// [System] 시스템 API 응답
+// ----------------------------------------------------
+[Serializable]
+public class VersionData {
+    public string latestVersion;
+    public bool isMaintenance;
+}
+
+[Serializable]
+public class VersionResponse : BaseResponse {
+    public VersionData data;
+}
+
+// ----------------------------------------------------
+// [Auth] 계정 API 응답
+// ----------------------------------------------------
 [Serializable]
 public class AuthData {
     public string sessionId;
-    public int uid;          // 로그인, 회원가입 시 오는 유저 고유 ID
-    public string guestId;   // 게스트 로그인 시에만 값이 들어옴
+    public int uid;
 }
 
 [Serializable]
-public class EquippedItem {
-    public int itemId;
-    public int quantity;
+public class AuthResponse : BaseResponse {
+    public AuthData data;
 }
 
 [Serializable]
-public class MatchStartRequest {
-    public int mapId;
-    public string loadoutType;
-    public EquippedItem[] equippedItems;
+public class GuestAuthData {
+    public string sessionId;
+    public string guestId;
+    public int uid;
 }
 
 [Serializable]
-public class MatchStatusResponse {
-    public bool success;
-    public int status;
-    public MatchStatusData data;
+public class GuestAuthResponse : BaseResponse {
+    public GuestAuthData data;
 }
 
+// ----------------------------------------------------
+// [Game] 매치메이킹 API 응답
+// ----------------------------------------------------
 [Serializable]
-public class MatchStatusData {
-    public string status;
-    public string roomToken;
-}
-
-[Serializable]
-public class MatchStartResponse {
-    public bool success;
-    public int status;
-    public MatchTicket data;
-}
-
-[Serializable]
-public class MatchTicket {
+public class MatchTicketData {
     public string ticketId;
 }
 
 [Serializable]
-public class BaseResponse {
-    public bool success;
-    public int status;
-    public string message;
+public class MatchStartResponse : BaseResponse {
+    public MatchTicketData data;
+}
+
+[Serializable]
+public class MatchStatusData {
+    public string status; // "WAITING", "SUCCESS", "FAILED" 등
+    public string roomToken;
+}
+
+[Serializable]
+public class MatchStatusResponse : BaseResponse {
+    public MatchStatusData data;
+}
+
+[Serializable]
+public class ConnectResponseData {
+    public string ip;
+    public int port;
+    public string securityKey;
+    public int ingameSessionId;
+}
+
+[Serializable]
+public class ConnectResponse : BaseResponse {
+    public ConnectResponseData data;
 }
