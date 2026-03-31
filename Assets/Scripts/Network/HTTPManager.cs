@@ -1,10 +1,11 @@
 ﻿using NUnit.Framework.Interfaces;
 using System;
 using System.Net.Http;
+using System.Net.Sockets;
 using System.Text;
+using System.Text.RegularExpressions;
 using System.Threading;
 using System.Threading.Tasks;
-using System.Text.RegularExpressions;
 using UnityEngine;
 
 public class HTTPManager {
@@ -333,10 +334,9 @@ public class HTTPManager {
                         Util.Log($"Token: {resData.data.roomToken}");
                     });
 
-                    Managers.ExecuteAtMainThread(() => {
-                        // 여기서 받아온 ConnectToken을 가지고 connect요청.
-                    });
-                    return true;
+                    bool connectSuccess = await TryConnectCall(cancelToken);
+
+                    return connectSuccess;
                 }
             }
             else {
@@ -353,11 +353,40 @@ public class HTTPManager {
 
     public async Task<bool> TryConnectCall(CancellationToken cancelToken = default) {
         if (string.IsNullOrEmpty(sessionId) || string.IsNullOrEmpty(_token)) {
+            Managers.ExecuteAtMainThread(() => Util.LogWarning("세션 또는 룸 토큰이 유효하지 않습니다."));
             return false;
         }
 
-        string url = $"{_connectUrl}";
-        
+        ConnectRequest reqData = new ConnectRequest {
+            roomToken = _token
+        };
+        string jsonString = JsonUtility.ToJson(reqData);
+
+        string responseText = await SendRequestAsync(HttpMethod.Post, _connectUrl, jsonString, true, cancelToken);
+        if (string.IsNullOrEmpty(responseText)) return false;
+
+        ConnectResponse resData = JsonUtility.FromJson<ConnectResponse>(responseText);
+
+        if (resData != null) {
+            if (resData.success && resData.data != null) {
+                Managers.ExecuteAtMainThread(() => {
+                    Util.Log($"[IP: {resData.data.ip}, Port: {resData.data.port}], SID: {resData.data.ingameSessionId}, sKey: {resData.data.securityKey}");
+                    Managers.Network.udpManager.RegisterEndPointAndStart(resData.data.ip, resData.data.port);
+                    Managers.Network.udpManager.Handler.SetSessionVariable((ushort)resData.data.ingameSessionId, Convert.ToUInt32(resData.data.securityKey));
+                    Managers.Network.udpManager.RequestSessionIdAndSecurityKey();
+                });
+                return true;
+            }
+            else {
+                Managers.ExecuteAtMainThread(() => {
+                    Util.LogError($"인게임 서버 접속 정보 획득 실패: {resData.message}");
+                    //_token = null;
+                });
+                return false;
+            }
+        }
+
+        Managers.ExecuteAtMainThread(() => Util.LogError("응답 데이터 파싱에 실패했습니다."));
         return false;
     }
 }

@@ -25,7 +25,7 @@ public class PacketHandler {
     public void SetSessionVariable(ushort sessionId, UInt32 securityKey) {
         _sessionId = sessionId;
         _securityKey = securityKey;
-        _sendSequence = 0;
+        _sendSequence = 1;
     }
 
     public void ProcessReceivedPacket(byte[] receivedBytes) {

@@ -1,10 +1,11 @@
+using GameProtocol;
 using System;
 using System.Net;
 using System.Net.Sockets;
-using System.Threading;
 // using Google.Protobuf;
 // using GameProtocol;
 using System.Runtime.InteropServices;
+using System.Threading;
 using UnityEngine;
 
 [StructLayout(LayoutKind.Sequential, Pack = 1)]
@@ -26,23 +27,19 @@ public class UDPManager {
     private volatile bool _isRunning;
     public PacketHandler Handler { get; private set; } = new PacketHandler();
 
-    public void RegisterEndPointAndStart(string ip, string port, string roomToken) {
+    public void RegisterEndPointAndStart(string ip, int port) {
         try {
             Disconnect(); // 기존 연결 및 스레드 정리
             Util.Log($"Register를 위해 기존 연결을 해제");
 
-            if (int.TryParse(port, out int portInt) == false) {
-                Util.LogWarning($"RegisterServerEndPoint : 올바르지 않은 port 형식 ({port})");
-                return;
-            }
-
+            // 💡 수정: port는 이미 int이므로 검사 불필요
             if (IPAddress.TryParse(ip, out IPAddress ipAddr) == false) {
                 Util.LogWarning($"RegisterServerEndPoint : 올바르지 않은 IP 형식 ({ip})");
                 return;
             }
 
             _udpClient = new UdpClient();
-            _serverEndPoint = new IPEndPoint(ipAddr, portInt);
+            _serverEndPoint = new IPEndPoint(ipAddr, port);
 
             // Connect를 호출해 목적지 IP/Port 고정 (OS 커널 필터링)
             _udpClient.Connect(_serverEndPoint);
@@ -51,7 +48,7 @@ public class UDPManager {
 
             // 전용 수신 스레드 생성 및 실행
             _receiveThread = new Thread(ReceiveLoopSync);
-            _receiveThread.IsBackground = true; // 유니티 메인 스레드 종료 시 함께 강제 종료됨
+            _receiveThread.IsBackground = true;
             _receiveThread.Name = "UDP_Receive_Thread";
             _receiveThread.Start();
 
@@ -92,11 +89,12 @@ public class UDPManager {
         Util.Log("[UDP] 전용 수신 스레드 안전하게 종료됨");
     }
 
+
     public void SendPacket(byte[] data) {
         if (_udpClient == null) return;
 
         try {
-            _udpClient.SendAsync(data, data.Length);
+            _udpClient.Send(data, data.Length);
         }
         catch (Exception e) {
             Util.LogError($"[UDP 전송 에러] {e.Message}");
@@ -120,4 +118,18 @@ public class UDPManager {
     // ====================
     // 게임 로직 함수
     // ====================
+    public void RequestSessionIdAndSecurityKey() {
+        // 1. Protobuf 페이로드 생성
+        C2DTestPkt testPkt = new C2DTestPkt {
+            Echo = "Hello, UDP Server! Let me in!"
+        };
+
+        // 2. 패킷 핸들러에게 조립(헤더 씌우기)을 부탁함
+        byte[] sendBuffer = Handler.MakeSendBuffer(testPkt);
+
+        // 3. 만들어진 바이트 배열을 전송
+        SendPacket(sendBuffer);
+
+        Util.Log("[UDP] C2DTestPkt (서버 입장 Handshake) 전송 완료!");
+    }
 }
