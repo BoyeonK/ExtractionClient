@@ -373,8 +373,19 @@ public class HTTPManager {
                     Util.Log($"[IP: {resData.data.ip}, Port: {resData.data.port}], SID: {resData.data.ingameSessionId}, sKey: {resData.data.securityKey}");
                     Managers.Network.udpManager.RegisterEndPointAndStart(resData.data.ip, resData.data.port);
                     Managers.Network.udpManager.Handler.SetSessionVariable((ushort)resData.data.ingameSessionId, Convert.ToUInt32(resData.data.securityKey));
+                });
+
+                try {
+                    await Task.Delay(1500, cancelToken);
+                }
+                catch (TaskCanceledException) {
+                    return false;
+                }
+
+                Managers.ExecuteAtMainThread(() => {
                     Managers.Network.udpManager.RequestSessionIdAndSecurityKey();
                 });
+
                 return true;
             }
             else {
