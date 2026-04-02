@@ -30,7 +30,6 @@ public class UDPManager {
     public void RegisterEndPointAndStart(string ip, int port) {
         try {
             Disconnect(); // 기존 연결 및 스레드 정리
-            Util.Log($"Register를 위해 기존 연결을 해제");
 
             // 💡 수정: port는 이미 int이므로 검사 불필요
             if (IPAddress.TryParse(ip, out IPAddress ipAddr) == false) {
@@ -129,7 +128,5 @@ public class UDPManager {
 
         // 3. 만들어진 바이트 배열을 전송
         SendPacket(sendBuffer);
-
-        Util.Log("[UDP] C2DTestPkt (서버 입장 Handshake) 전송 완료!");
     }
 }

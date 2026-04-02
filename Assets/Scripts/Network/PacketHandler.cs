@@ -111,9 +111,9 @@ public class PacketHandler {
     public byte[] MakeSendBuffer(GameProtocol.C2DTestPkt packet) {
         return CreatePacketInternal(
             packetId: (ushort)GameProtocol.PktId.C2DTestPkt,
-            sessionId: 0,
+            sessionId: _sessionId,
             sequenceNum: _sendSequence++,
-            securityKey: 0,
+            securityKey: _securityKey,
             flag: 0x01,
             protobufMessage: packet
         );
