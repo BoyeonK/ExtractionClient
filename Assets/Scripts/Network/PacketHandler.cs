@@ -8,6 +8,17 @@ using UnityEngine;
 //TODO : Span과 ArraySegment 차이 이해하기
 public delegate void HandlerFunc(ReadOnlySpan<byte> payloadSpan);
 
+[StructLayout(LayoutKind.Sequential, Pack = 1)]
+public struct UDPHeader {
+    public ushort packetId;
+    public ushort sessionId;
+    public uint sequenceNum;
+    public uint securityKey;
+    public byte flags;
+
+    public const int Size = 13;
+}
+
 public class PacketHandler {
     private ushort _sessionId = 0; // TODO : 실제 세션 관리 로직 필요
     private UInt32 _sendSequence = 0;
@@ -34,21 +45,29 @@ public class PacketHandler {
             return;
         }
 
+        Managers.ExecuteAtMainThread(() => {
+            Util.Log($"앙기르무유가르띠");
+        });
+
         ReadOnlySpan<byte> packetSpan = receivedBytes;
         UDPHeader header = MemoryMarshal.Read<UDPHeader>(packetSpan.Slice(0, UDPHeader.Size));
         ReadOnlySpan<byte> payloadSpan = packetSpan.Slice(UDPHeader.Size);
         ushort id = header.packetId;
+
+        Managers.ExecuteAtMainThread(() => {
+            Util.Log($"[PacketHandler] 패킷 수신 - ID: {id}, SessionID: {header.sessionId}, Seq: {header.sequenceNum}, Key: {header.securityKey}");
+        });
 
         try {
             if (_handlers.TryGetValue(id, out HandlerFunc handler)) {
                 handler(payloadSpan);
             }
             else {
-                Util.LogWarning($"[PacketHandler] 등록되지 않은 패킷 ID: {id}");
+                Managers.ExecuteAtMainThread(() => { Util.LogWarning($"[PacketHandler] 등록되지 않은 패킷 ID: {id}"); });
             }
         }
         catch (Exception e) {
-            Util.LogError($"[PacketHandler] 패킷 파싱/처리 중 에러 발생 (ID: {id}) - {e.Message}");
+            Managers.ExecuteAtMainThread(() => { Util.LogError($"[PacketHandler] 패킷 파싱/처리 중 에러 발생 (ID: {id}) - {e.Message}"); });
         }
     }
 
@@ -63,17 +82,17 @@ public class PacketHandler {
             pkt = D2CTestPkt.Parser.ParseFrom(payloadSpan);
         }
         catch (InvalidProtocolBufferException e) {
-            Util.LogError($"D2CTestPkt 파싱 실패: {e.Message}");
+            Managers.ExecuteAtMainThread(() => { Util.LogError($"D2CTestPkt 파싱 실패: {e.Message}"); });
             return;
         }
         catch (Exception e) {
-            Util.LogError($"D2CTestPkt 처리 중 알 수 없는 에러: {e.Message}");
+            Managers.ExecuteAtMainThread(() => { Util.LogError($"D2CTestPkt 처리 중 알 수 없는 에러: {e.Message}"); });
             return;
         }
 
         // MainThread에서 실행되어야 할 내용
         Managers.ExecuteAtMainThread(() => {
-
+            Util.Log($"[PacketHandler] D2CTestPkt 수신 - Message: {pkt.Echo}");
         });
     }
 

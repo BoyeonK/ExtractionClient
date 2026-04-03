@@ -8,17 +8,6 @@ using System.Runtime.InteropServices;
 using System.Threading;
 using UnityEngine;
 
-[StructLayout(LayoutKind.Sequential, Pack = 1)]
-public struct UDPHeader {
-    public ushort packetId;
-    public ushort sessionId;
-    public uint sequenceNum;
-    public uint securityKey;
-    public byte flags;
-
-    public const int Size = 13;
-}
-
 public class UDPManager {
     private UdpClient _udpClient;
     private IPEndPoint _serverEndPoint;
@@ -30,10 +19,10 @@ public class UDPManager {
     public void RegisterEndPointAndStart(string ip, int port) {
         try {
             Disconnect(); // 기존 연결 및 스레드 정리
+            Util.Log($"[UDP] RegisterEndPointAndStart 호출 - IP: {ip}, Port: {port}");
 
-            // 💡 수정: port는 이미 int이므로 검사 불필요
             if (IPAddress.TryParse(ip, out IPAddress ipAddr) == false) {
-                Util.LogWarning($"RegisterServerEndPoint : 올바르지 않은 IP 형식 ({ip})");
+                Managers.ExecuteAtMainThread(() => Util.LogError($"RegisterServerEndPoint : 올바르지 않은 IP 형식 ({ip})"));
                 return;
             }
 
@@ -43,6 +32,9 @@ public class UDPManager {
             // Connect를 호출해 목적지 IP/Port 고정 (OS 커널 필터링)
             _udpClient.Connect(_serverEndPoint);
 
+            var localEp = (IPEndPoint)_udpClient.Client.LocalEndPoint;
+            Managers.ExecuteAtMainThread(() => { Util.Log($"[UDP] 클라이언트 로컬 포트: {localEp.Port}"); });
+
             _isRunning = true;
 
             // 전용 수신 스레드 생성 및 실행
@@ -50,11 +42,12 @@ public class UDPManager {
             _receiveThread.IsBackground = true;
             _receiveThread.Name = "UDP_Receive_Thread";
             _receiveThread.Start();
-
-            Util.Log($"RegisterServerEndPoint : 서버({ip}:{port}) 접속 및 전용 수신 스레드 시작");
+            Managers.ExecuteAtMainThread(() => {
+                Util.Log($"RegisterServerEndPoint : 서버({ip}:{port}) 접속 및 전용 수신 스레드 시작");
+            });
         }
         catch (Exception e) {
-            Util.LogError($"RegisterServerEndPoint : {e.Message}");
+            Managers.ExecuteAtMainThread(() => { Util.LogError($"RegisterServerEndPoint : {e.Message}"); });
         }
     }
 
@@ -69,8 +62,7 @@ public class UDPManager {
                 Handler.ProcessReceivedPacket(receivedData);
             }
             catch (SocketException e) {
-                // 팁: Disconnect()에서 _udpClient.Close()를 호출하면, 
-                // 대기 중이던 Receive()가 강제로 깨어나며 SocketException을 던집니다.
+                // Disconnect()에서 _udpClient.Close()를 호출하면, 대기 중이던 Receive()가 강제로 깨어나며 SocketException을 던집니다.
                 if (_isRunning) {
                     Managers.ExecuteAtMainThread(() => Util.LogError($"Disconnect: {e.Message}"));
                 }
@@ -84,19 +76,19 @@ public class UDPManager {
                 Managers.ExecuteAtMainThread(() => Util.LogError($"[UDP 수신 루프 에러] {e.Message}"));
             }
         }
-
-        Util.Log("[UDP] 전용 수신 스레드 안전하게 종료됨");
+        Managers.ExecuteAtMainThread(() => { Util.Log("[UDP] 전용 수신 스레드 안전하게 종료됨"); });
     }
 
 
     public void SendPacket(byte[] data) {
-        if (_udpClient == null) return;
-
+        UdpClient client = _udpClient; // 로컬 변수에 캡처
+        if (client == null) return;
         try {
-            _udpClient.Send(data, data.Length);
+            client.Send(data, data.Length);
         }
+        catch (ObjectDisposedException) { } // Disconnect와 동시 호출 방어
         catch (Exception e) {
-            Util.LogError($"[UDP 전송 에러] {e.Message}");
+            Managers.ExecuteAtMainThread(() => { Util.LogError($"[UDP 전송 에러] {e.Message}"); });
         }
     }
 
@@ -110,6 +102,7 @@ public class UDPManager {
         }
 
         if (_receiveThread != null && _receiveThread.IsAlive) {
+            _receiveThread.Join(TimeSpan.FromSeconds(2));
             _receiveThread = null;
         }
     }

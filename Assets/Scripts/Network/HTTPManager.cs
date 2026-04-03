@@ -237,13 +237,10 @@ public class HTTPManager {
 
 
         Managers.ExecuteAtMainThread(() => Util.Log($"[매칭 시작 응답 원본] {responseText}"));
-        if (!responseText.Trim().StartsWith("{"))
-        {
+        if (!responseText.Trim().StartsWith("{")) {
             Managers.ExecuteAtMainThread(() => Util.LogError("서버 응답이 JSON 형식이 아닙니다."));
             return false;
         }
-
-
 
         // 응답 데이터 파싱
         MatchStartResponse resData = JsonUtility.FromJson<MatchStartResponse>(responseText);
