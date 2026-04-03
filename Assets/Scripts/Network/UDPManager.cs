@@ -19,7 +19,6 @@ public class UDPManager {
     public void RegisterEndPointAndStart(string ip, int port) {
         try {
             Disconnect(); // 기존 연결 및 스레드 정리
-            Util.Log($"[UDP] RegisterEndPointAndStart 호출 - IP: {ip}, Port: {port}");
 
             if (IPAddress.TryParse(ip, out IPAddress ipAddr) == false) {
                 Managers.ExecuteAtMainThread(() => Util.LogError($"RegisterServerEndPoint : 올바르지 않은 IP 형식 ({ip})"));
@@ -33,7 +32,6 @@ public class UDPManager {
             _udpClient.Connect(_serverEndPoint);
 
             var localEp = (IPEndPoint)_udpClient.Client.LocalEndPoint;
-            Managers.ExecuteAtMainThread(() => { Util.Log($"[UDP] 클라이언트 로컬 포트: {localEp.Port}"); });
 
             _isRunning = true;
 
@@ -42,9 +40,6 @@ public class UDPManager {
             _receiveThread.IsBackground = true;
             _receiveThread.Name = "UDP_Receive_Thread";
             _receiveThread.Start();
-            Managers.ExecuteAtMainThread(() => {
-                Util.Log($"RegisterServerEndPoint : 서버({ip}:{port}) 접속 및 전용 수신 스레드 시작");
-            });
         }
         catch (Exception e) {
             Managers.ExecuteAtMainThread(() => { Util.LogError($"RegisterServerEndPoint : {e.Message}"); });

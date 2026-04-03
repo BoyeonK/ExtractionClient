@@ -45,18 +45,10 @@ public class PacketHandler {
             return;
         }
 
-        Managers.ExecuteAtMainThread(() => {
-            Util.Log($"앙기르무유가르띠");
-        });
-
         ReadOnlySpan<byte> packetSpan = receivedBytes;
         UDPHeader header = MemoryMarshal.Read<UDPHeader>(packetSpan.Slice(0, UDPHeader.Size));
         ReadOnlySpan<byte> payloadSpan = packetSpan.Slice(UDPHeader.Size);
         ushort id = header.packetId;
-
-        Managers.ExecuteAtMainThread(() => {
-            Util.Log($"[PacketHandler] 패킷 수신 - ID: {id}, SessionID: {header.sessionId}, Seq: {header.sequenceNum}, Key: {header.securityKey}");
-        });
 
         try {
             if (_handlers.TryGetValue(id, out HandlerFunc handler)) {
