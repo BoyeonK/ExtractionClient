@@ -9,9 +9,11 @@ UserSettings/
 BuildFiles/
 Include/
 
-# 음원 파일 무시
+# 용량 큰 소스 파일 무시
 [Ss]ounds/
 [Aa]udio/
+Fonts/
+Images/
 
 # Unity 에셋 스토어 관련 파일 무시
 TinyRPGTown/
@@ -28,9 +30,6 @@ LocalPackages/
 
 # 프로젝트 세팅 폴더 무시
 ProjectSettings
-
-# Fonts 무시
-Fonts/
 
 # Visual Studio 관련 파일 무시
 .vs/
