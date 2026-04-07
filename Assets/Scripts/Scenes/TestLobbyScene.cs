@@ -4,6 +4,7 @@ using UnityEngine.InputSystem;
 
 public class TestLobbyScene : BaseScene {
     UI_TestStart _startUI;
+    UI_Auth _authUI;
     UI_Login _loginUI;
     UI_Register _registerUI;
     UI_TestLobbyMain _mainUI;
@@ -13,6 +14,7 @@ public class TestLobbyScene : BaseScene {
 
     LobbyState _lobbyState = LobbyState.BeforeConnect;
     bool optionsOpen = false;
+    bool _isLoggined = false;
 
     enum LobbyState {
         BeforeConnect,
@@ -24,18 +26,24 @@ public class TestLobbyScene : BaseScene {
     protected override void Init() {
         SceneType = Define.Scene.TestLobby;
 
-        _startUI = Managers.UI.ShowSceneUI<UI_TestStart>();
+        _startUI = Managers.UI.CacheSceneUI<UI_TestStart>();
+        _authUI = Managers.UI.CacheSceneUI<UI_Auth>();
         _loginUI = Managers.UI.CachePopupUI<UI_Login>();
         _registerUI = Managers.UI.CachePopupUI<UI_Register>();
-        _mainUI = Managers.UI.CacheSceneUI<UI_TestLobbyMain>();
+        //_mainUI = Managers.UI.CacheSceneUI<UI_TestLobbyMain>();
         _settingUI = Managers.UI.CachePopupUI<UI_Setting>();
         Managers.Input.AddKeyListener(Key.Escape, BackToPrevious, InputManager.KeyState.Up);
+
+        // TODO : 최초 실행인지, 한 게임 종료 후 재실행인지에 따라 분기 처리
+        _lobbyState = LobbyState.BeforeConnect;
+        Managers.UI.ShowSceneUI<UI_TestStart>();
     }
 
-    // ---------- BeforeConnect 상태에서의 UI 이벤트 핸들러 ----------
-
+    // -----------------------------------------------------
+    // ---------- BeforeConnect 상태에서의 메서드 ----------
+    // -----------------------------------------------------
     public async void TryConnectToServer() {
-        Util.Log("TryConnectToServer실행");
+        Util.Log("TryConnectToServer 실행");
         bool isSuccess = await Managers.Network.httpManager.GetVersionCall(_cts.Token);
         if (isSuccess == true) {
             OnConnectedComplete();
@@ -44,42 +52,70 @@ public class TestLobbyScene : BaseScene {
         }
     }
 
-    public void OnConnectedFailed() {
+    private void OnConnectedFailed() {
         _startUI.Reload();
     }
 
-    public void OnConnectedComplete() {
+    private void OnConnectedComplete() {
         _lobbyState = LobbyState.BeforeAuth;
         Managers.UI.DisableUI("UI_TestStart");
-        //Auth용 UI만들고 띄우기
-        //Managers.UI.ShowSceneUI<UI_Auth>();
+        Managers.UI.ShowSceneUI<UI_Auth>();
     }
 
-    // ---------- BeforeAuth 상태에서의 UI 이벤트 핸들러 ----------
-    public void TryQuit() {
-
+    // --------------------------------------------------
+    // ---------- BeforeAuth 상태에서의 메서드 ----------
+    // --------------------------------------------------
+    enum BeforeAuthState {
+        NoneSelected,
+        Login,
+        Register,
     }
 
-    public void TryGuestLogin() {
+    BeforeAuthState _authState = BeforeAuthState.NoneSelected;
 
+    public void BackToBeforeConnect() {
+        Util.Log("TryConnectToServer 실행");
+        // TODO: 팝업 띄우고, 확인 시 이전 단계로 돌아가기
     }
 
-    public void TryLogin(string id, string password) {
-
+    public async void TryGuestLogin() {
+        Util.Log("TryGuestLogin 실행");
+        bool isSuccess = await Managers.Network.httpManager.PostGuestLoginCall(_cts.Token);
     }
 
-    public void TryRegister(string id, string password) {
-
+    private void OnGuestLoginComplete() {
+        
     }
 
-    public void OnLoginComplete() {
+    public async void TryLogin(string id, string password) {
+        Util.Log("TryLogin 실행");
+        bool isSuccess = await Managers.Network.httpManager.PostLoginCall(id, password, _cts.Token);
+    }
+
+    private void OnLoginComplete() {
         _lobbyState = LobbyState.Lobby;
         Managers.UI.DisableUI("UI_Login");
         Managers.UI.DisableUI("UI_Register");
         Managers.UI.EnableUI("UI_TestLobbyMain");
     }
 
-    // ---------- Lobby 상태에서의 UI 이벤트 핸들러 ----------
+    public async void TryRegister(string id, string password) {
+        Util.Log("TryRegister 실행");
+        bool isSuccess = await Managers.Network.httpManager.PostCreateAccountCall(id, password, _cts.Token);
+    }
+
+    private void OnRegisterComplete() {
+        Managers.UI.DisableUI("UI_Register");
+        Managers.UI.ShowPopupUI<UI_Login>();
+    }
+
+    private void OnAuthRequestFailed() {
+
+    }
+
+    // ---------------------------------------------
+    // ---------- Lobby 상태에서의 메서드 ----------
+    // ---------------------------------------------
     public void TryLogout() {
 
     }
@@ -104,7 +140,7 @@ public class TestLobbyScene : BaseScene {
 
     }
 
-    // ---------- Matching 상태에서의 UI 이벤트 핸들러 ----------
+    // ---------- Matching 상태에서의 메서드 ----------
 
 
     public void BackToPrevious() {
@@ -128,5 +164,7 @@ public class TestLobbyScene : BaseScene {
 
     private void OnDestroy() {
         Managers.Input.RemoveKeyListener(Key.Escape, BackToPrevious, InputManager.KeyState.Up);
+        _cts.Cancel();
+        _cts.Dispose();
     }
 }

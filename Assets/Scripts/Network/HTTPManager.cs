@@ -107,7 +107,10 @@ public class HTTPManager {
         }
     }
 
-    public async Task<bool> TestCreateAccountCall(string id, string password, CancellationToken cancelToken = default) {
+    // ---------- Auth Calls (Signup, Login, Guest Login, Logout) ----------
+    private bool _tryingAuthCall = false;
+
+    public async Task<bool> PostCreateAccountCall(string id, string password, CancellationToken cancelToken = default) {
         // TODO : 추후 메세지 팝업 UI를 만들고 Util.Log를 팝업으로 변경하기
         if (!string.IsNullOrEmpty(sessionId)) {
             Managers.ExecuteAtMainThread(() => Util.LogWarning("이미 로그인된 상태입니다. 로그아웃 후 이용해주세요."));
@@ -142,7 +145,7 @@ public class HTTPManager {
         return false;
     }
 
-    public async Task<bool> TestLoginCall(string id, string password, CancellationToken cancelToken = default) {
+    public async Task<bool> PostLoginCall(string id, string password, CancellationToken cancelToken = default) {
         if (!string.IsNullOrEmpty(sessionId)) {
             Managers.ExecuteAtMainThread(() => Util.LogWarning("이미 로그인된 상태입니다."));
             return false;
@@ -172,7 +175,7 @@ public class HTTPManager {
         return false;
     }
 
-    public async Task<bool> GuestLoginCall(CancellationToken cancelToken = default) {
+    public async Task<bool> PostGuestLoginCall(CancellationToken cancelToken = default) {
         if (!string.IsNullOrEmpty(sessionId)) {
             Managers.ExecuteAtMainThread(() => Util.LogWarning("이미 로그인된 상태입니다."));
             return false;

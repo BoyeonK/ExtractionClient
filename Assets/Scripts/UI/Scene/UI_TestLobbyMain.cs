@@ -65,7 +65,7 @@ public class UI_TestLobbyMain : UI_Scene {
     private async void OnLoginTestFunc(PointerEventData data) {
         GetText((int)Texts.loginRequest).raycastTarget = false;
         // 당연히 내 비밀번호는 qwe123따위가 아니다.
-        bool isSuccess = await Managers.Network.httpManager.TestLoginCall("tetepiti149", "qwe123", _cts.Token);
+        bool isSuccess = await Managers.Network.httpManager.PostLoginCall("tetepiti149", "qwe123", _cts.Token);
         if (this == null) return;
         GetText((int)Texts.loginRequest).raycastTarget = true;
     }
@@ -73,14 +73,14 @@ public class UI_TestLobbyMain : UI_Scene {
     private async void OnCreateAccountTestFunc(PointerEventData data) {
         GetText((int)Texts.newAccountRequest).raycastTarget = false;
         // 당연히 내 비밀번호는 qwe123따위가 아니다.
-        bool isSuccess = await Managers.Network.httpManager.TestCreateAccountCall("tetepiti149", "qwe123", _cts.Token);
+        bool isSuccess = await Managers.Network.httpManager.PostCreateAccountCall("tetepiti149", "qwe123", _cts.Token);
         if (this == null) return;
         GetText((int)Texts.newAccountRequest).raycastTarget = true;
     }
 
     private async void OnGuestTestFunc(PointerEventData data) {
         GetText((int)Texts.versionRequest).raycastTarget = false;
-        bool isSuccess = await Managers.Network.httpManager.GuestLoginCall(_cts.Token);
+        bool isSuccess = await Managers.Network.httpManager.PostGuestLoginCall(_cts.Token);
         if (this == null) return;
         GetText((int)Texts.versionRequest).raycastTarget = true;
     }
