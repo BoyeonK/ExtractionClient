@@ -163,12 +163,11 @@ public class UIManager {
         _popups.Add(popup);
     }
 
-    /*
-    public UI_ErrorOnlyConfirm ShowErrorUIOnlyConfirm(string errorDetail, Action confirmOnClickEvent = null) {
+    public UI_OnlyConfirm ShowErrorUIOnlyConfirm(string bodyText, Action confirmOnClickEvent = null) {
         //에러 발생 UI는 캐싱하지 않음.
         //정상적인 상황은 아니기 때문에 보수적으로 접근한다.
-        GameObject go = Managers.Resource.Instantiate("UI/Popup/UI_ErrorOnlyConfirm");
-        UI_ErrorOnlyConfirm uiError = Util.GetOrAddComponent<UI_ErrorOnlyConfirm>(go);
+        GameObject go = Managers.Resource.Instantiate("UI/Popup/UI_OnlyConfirm");
+        UI_OnlyConfirm uiOnlyConfirm = Util.GetOrAddComponent<UI_OnlyConfirm>(go);
 
         Init();
         go.transform.SetParent(_root.transform);
@@ -182,16 +181,16 @@ public class UIManager {
         canvas.sortingOrder = order;
 
         //에러 내용 + 확인 버튼 클릭시 추가적으로 실행할 함수를 담아 초기화.
-        if (uiError != null) {
-            uiError.Init(errorDetail, confirmOnClickEvent);
+        if (uiOnlyConfirm != null) {
+            uiOnlyConfirm.Init(bodyText, confirmOnClickEvent);
         }
 
-        return uiError;
+        return uiOnlyConfirm;
     }
 
-    public UI_ErrorConfirmOrCancel ShowErrorUIConfirmOrCancel(string errorDetail, Action confirmOnClickEvent = null, Action cancelOnClickEvent = null) {
-        GameObject go = Managers.Resource.Instantiate("UI/Popup/UI_ErrorConfirmOrCancel");
-        UI_ErrorConfirmOrCancel uiError = Util.GetOrAddComponent<UI_ErrorConfirmOrCancel>(go);
+    public UI_ConfirmOrCancel ShowErrorUIConfirmOrCancel(string errorDetail, Action confirmOnClickEvent = null, Action cancelOnClickEvent = null) {
+        GameObject go = Managers.Resource.Instantiate("UI/Popup/UI_ConfirmOrCancel");
+        UI_ConfirmOrCancel uiConfirmOrCancel = Util.GetOrAddComponent<UI_ConfirmOrCancel>(go);
 
         Init();
         go.transform.SetParent(_root.transform);
@@ -205,11 +204,10 @@ public class UIManager {
         canvas.sortingOrder = order;
 
         //에러 내용 + 각 버튼 클릭시 실행할 함수
-        if (uiError != null) {
-            uiError.Init(errorDetail, confirmOnClickEvent, cancelOnClickEvent);
+        if (uiConfirmOrCancel != null) {
+            uiConfirmOrCancel.Init(errorDetail, confirmOnClickEvent, cancelOnClickEvent);
         }
 
-        return uiError;
+        return uiConfirmOrCancel;
     }
-    */
 }
