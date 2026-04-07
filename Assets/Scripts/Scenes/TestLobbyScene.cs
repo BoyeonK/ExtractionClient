@@ -1,3 +1,4 @@
+using System.Threading;
 using UnityEngine;
 using UnityEngine.InputSystem;
 
@@ -7,6 +8,9 @@ public class TestLobbyScene : BaseScene {
     UI_Register _registerUI;
     UI_TestLobbyMain _mainUI;
     UI_Setting _settingUI;
+
+    private CancellationTokenSource _cts = new CancellationTokenSource();
+
     LobbyState _lobbyState = LobbyState.BeforeConnect;
     bool optionsOpen = false;
 
@@ -29,8 +33,19 @@ public class TestLobbyScene : BaseScene {
     }
 
     // ---------- BeforeConnect 상태에서의 UI 이벤트 핸들러 ----------
-    public void TryConnectToServer() {
-        // TODO: 서버에 버전 체크 요청 보내기
+
+    public async void TryConnectToServer() {
+        Util.Log("TryConnectToServer실행");
+        bool isSuccess = await Managers.Network.httpManager.GetVersionCall(_cts.Token);
+        if (isSuccess == true) {
+            OnConnectedComplete();
+        } else {
+            OnConnectedFailed();
+        }
+    }
+
+    public void OnConnectedFailed() {
+        _startUI.Reload();
     }
 
     public void OnConnectedComplete() {

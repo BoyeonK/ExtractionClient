@@ -10,7 +10,8 @@ using UnityEngine;
 
 public class HTTPManager {
     private static readonly HttpClient _httpClient = new HttpClient {
-        BaseAddress = new Uri(Gitignores.baseUrl)
+        BaseAddress = new Uri(Gitignores.baseUrl),
+        Timeout = TimeSpan.FromSeconds(5)
     };
 
     public string sessionId = null;
@@ -81,14 +82,29 @@ public class HTTPManager {
     }
     #endregion
 
-    public async Task<bool> TestCall(CancellationToken cancelToken = default) {
-        Managers.ExecuteAtMainThread(() => Util.Log("서버로 요청을 보냅니다..."));
 
-        string responseText = await SendRequestAsync(HttpMethod.Get, _versionUrl, null, false, cancelToken);
-        if (responseText == null) return false;
+    // ---------- Version Call ----------
+    private bool _tryingVersionCall = false;
 
-        Managers.ExecuteAtMainThread(() => Util.Log($"서버 응답 성공: {responseText}"));
-        return true;
+    public async Task<bool> GetVersionCall(CancellationToken cancelToken = default) {
+        if (_tryingVersionCall == true) return false; 
+        _tryingVersionCall = true;
+        try {
+            string responseText = await SendRequestAsync(HttpMethod.Get, _versionUrl, null, false, cancelToken);
+            if (string.IsNullOrEmpty(responseText)) {
+                return false; 
+            }
+
+            VersionResponse resData = JsonUtility.FromJson<VersionResponse>(responseText);
+            if (resData != null && resData.success && resData.data != null) {
+                //TODO : resData.data를 보고 분기처리, 결과에 따라선 true를 반환하지 못할 수도 있음
+                return true;
+            }
+            return false;
+        }
+        finally {
+            _tryingVersionCall = false;
+        }
     }
 
     public async Task<bool> TestCreateAccountCall(string id, string password, CancellationToken cancelToken = default) {

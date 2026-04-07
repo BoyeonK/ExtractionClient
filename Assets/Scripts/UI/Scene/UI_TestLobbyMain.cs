@@ -53,7 +53,7 @@ public class UI_TestLobbyMain : UI_Scene {
 
     private async void OnClickVersionText(PointerEventData data) {
         GetText((int)Texts.versionRequest).raycastTarget = false;
-        bool isSuccess = await Managers.Network.httpManager.TestCall(_cts.Token);
+        bool isSuccess = await Managers.Network.httpManager.GetVersionCall(_cts.Token);
         //동작 원리 : await를 만난 이후의 코드는, 응답을 받기 전까지 실행되지 않음.
         //이것이 블로킹된다는 것을 의미하지는 않는다.
         //다만, await 이후의 코드는 언제 실행될지 모름.
