@@ -1693,7 +1693,6 @@ GameObject:
   - component: {fileID: 3353396469199974464}
   - component: {fileID: 7901384059917168063}
   - component: {fileID: 1036693764178675264}
-  - component: {fileID: 4779438710791119274}
   m_Layer: 0
   m_Name: RegisterButton
   m_TagString: Untagged
@@ -1823,18 +1822,6 @@ MonoBehaviour:
   m_OnClick:
     m_PersistentCalls:
       m_Calls: []
---- !u!114 &4779438710791119274
-MonoBehaviour:
-  m_ObjectHideFlags: 0
-  m_CorrespondingSourceObject: {fileID: 0}
-  m_PrefabInstance: {fileID: 0}
-  m_PrefabAsset: {fileID: 0}
-  m_GameObject: {fileID: 2355332348229058185}
-  m_Enabled: 1
-  m_EditorHideFlags: 0
-  m_Script: {fileID: 11500000, guid: 046954a9f72bbee4f93bdbc0f7d89ce3, type: 3}
-  m_Name: 
-  m_EditorClassIdentifier: Assembly-CSharp::UI_Register
 --- !u!1 &2912396786470288916
 GameObject:
   m_ObjectHideFlags: 0

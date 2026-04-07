@@ -155,8 +155,6 @@ public class HTTPManager {
             return false;
         }
 
-        Managers.ExecuteAtMainThread(() => Util.Log("로그인 요청을 보냅니다..."));
-
         string jsonString = JsonUtility.ToJson(new AuthRequest { id = id, password = password });
         string responseText = await SendRequestAsync(HttpMethod.Post, _loginUrl, jsonString, false, cancelToken);
         if (responseText == null) return false;

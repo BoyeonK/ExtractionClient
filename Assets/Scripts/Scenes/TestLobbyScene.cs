@@ -60,6 +60,7 @@ public class TestLobbyScene : BaseScene {
         _lobbyState = LobbyState.BeforeAuth;
         Managers.UI.DisableUI("UI_TestStart");
         Managers.UI.ShowSceneUI<UI_Auth>();
+        _startUI.Reload();
     }
 
     // --------------------------------------------------
@@ -75,7 +76,17 @@ public class TestLobbyScene : BaseScene {
 
     public void BackToBeforeConnectPopup() {
         Util.Log("TryConnectToServer 실행");
-        // TODO: 팝업 띄우고, 확인 시 이전 단계로 돌아가기
+        Managers.UI.ShowUIConfirmOrCancel("asdfasdf", BackToBeforeConnectState);
+    }
+
+    private void BackToBeforeConnectState() {
+        if (_lobbyState != LobbyState.BeforeAuth) {
+            return;
+        }
+            
+        Managers.UI.DisableUI("UI_Auth");
+        Managers.UI.ShowSceneUI<UI_TestStart>();
+        _lobbyState = LobbyState.BeforeConnect;
     }
 
     public void BackToAuthNoneSelected() {
@@ -100,13 +111,19 @@ public class TestLobbyScene : BaseScene {
     public async void TryLogin(string id, string password) {
         Util.Log("TryLogin 실행");
         bool isSuccess = await Managers.Network.httpManager.PostLoginCall(id, password, _cts.Token);
+        if (isSuccess == true) {
+            OnLoginComplete();
+        } else {
+            OnAuthRequestFailed();
+        }
     }
 
     private void OnLoginComplete() {
+        _isLoggined = true;
         _lobbyState = LobbyState.Lobby;
         Managers.UI.DisableUI("UI_Login");
         Managers.UI.DisableUI("UI_Register");
-        Managers.UI.EnableUI("UI_TestLobbyMain");
+        
     }
 
     public void OnClickSelectRegister() { 
@@ -121,8 +138,14 @@ public class TestLobbyScene : BaseScene {
     public async void TryRegister(string id, string password) {
         Util.Log("TryRegister 실행");
         bool isSuccess = await Managers.Network.httpManager.PostCreateAccountCall(id, password, _cts.Token);
+        if (isSuccess == true) {
+            OnRegisterComplete();
+        } else {
+            OnAuthRequestFailed();
+        }
     }
 
+    // TODO : 회원가입 완료 후 로그인 진행 되는지 확인, 즉시 진행되는 경우 로그인과 같은 프로세스로 진행
     private void OnRegisterComplete() {
         Managers.UI.DisableUI("UI_Register");
         Managers.UI.ShowSceneUI<UI_Login>();
@@ -138,7 +161,8 @@ public class TestLobbyScene : BaseScene {
     }
 
     private void OnAuthRequestFailed() {
-
+        _loginUI.Reload();
+        _registerUI.Reload();
     }
 
     // ---------------------------------------------
@@ -168,15 +192,21 @@ public class TestLobbyScene : BaseScene {
 
     }
 
+    // ------------------------------------------------
     // ---------- Matching 상태에서의 메서드 ----------
+    // ------------------------------------------------
 
 
+    // ------------------------------------------------
+    // ---------- 공통적으로 사용되는 메서드 ----------
+    // ------------------------------------------------
     public void OnEscapeInput() {
         switch (_lobbyState) {
             case LobbyState.BeforeConnect:
+                QuitPopup();
                 break;
             case LobbyState.BeforeAuth:
-                if(_authState == BeforeAuthState.NoneSelected) {
+                if (_authState == BeforeAuthState.NoneSelected) {
                     BackToBeforeConnectPopup();
                 } else {
                     BackToAuthNoneSelected();
@@ -187,6 +217,20 @@ public class TestLobbyScene : BaseScene {
             case LobbyState.Matching:
                 break;
         }
+    }
+
+    private void QuitPopup() {
+        Managers.UI.ShowUIConfirmOrCancel("Do you want to exit the game?", QuitGameApplication);
+    }
+
+    private void QuitGameApplication() {
+        Managers.ExecuteAtMainThread(() => {
+#if UNITY_EDITOR
+            UnityEditor.EditorApplication.isPlaying = false;
+#else
+            Application.Quit();
+#endif
+        });
     }
 
     public void ShowSettingUI() {

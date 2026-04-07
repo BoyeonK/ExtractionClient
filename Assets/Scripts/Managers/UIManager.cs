@@ -163,7 +163,7 @@ public class UIManager {
         _popups.Add(popup);
     }
 
-    public UI_OnlyConfirm ShowErrorUIOnlyConfirm(string bodyText, Action confirmOnClickEvent = null) {
+    public UI_OnlyConfirm ShowUIOnlyConfirm(string bodyText, Action confirmOnClickEvent = null) {
         //에러 발생 UI는 캐싱하지 않음.
         //정상적인 상황은 아니기 때문에 보수적으로 접근한다.
         GameObject go = Managers.Resource.Instantiate("UI/Popup/UI_OnlyConfirm");
@@ -188,7 +188,7 @@ public class UIManager {
         return uiOnlyConfirm;
     }
 
-    public UI_ConfirmOrCancel ShowErrorUIConfirmOrCancel(string errorDetail, Action confirmOnClickEvent = null, Action cancelOnClickEvent = null) {
+    public UI_ConfirmOrCancel ShowUIConfirmOrCancel(string bodyText, Action confirmOnClickEvent = null, Action cancelOnClickEvent = null) {
         GameObject go = Managers.Resource.Instantiate("UI/Popup/UI_ConfirmOrCancel");
         UI_ConfirmOrCancel uiConfirmOrCancel = Util.GetOrAddComponent<UI_ConfirmOrCancel>(go);
 
@@ -205,7 +205,7 @@ public class UIManager {
 
         //에러 내용 + 각 버튼 클릭시 실행할 함수
         if (uiConfirmOrCancel != null) {
-            uiConfirmOrCancel.Init(errorDetail, confirmOnClickEvent, cancelOnClickEvent);
+            uiConfirmOrCancel.Init(bodyText, confirmOnClickEvent, cancelOnClickEvent);
         }
 
         return uiConfirmOrCancel;
