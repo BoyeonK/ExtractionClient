@@ -28,11 +28,11 @@ public class TestLobbyScene : BaseScene {
 
         _startUI = Managers.UI.CacheSceneUI<UI_TestStart>();
         _authUI = Managers.UI.CacheSceneUI<UI_Auth>();
-        _loginUI = Managers.UI.CachePopupUI<UI_Login>();
-        _registerUI = Managers.UI.CachePopupUI<UI_Register>();
+        _loginUI = Managers.UI.CacheSceneUI<UI_Login>();
+        _registerUI = Managers.UI.CacheSceneUI<UI_Register>();
         //_mainUI = Managers.UI.CacheSceneUI<UI_TestLobbyMain>();
         _settingUI = Managers.UI.CachePopupUI<UI_Setting>();
-        Managers.Input.AddKeyListener(Key.Escape, BackToPrevious, InputManager.KeyState.Up);
+        Managers.Input.AddKeyListener(Key.Escape, OnEscapeInput, InputManager.KeyState.Up);
 
         // TODO : 최초 실행인지, 한 게임 종료 후 재실행인지에 따라 분기 처리
         _lobbyState = LobbyState.BeforeConnect;
@@ -73,18 +73,28 @@ public class TestLobbyScene : BaseScene {
 
     BeforeAuthState _authState = BeforeAuthState.NoneSelected;
 
-    public void BackToBeforeConnect() {
+    public void BackToBeforeConnectPopup() {
         Util.Log("TryConnectToServer 실행");
         // TODO: 팝업 띄우고, 확인 시 이전 단계로 돌아가기
     }
 
-    public async void TryGuestLogin() {
-        Util.Log("TryGuestLogin 실행");
-        bool isSuccess = await Managers.Network.httpManager.PostGuestLoginCall(_cts.Token);
+    public void BackToAuthNoneSelected() {
+        if (_lobbyState != LobbyState.BeforeAuth || _authState == BeforeAuthState.NoneSelected)
+            return;
+
+        Managers.UI.DisableUI("UI_Login");
+        Managers.UI.DisableUI("UI_Register");
+        Managers.UI.ShowSceneUI<UI_Auth>();
+        _authState = BeforeAuthState.NoneSelected;
     }
 
-    private void OnGuestLoginComplete() {
-        
+    public void OnClickSelectLogin() {
+        if (_lobbyState != LobbyState.BeforeAuth || _authState != BeforeAuthState.NoneSelected)
+            return;
+
+        Managers.UI.DisableUI("UI_Auth");
+        Managers.UI.ShowSceneUI<UI_Login>();
+        _authState = BeforeAuthState.Login;
     }
 
     public async void TryLogin(string id, string password) {
@@ -99,6 +109,15 @@ public class TestLobbyScene : BaseScene {
         Managers.UI.EnableUI("UI_TestLobbyMain");
     }
 
+    public void OnClickSelectRegister() { 
+        if (_lobbyState != LobbyState.BeforeAuth || _authState != BeforeAuthState.NoneSelected)
+            return;
+
+        Managers.UI.DisableUI("UI_Auth");
+        Managers.UI.ShowSceneUI<UI_Register>();
+        _authState = BeforeAuthState.Register;
+    }
+
     public async void TryRegister(string id, string password) {
         Util.Log("TryRegister 실행");
         bool isSuccess = await Managers.Network.httpManager.PostCreateAccountCall(id, password, _cts.Token);
@@ -106,7 +125,16 @@ public class TestLobbyScene : BaseScene {
 
     private void OnRegisterComplete() {
         Managers.UI.DisableUI("UI_Register");
-        Managers.UI.ShowPopupUI<UI_Login>();
+        Managers.UI.ShowSceneUI<UI_Login>();
+    }
+
+    public async void OnClickGuestLogin() {
+        Util.Log("TryGuestLogin 실행");
+        bool isSuccess = await Managers.Network.httpManager.PostGuestLoginCall(_cts.Token);
+    }
+
+    private void OnGuestLoginComplete() {
+
     }
 
     private void OnAuthRequestFailed() {
@@ -143,12 +171,21 @@ public class TestLobbyScene : BaseScene {
     // ---------- Matching 상태에서의 메서드 ----------
 
 
-    public void BackToPrevious() {
-        if (optionsOpen) {
-            HideSettingUI();
-        }
-        else {
-
+    public void OnEscapeInput() {
+        switch (_lobbyState) {
+            case LobbyState.BeforeConnect:
+                break;
+            case LobbyState.BeforeAuth:
+                if(_authState == BeforeAuthState.NoneSelected) {
+                    BackToBeforeConnectPopup();
+                } else {
+                    BackToAuthNoneSelected();
+                }
+                break;
+            case LobbyState.Lobby:
+                break;
+            case LobbyState.Matching:
+                break;
         }
     }
 
@@ -163,7 +200,7 @@ public class TestLobbyScene : BaseScene {
     }
 
     private void OnDestroy() {
-        Managers.Input.RemoveKeyListener(Key.Escape, BackToPrevious, InputManager.KeyState.Up);
+        Managers.Input.RemoveKeyListener(Key.Escape, OnEscapeInput, InputManager.KeyState.Up);
         _cts.Cancel();
         _cts.Dispose();
     }

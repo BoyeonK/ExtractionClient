@@ -19,5 +19,15 @@ public class UI_Auth : UI_Scene {
         _loginButton = BindComponent<Button>("Card/LoginButton");
         _registerButton = BindComponent<Button>("Card/RegisterButton");
         _guestLoginButton = BindComponent<Button>("Card/GuestLoginButton");
+
+        _loginButton.onClick.AddListener(() => { _scene.OnClickSelectLogin(); });
+        _registerButton.onClick.AddListener(() => { _scene.OnClickSelectRegister(); });
+        _guestLoginButton.onClick.AddListener(() => { _scene.OnClickGuestLogin(); });
+    }
+
+    private void OnDestroy() {
+        _loginButton.onClick.RemoveAllListeners();
+        _registerButton.onClick.RemoveAllListeners();
+        _guestLoginButton.onClick.RemoveAllListeners();
     }
 }
