@@ -12,6 +12,8 @@ public class UI_Auth : UI_Scene {
 
     public override void Init() {
         base.Init();
+        if (isInit) return;
+
         BaseScene scene = Managers.Scene.CurrentScene;
         if (scene is TestLobbyScene lobbyScene)
             _scene = lobbyScene;
@@ -23,6 +25,8 @@ public class UI_Auth : UI_Scene {
         _loginButton.onClick.AddListener(() => { _scene.OnClickSelectLogin(); });
         _registerButton.onClick.AddListener(() => { _scene.OnClickSelectRegister(); });
         _guestLoginButton.onClick.AddListener(() => { _scene.OnClickGuestLogin(); });
+
+        base.OnInitComplete();
     }
 
     private void OnDestroy() {

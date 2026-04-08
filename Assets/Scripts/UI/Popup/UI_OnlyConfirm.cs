@@ -9,6 +9,7 @@ public class UI_OnlyConfirm : UI_Popup {
 
     public void Init(string bodyText, Action confirmOnClickEvent) {
         base.Init();
+        if (isInit) return;
         _bodyText = BindComponent<TextMeshProUGUI>("PopupCard/BodyText");
         _confirmButton = BindComponent<Button>("PopupCard/ButtonRow/ConfirmButton");
 
@@ -22,6 +23,7 @@ public class UI_OnlyConfirm : UI_Popup {
                 Destroy(gameObject);
             });
         }
+        base.OnInitComplete();
     }
 
     private void OnDestroy() {

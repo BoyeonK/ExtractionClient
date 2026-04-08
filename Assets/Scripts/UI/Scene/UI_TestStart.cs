@@ -13,6 +13,7 @@ public class UI_TestStart : UI_Scene {
 
     public override void Init() {
         base.Init();
+        if (isInit) return;
         BaseScene scene = Managers.Scene.CurrentScene;
         if (scene is TestLobbyScene lobbyScene)
             _scene = lobbyScene;
@@ -22,6 +23,7 @@ public class UI_TestStart : UI_Scene {
 
         _overlay = BindComponent<UI_EventHandler>("DarkOverlay");
         _overlay.OnClickHandler += (eventData) => { TryConnectToServer(); };
+        base.OnInitComplete();
     }
 
     void TryConnectToServer() {

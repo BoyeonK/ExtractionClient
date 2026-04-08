@@ -10,6 +10,7 @@ public class UI_ConfirmOrCancel : UI_Popup {
 
     public void Init(string bodyText, Action confirmOnClickEvent, Action cancelOnClickEvent) {
         base.Init();
+        if (isInit) return;
         _bodyText = BindComponent<TextMeshProUGUI>("PopupCard/BodyText");
         _confirmButton = BindComponent<Button>("PopupCard/ButtonRow/ConfirmButton");
         _cancelButton = BindComponent<Button>("PopupCard/ButtonRow/CancelButton");
@@ -31,6 +32,7 @@ public class UI_ConfirmOrCancel : UI_Popup {
                 Destroy(gameObject);
             });
         }
+        base.OnInitComplete();
     }
 
     private void OnDestroy() {

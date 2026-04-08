@@ -7,13 +7,13 @@ public class TestLobbyScene : BaseScene {
     UI_Auth _authUI;
     UI_Login _loginUI;
     UI_Register _registerUI;
-    UI_TestLobbyMain _mainUI;
-    UI_Setting _settingUI;
+    UI_Header _headerUI;
 
     private CancellationTokenSource _cts = new CancellationTokenSource();
 
     LobbyState _lobbyState = LobbyState.BeforeConnect;
-    bool optionsOpen = false;
+
+    bool _isPopupOpened = false;
     bool _isLoggined = false;
 
     enum LobbyState {
@@ -26,12 +26,12 @@ public class TestLobbyScene : BaseScene {
     protected override void Init() {
         SceneType = Define.Scene.TestLobby;
 
+        // UI 초기화, Header의 sortorder를 뒤로 두어야 함.
         _startUI = Managers.UI.CacheSceneUI<UI_TestStart>();
         _authUI = Managers.UI.CacheSceneUI<UI_Auth>();
         _loginUI = Managers.UI.CacheSceneUI<UI_Login>();
         _registerUI = Managers.UI.CacheSceneUI<UI_Register>();
-        //_mainUI = Managers.UI.CacheSceneUI<UI_TestLobbyMain>();
-        _settingUI = Managers.UI.CachePopupUI<UI_Setting>();
+        _headerUI = Managers.UI.ShowSceneUI<UI_Header>();
         Managers.Input.AddKeyListener(Key.Escape, OnEscapeInput, InputManager.KeyState.Up);
 
         // TODO : 최초 실행인지, 한 게임 종료 후 재실행인지에 따라 분기 처리
@@ -75,11 +75,16 @@ public class TestLobbyScene : BaseScene {
     BeforeAuthState _authState = BeforeAuthState.NoneSelected;
 
     public void BackToBeforeConnectPopup() {
+        if (_isPopupOpened == true)
+            return;
+
+        OnPopupOpened();
         Util.Log("TryConnectToServer 실행");
-        Managers.UI.ShowUIConfirmOrCancel("asdfasdf", BackToBeforeConnectState);
+        Managers.UI.ShowUIConfirmOrCancel("asdfasdf", BackToBeforeConnectState, OnPopupClosed);
     }
 
     private void BackToBeforeConnectState() {
+        OnPopupClosed();
         if (_lobbyState != LobbyState.BeforeAuth) {
             return;
         }
@@ -139,16 +144,10 @@ public class TestLobbyScene : BaseScene {
         Util.Log("TryRegister 실행");
         bool isSuccess = await Managers.Network.httpManager.PostCreateAccountCall(id, password, _cts.Token);
         if (isSuccess == true) {
-            OnRegisterComplete();
+            OnLoginComplete();
         } else {
             OnAuthRequestFailed();
         }
-    }
-
-    // TODO : 회원가입 완료 후 로그인 진행 되는지 확인, 즉시 진행되는 경우 로그인과 같은 프로세스로 진행
-    private void OnRegisterComplete() {
-        Managers.UI.DisableUI("UI_Register");
-        Managers.UI.ShowSceneUI<UI_Login>();
     }
 
     public async void OnClickGuestLogin() {
@@ -219,11 +218,18 @@ public class TestLobbyScene : BaseScene {
         }
     }
 
+    private void OnPopupOpened() { _isPopupOpened = true; }
+    private void OnPopupClosed() { _isPopupOpened = false; }
+
     private void QuitPopup() {
-        Managers.UI.ShowUIConfirmOrCancel("Do you want to exit the game?", QuitGameApplication);
+        if (_isPopupOpened == true)
+            return;
+        OnPopupOpened();
+        Managers.UI.ShowUIConfirmOrCancel("Do you want to exit the game?", QuitGameApplication, OnPopupClosed);
     }
 
     private void QuitGameApplication() {
+        OnPopupClosed();
         Managers.ExecuteAtMainThread(() => {
 #if UNITY_EDITOR
             UnityEditor.EditorApplication.isPlaying = false;
@@ -231,16 +237,6 @@ public class TestLobbyScene : BaseScene {
             Application.Quit();
 #endif
         });
-    }
-
-    public void ShowSettingUI() {
-        Managers.UI.ShowPopupUI<UI_Setting>();
-        optionsOpen = true;
-    }
-
-    public void HideSettingUI() {
-        Managers.UI.ClosePopupUI(_settingUI);
-        optionsOpen = false;
     }
 
     private void OnDestroy() {

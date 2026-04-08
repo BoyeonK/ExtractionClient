@@ -15,6 +15,7 @@ public class UI_Login : UI_Scene {
 
     public override void Init() {
         base.Init();
+        if (isInit) return;
         BaseScene scene = Managers.Scene.CurrentScene;
         if (scene is TestLobbyScene lobbyScene)
             _scene = lobbyScene;
@@ -26,6 +27,8 @@ public class UI_Login : UI_Scene {
 
         _loginButton.onClick.AddListener(OnClickLoginBtn);
         _closeButton.onClick.AddListener(OnClickCloseBtn);
+
+        base.OnInitComplete();
     }
 
     void Start() {
@@ -58,6 +61,7 @@ public class UI_Login : UI_Scene {
     }
 
     private void OnDestroy() {
+        _loginButton.onClick.RemoveAllListeners();
         _closeButton.onClick.RemoveAllListeners();
     }
 }

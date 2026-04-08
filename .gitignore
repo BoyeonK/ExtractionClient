@@ -52,6 +52,9 @@ Thumbs.db
 env/
 GitIgnores.cs
 
+# Claude Code 로컬 설정
+.claude/
+
 # 인증서 관련 파일 무시
 *.crt
 *.csr

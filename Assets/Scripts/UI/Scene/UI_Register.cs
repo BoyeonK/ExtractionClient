@@ -16,6 +16,7 @@ public class UI_Register : UI_Scene {
 
     public override void Init() {
         base.Init();
+        if (isInit) return;
         BaseScene scene = Managers.Scene.CurrentScene;
         if (scene is TestLobbyScene lobbyScene)
             _scene = lobbyScene;
@@ -28,6 +29,8 @@ public class UI_Register : UI_Scene {
 
         _registerButton.onClick.AddListener(OnClickRegisterBtn);
         _closeButton.onClick.AddListener(OnClickCloseBtn);
+
+        base.OnInitComplete();
     }
 
     void Start() {
@@ -60,6 +63,7 @@ public class UI_Register : UI_Scene {
     }
 
     private void OnDestroy() {
+        _registerButton.onClick.RemoveAllListeners();
         _closeButton.onClick.RemoveAllListeners();
     }
 }
