@@ -72,7 +72,7 @@ public class TestLobbyScene : BaseScene {
         Register,
     }
 
-    BeforeAuthState _authState = BeforeAuthState.NoneSelected;
+    BeforeAuthState _beforeAuthState = BeforeAuthState.NoneSelected;
 
     public void BackToBeforeConnectPopup() {
         if (_isPopupOpened == true)
@@ -95,71 +95,77 @@ public class TestLobbyScene : BaseScene {
     }
 
     public void BackToAuthNoneSelected() {
-        if (_lobbyState != LobbyState.BeforeAuth || _authState == BeforeAuthState.NoneSelected)
+        if (_lobbyState != LobbyState.BeforeAuth || _beforeAuthState == BeforeAuthState.NoneSelected)
             return;
 
         Managers.UI.DisableUI("UI_Login");
         Managers.UI.DisableUI("UI_Register");
         Managers.UI.ShowSceneUI<UI_Auth>();
-        _authState = BeforeAuthState.NoneSelected;
+        _beforeAuthState = BeforeAuthState.NoneSelected;
     }
 
     public void OnClickSelectLogin() {
-        if (_lobbyState != LobbyState.BeforeAuth || _authState != BeforeAuthState.NoneSelected)
+        if (_lobbyState != LobbyState.BeforeAuth || _beforeAuthState != BeforeAuthState.NoneSelected)
             return;
 
         Managers.UI.DisableUI("UI_Auth");
         Managers.UI.ShowSceneUI<UI_Login>();
-        _authState = BeforeAuthState.Login;
+        _beforeAuthState = BeforeAuthState.Login;
     }
 
     public async void TryLogin(string id, string password) {
         Util.Log("TryLogin 실행");
         bool isSuccess = await Managers.Network.httpManager.PostLoginCall(id, password, _cts.Token);
-        if (isSuccess == true) {
-            OnLoginComplete();
+        if (isSuccess) {
+            OnLoginComplete(UI_Header.HeaderState.Logined);
         } else {
-            OnAuthRequestFailed();
+            OnAuthRequestFinished();
         }
     }
 
-    private void OnLoginComplete() {
+    public void OnLoginComplete(UI_Header.HeaderState hState) {
         _isLoggined = true;
         _lobbyState = LobbyState.Lobby;
+        OnAuthRequestFinished();
+        Managers.UI.DisableUI("UI_Auth");
         Managers.UI.DisableUI("UI_Login");
         Managers.UI.DisableUI("UI_Register");
-        
+        _headerUI.ApplyHeaderState(hState);
     }
 
     public void OnClickSelectRegister() { 
-        if (_lobbyState != LobbyState.BeforeAuth || _authState != BeforeAuthState.NoneSelected)
+        if (_lobbyState != LobbyState.BeforeAuth || _beforeAuthState != BeforeAuthState.NoneSelected)
             return;
 
         Managers.UI.DisableUI("UI_Auth");
         Managers.UI.ShowSceneUI<UI_Register>();
-        _authState = BeforeAuthState.Register;
+        _beforeAuthState = BeforeAuthState.Register;
     }
 
     public async void TryRegister(string id, string password) {
         Util.Log("TryRegister 실행");
         bool isSuccess = await Managers.Network.httpManager.PostCreateAccountCall(id, password, _cts.Token);
-        if (isSuccess == true) {
-            OnLoginComplete();
+        if (isSuccess) {
+            OnLoginComplete(UI_Header.HeaderState.Logined);
         } else {
-            OnAuthRequestFailed();
+            OnAuthRequestFinished();
         }
     }
 
     public async void OnClickGuestLogin() {
-        Util.Log("TryGuestLogin 실행");
+        Util.Log("OnClickGuestLogin 실행");
+        if (_lobbyState != LobbyState.BeforeAuth || _beforeAuthState != BeforeAuthState.NoneSelected)
+            return;
+        
         bool isSuccess = await Managers.Network.httpManager.PostGuestLoginCall(_cts.Token);
+        if (isSuccess) {
+            OnLoginComplete(UI_Header.HeaderState.Guest);
+        } else {
+            OnAuthRequestFinished();
+        }
     }
 
-    private void OnGuestLoginComplete() {
-
-    }
-
-    private void OnAuthRequestFailed() {
+    public void OnAuthRequestFinished() {
         _loginUI.Reload();
         _registerUI.Reload();
     }
@@ -167,6 +173,14 @@ public class TestLobbyScene : BaseScene {
     // ---------------------------------------------
     // ---------- Lobby 상태에서의 메서드 ----------
     // ---------------------------------------------
+    enum AuthState {
+        None,
+        Guest,
+        Logined,
+    }
+
+    AuthState _authState = AuthState.None;
+
     public void TryLogout() {
 
     }
@@ -205,7 +219,7 @@ public class TestLobbyScene : BaseScene {
                 QuitPopup();
                 break;
             case LobbyState.BeforeAuth:
-                if (_authState == BeforeAuthState.NoneSelected) {
+                if (_beforeAuthState == BeforeAuthState.NoneSelected) {
                     BackToBeforeConnectPopup();
                 } else {
                     BackToAuthNoneSelected();

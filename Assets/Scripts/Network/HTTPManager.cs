@@ -14,6 +14,7 @@ public class HTTPManager {
         Timeout = TimeSpan.FromSeconds(5)
     };
 
+    public bool isLogin = false;
     public string sessionId = null;
     public string guestId = null;
     public string ticketId = null;
@@ -129,19 +130,23 @@ public class HTTPManager {
 
         string jsonString = JsonUtility.ToJson(new AuthRequest { id = id, password = password });
         string responseText = await SendRequestAsync(HttpMethod.Post, _signupUrl, jsonString, false, cancelToken);
-        if (responseText == null) return false;
+        if (responseText == null) {
+            return false;
+        }
 
         AuthResponse resData = JsonUtility.FromJson<AuthResponse>(responseText);
         if (resData != null && resData.success) {
+            sessionId = resData.data.sessionId;
+            uid = resData.data.uid;
             Managers.ExecuteAtMainThread(() => {
                 Util.Log($"계정 생성 성공! [Session: {resData.data.sessionId} ]");
-                sessionId = resData.data.sessionId;
-                uid = resData.data.uid;
             });
             return true;
         }
 
-        Managers.ExecuteAtMainThread(() => Util.LogError("서버에서 실패 응답을 보냈습니다."));
+        Managers.ExecuteAtMainThread(() => {
+            Util.LogError("서버에서 실패 응답을 보냈습니다.");
+        });
         return false;
     }
 
@@ -161,10 +166,10 @@ public class HTTPManager {
 
         AuthResponse resData = JsonUtility.FromJson<AuthResponse>(responseText);
         if (resData != null && resData.success) {
+            sessionId = resData.data.sessionId;
+            uid = resData.data.uid;
             Managers.ExecuteAtMainThread(() => {
                 Util.Log($"로그인 성공! [Session: {resData.data.sessionId} ]");
-                sessionId = resData.data.sessionId;
-                uid = resData.data.uid;
             });
             return true;
         }
@@ -186,11 +191,11 @@ public class HTTPManager {
 
         GuestAuthResponse resData = JsonUtility.FromJson<GuestAuthResponse>(responseText);
         if (resData != null && resData.success) {
+            sessionId = resData.data.sessionId;
+            uid = resData.data.uid;
+            guestId = resData.data.guestId;
             Managers.ExecuteAtMainThread(() => {
                 Util.Log($"게스트 로그인 성공! [Session: {resData.data.sessionId} | GuestID: {resData.data.guestId}]");
-                sessionId = resData.data.sessionId;
-                uid = resData.data.uid;
-                guestId = resData.data.guestId;
             });
             return true;
         }
@@ -212,12 +217,11 @@ public class HTTPManager {
 
         AuthResponse resData = JsonUtility.FromJson<AuthResponse>(responseText);
         if (resData != null && resData.success) {
+            sessionId = null;
+            guestId = null;
+            uid = 0;
             Managers.ExecuteAtMainThread(() => {
                 Util.Log($"로그아웃 성공: {responseText}");
-                // 로컬 상태 초기화
-                sessionId = null;
-                guestId = null;
-                uid = 0;
             });
             return true;
         }
@@ -251,8 +255,6 @@ public class HTTPManager {
         string responseText = await SendRequestAsync(HttpMethod.Post, _matchStartUrl, jsonString, true, cancelToken);
         if (responseText == null) return false;
 
-
-
         Managers.ExecuteAtMainThread(() => Util.Log($"[매칭 시작 응답 원본] {responseText}"));
         if (!responseText.Trim().StartsWith("{")) {
             Managers.ExecuteAtMainThread(() => Util.LogError("서버 응답이 JSON 형식이 아닙니다."));
@@ -264,8 +266,8 @@ public class HTTPManager {
 
         if (resData != null) {
             if (resData.success) {
+                ticketId = resData.data.ticketId;
                 Managers.ExecuteAtMainThread(() => {
-                    ticketId = resData.data.ticketId;
                     Util.Log($"매칭 큐 진입 성공! [Ticket ID: {ticketId}]");
                 });
                 return true;
@@ -308,9 +310,9 @@ public class HTTPManager {
 
         if (resData != null) {
             if (resData.success) {
+                ticketId = null;
                 Managers.ExecuteAtMainThread(() => {
                     Util.Log("매칭 취소 완료!");
-                    ticketId = null;
                 });
                 return true;
             }
@@ -355,9 +357,9 @@ public class HTTPManager {
             }
             else {
                 // 서버 로직 실패 (티켓 만료 등)
+                ticketId = null;
                 Managers.ExecuteAtMainThread(() => {
                     Util.LogError($"매칭 상태 확인 실패");
-                    ticketId = null;
                 });
                 return false;
             }
