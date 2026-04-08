@@ -75,7 +75,7 @@ public class TestLobbyScene : BaseScene {
     BeforeAuthState _beforeAuthState = BeforeAuthState.NoneSelected;
 
     public void BackToBeforeConnectPopup() {
-        if (_isPopupOpened == true)
+        if (_isPopupOpened == true || _lobbyState != LobbyState.BeforeAuth)
             return;
 
         OnPopupOpened();
@@ -124,7 +124,6 @@ public class TestLobbyScene : BaseScene {
     }
 
     public void OnLoginComplete(UI_Header.HeaderState hState) {
-        _isLoggined = true;
         _lobbyState = LobbyState.Lobby;
         OnAuthRequestFinished();
         Managers.UI.DisableUI("UI_Auth");
@@ -173,27 +172,56 @@ public class TestLobbyScene : BaseScene {
     // ---------------------------------------------
     // ---------- Lobby 상태에서의 메서드 ----------
     // ---------------------------------------------
-    enum AuthState {
-        None,
-        Guest,
-        Logined,
+    enum UserState {
+        Main,
+        Inventory,
+        Shop,
     }
 
-    AuthState _authState = AuthState.None;
+    UserState _userState = UserState.Main;
 
-    public void TryLogout() {
+    public void LogoutPopup() {
+        if (_isPopupOpened == true || _lobbyState != LobbyState.Lobby)
+            return;
 
+        OnPopupOpened();
+        Managers.UI.ShowUIConfirmOrCancel("Do you want to logout?", TryLogout, OnPopupClosed);
+    }
+
+    public async void TryLogout() {
+        OnPopupClosed();
+        bool isSuccess = await Managers.Network.httpManager.PostLogoutCall(_cts.Token);
+        if (isSuccess == true) { 
+            OnLogoutComplete();
+        } else { 
+            
+        }
+    }
+
+    private void OnLogoutComplete() {
+        _lobbyState = LobbyState.BeforeAuth;
+        _beforeAuthState = BeforeAuthState.NoneSelected;
+        _userState = UserState.Main;
+        _headerUI.ApplyHeaderState(UI_Header.HeaderState.BeforeAuth);
+        Managers.UI.ShowSceneUI<UI_Auth>();
     }
 
     public void ShowLobby() {
+        if (_lobbyState != LobbyState.Lobby || _userState != UserState.Main)
+            return;
+
 
     }
 
     public void ShowInventory() {
+        if (_lobbyState != LobbyState.Lobby || _userState == UserState.Inventory)
+            return;
 
     }
 
     public void ShowShop() {
+        if (_lobbyState != LobbyState.Lobby || _userState == UserState.Shop)
+            return;
 
     }
 

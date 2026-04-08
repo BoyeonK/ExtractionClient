@@ -240,7 +240,7 @@ public class HTTPManager {
         }
     }
 
-    public async Task<bool> TestLogoutCall(CancellationToken cancelToken = default) {
+    public async Task<bool> PostLogoutCall(CancellationToken cancelToken = default) {
         if (_tryingAuthCall) return false;
 
         if (AuthState == LoginState.None) {

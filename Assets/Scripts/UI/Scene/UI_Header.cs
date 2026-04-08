@@ -159,22 +159,22 @@ public class UI_Header : UI_Scene {
     }
 
     private void OnClickLobbyBtn() {
-
+        _scene.ShowLobby();
     }
 
     private void OnClickInventoryBtn() {
-
+        _scene.ShowInventory();
     }
 
     private void OnClickShopBtn() {
-
-    }
-
-    private void OnClickOptionBtn() {
-
+        _scene.ShowShop();
     }
 
     private void OnClickLogoutBtn() {
+        _scene.LogoutPopup();
+    }
+
+    private void OnClickOptionBtn() {
 
     }
 
