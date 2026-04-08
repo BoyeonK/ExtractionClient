@@ -14,12 +14,12 @@ public class HTTPManager {
         Timeout = TimeSpan.FromSeconds(5)
     };
 
-    public bool isLogin = false;
-    public string sessionId = null;
-    public string guestId = null;
-    public string ticketId = null;
+    public bool IsLogin { get; private set; } = false;
+    public string SessionId { get; private set; } = null;
+    public int Uid { get; private set; } = 0;
+    public string GuestId { get; private set; } = null;
+    public string TicketId { get; private set; } = null;
     private string _token = null;
-    public int uid = 0;
 
     public string version = "alphaTest";
     private const string _versionUrl = "api/version";
@@ -50,8 +50,8 @@ public class HTTPManager {
         try {
             using (HttpRequestMessage request = new HttpRequestMessage(method, url)) {
                 // 인증 헤더 추가 (로그아웃 등)
-                if (requireAuth && !string.IsNullOrEmpty(sessionId)) {
-                    request.Headers.Add("x-session-id", sessionId);
+                if (requireAuth && !string.IsNullOrEmpty(SessionId)) {
+                    request.Headers.Add("x-session-id", SessionId);
                 }
 
                 // 본문(Body) 추가: 데이터가 있으면 넣고, 없는데 POST면 빈 JSON 객체("{}") 전송
@@ -113,7 +113,7 @@ public class HTTPManager {
 
     public async Task<bool> PostCreateAccountCall(string id, string password, CancellationToken cancelToken = default) {
         // TODO : 추후 메세지 팝업 UI를 만들고 Util.Log를 팝업으로 변경하기
-        if (!string.IsNullOrEmpty(sessionId)) {
+        if (!string.IsNullOrEmpty(SessionId)) {
             Managers.ExecuteAtMainThread(() => Util.LogWarning("이미 로그인된 상태입니다. 로그아웃 후 이용해주세요."));
             return false;
         }
@@ -136,8 +136,8 @@ public class HTTPManager {
 
         AuthResponse resData = JsonUtility.FromJson<AuthResponse>(responseText);
         if (resData != null && resData.success) {
-            sessionId = resData.data.sessionId;
-            uid = resData.data.uid;
+            SessionId = resData.data.sessionId;
+            Uid = resData.data.uid;
             Managers.ExecuteAtMainThread(() => {
                 Util.Log($"계정 생성 성공! [Session: {resData.data.sessionId} ]");
             });
@@ -151,7 +151,7 @@ public class HTTPManager {
     }
 
     public async Task<bool> PostLoginCall(string id, string password, CancellationToken cancelToken = default) {
-        if (!string.IsNullOrEmpty(sessionId)) {
+        if (!string.IsNullOrEmpty(SessionId)) {
             Managers.ExecuteAtMainThread(() => Util.LogWarning("이미 로그인된 상태입니다."));
             return false;
         }
@@ -166,8 +166,8 @@ public class HTTPManager {
 
         AuthResponse resData = JsonUtility.FromJson<AuthResponse>(responseText);
         if (resData != null && resData.success) {
-            sessionId = resData.data.sessionId;
-            uid = resData.data.uid;
+            SessionId = resData.data.sessionId;
+            Uid = resData.data.uid;
             Managers.ExecuteAtMainThread(() => {
                 Util.Log($"로그인 성공! [Session: {resData.data.sessionId} ]");
             });
@@ -179,7 +179,7 @@ public class HTTPManager {
     }
 
     public async Task<bool> PostGuestLoginCall(CancellationToken cancelToken = default) {
-        if (!string.IsNullOrEmpty(sessionId)) {
+        if (!string.IsNullOrEmpty(SessionId)) {
             Managers.ExecuteAtMainThread(() => Util.LogWarning("이미 로그인된 상태입니다."));
             return false;
         }
@@ -191,9 +191,9 @@ public class HTTPManager {
 
         GuestAuthResponse resData = JsonUtility.FromJson<GuestAuthResponse>(responseText);
         if (resData != null && resData.success) {
-            sessionId = resData.data.sessionId;
-            uid = resData.data.uid;
-            guestId = resData.data.guestId;
+            SessionId = resData.data.sessionId;
+            Uid = resData.data.uid;
+            GuestId = resData.data.guestId;
             Managers.ExecuteAtMainThread(() => {
                 Util.Log($"게스트 로그인 성공! [Session: {resData.data.sessionId} | GuestID: {resData.data.guestId}]");
             });
@@ -205,7 +205,7 @@ public class HTTPManager {
     }
 
     public async Task<bool> TestLogoutCall(CancellationToken cancelToken = default) {
-        if (string.IsNullOrEmpty(sessionId)) {
+        if (string.IsNullOrEmpty(SessionId)) {
             Managers.ExecuteAtMainThread(() => Util.LogWarning("이미 로그아웃 되어 있거나 세션이 없습니다."));
             return false;
         }
@@ -217,9 +217,9 @@ public class HTTPManager {
 
         AuthResponse resData = JsonUtility.FromJson<AuthResponse>(responseText);
         if (resData != null && resData.success) {
-            sessionId = null;
-            guestId = null;
-            uid = 0;
+            SessionId = null;
+            GuestId = null;
+            Uid = 0;
             Managers.ExecuteAtMainThread(() => {
                 Util.Log($"로그아웃 성공: {responseText}");
             });
@@ -231,7 +231,7 @@ public class HTTPManager {
     }
 
     public async Task<bool> StartMatchCall(int mapId, string loadoutType, EquippedItem[] equippedItems, CancellationToken cancelToken = default) {
-        if (string.IsNullOrEmpty(sessionId)) {
+        if (string.IsNullOrEmpty(SessionId)) {
             Managers.ExecuteAtMainThread(() => Util.LogWarning("로그인이 필요한 기능입니다."));
             return false;
         }
@@ -266,9 +266,9 @@ public class HTTPManager {
 
         if (resData != null) {
             if (resData.success) {
-                ticketId = resData.data.ticketId;
+                TicketId = resData.data.ticketId;
                 Managers.ExecuteAtMainThread(() => {
-                    Util.Log($"매칭 큐 진입 성공! [Ticket ID: {ticketId}]");
+                    Util.Log($"매칭 큐 진입 성공! [Ticket ID: {TicketId}]");
                 });
                 return true;
             }
@@ -283,12 +283,12 @@ public class HTTPManager {
     }
 
     public async Task<bool> CancelMatchCall(CancellationToken cancelToken = default) {
-        if (string.IsNullOrEmpty(sessionId)) {
+        if (string.IsNullOrEmpty(SessionId)) {
             Managers.ExecuteAtMainThread(() => Util.LogWarning("로그인이 필요한 기능입니다."));
             return false;
         }
 
-        if (string.IsNullOrEmpty(ticketId)) {
+        if (string.IsNullOrEmpty(TicketId)) {
             Managers.ExecuteAtMainThread(() => Util.LogWarning("취소할 매칭 티켓이 없습니다."));
             return false;
         }
@@ -297,7 +297,7 @@ public class HTTPManager {
 
         // JSON 데이터 조립
         MatchCancelRequest reqData = new MatchCancelRequest {
-            ticketId = ticketId
+            ticketId = TicketId
         };
         string jsonString = JsonUtility.ToJson(reqData);
 
@@ -310,7 +310,7 @@ public class HTTPManager {
 
         if (resData != null) {
             if (resData.success) {
-                ticketId = null;
+                TicketId = null;
                 Managers.ExecuteAtMainThread(() => {
                     Util.Log("매칭 취소 완료!");
                 });
@@ -327,11 +327,11 @@ public class HTTPManager {
     }
 
     public async Task<bool> CheckMatchStatusCall(CancellationToken cancelToken = default) {
-        if (string.IsNullOrEmpty(sessionId) || string.IsNullOrEmpty(ticketId)) {
+        if (string.IsNullOrEmpty(SessionId) || string.IsNullOrEmpty(TicketId)) {
             return false;
         }
 
-        string url = $"{_matchStatusUrl}?ticketId={ticketId}";
+        string url = $"{_matchStatusUrl}?ticketId={TicketId}";
         string responseText = await SendRequestAsync(HttpMethod.Get, url, null, true, cancelToken);
 
         if (string.IsNullOrEmpty(responseText)) return false;
@@ -357,7 +357,7 @@ public class HTTPManager {
             }
             else {
                 // 서버 로직 실패 (티켓 만료 등)
-                ticketId = null;
+                TicketId = null;
                 Managers.ExecuteAtMainThread(() => {
                     Util.LogError($"매칭 상태 확인 실패");
                 });
@@ -368,7 +368,7 @@ public class HTTPManager {
     }
 
     public async Task<bool> TryConnectCall(CancellationToken cancelToken = default) {
-        if (string.IsNullOrEmpty(sessionId) || string.IsNullOrEmpty(_token)) {
+        if (string.IsNullOrEmpty(SessionId) || string.IsNullOrEmpty(_token)) {
             Managers.ExecuteAtMainThread(() => Util.LogWarning("세션 또는 룸 토큰이 유효하지 않습니다."));
             return false;
         }
