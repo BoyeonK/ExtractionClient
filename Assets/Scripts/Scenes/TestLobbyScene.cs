@@ -14,7 +14,7 @@ public class TestLobbyScene : BaseScene {
     LobbyState _lobbyState = LobbyState.BeforeConnect;
 
     bool _isPopupOpened = false;
-    bool _isLogin => Managers.Network.httpManager.IsLogin;
+    HTTPManager.LoginState _loginState => Managers.Network.httpManager.AuthState;
 
     enum LobbyState {
         BeforeConnect,

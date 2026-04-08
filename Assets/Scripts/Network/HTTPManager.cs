@@ -14,7 +14,13 @@ public class HTTPManager {
         Timeout = TimeSpan.FromSeconds(5)
     };
 
-    public bool IsLogin { get; private set; } = false;
+    public enum LoginState {
+        None,
+        Login,
+        Guest,
+    }
+
+    public LoginState AuthState { get; private set; } = LoginState.None;
     public string SessionId { get; private set; } = null;
     public int Uid { get; private set; } = 0;
     public string GuestId { get; private set; } = null;
@@ -50,7 +56,7 @@ public class HTTPManager {
         try {
             using (HttpRequestMessage request = new HttpRequestMessage(method, url)) {
                 // 인증 헤더 추가 (로그아웃 등)
-                if (requireAuth && !string.IsNullOrEmpty(SessionId)) {
+                if (requireAuth && AuthState != LoginState.None && !string.IsNullOrEmpty(SessionId)) {
                     request.Headers.Add("x-session-id", SessionId);
                 }
 
@@ -112,8 +118,10 @@ public class HTTPManager {
     private bool _tryingAuthCall = false;
 
     public async Task<bool> PostCreateAccountCall(string id, string password, CancellationToken cancelToken = default) {
+        if (_tryingAuthCall) return false;
+
         // TODO : 추후 메세지 팝업 UI를 만들고 Util.Log를 팝업으로 변경하기
-        if (!string.IsNullOrEmpty(SessionId)) {
+        if (AuthState != LoginState.None) {
             Managers.ExecuteAtMainThread(() => Util.LogWarning("이미 로그인된 상태입니다. 로그아웃 후 이용해주세요."));
             return false;
         }
@@ -126,32 +134,42 @@ public class HTTPManager {
             return false;
         }
 
-        Managers.ExecuteAtMainThread(() => Util.Log("계정 생성 요청을 보냅니다..."));
+        _tryingAuthCall = true;
 
-        string jsonString = JsonUtility.ToJson(new AuthRequest { id = id, password = password });
-        string responseText = await SendRequestAsync(HttpMethod.Post, _signupUrl, jsonString, false, cancelToken);
-        if (responseText == null) {
+        try { 
+            Managers.ExecuteAtMainThread(() => Util.Log("계정 생성 요청을 보냅니다..."));
+
+            string jsonString = JsonUtility.ToJson(new AuthRequest { id = id, password = password });
+            string responseText = await SendRequestAsync(HttpMethod.Post, _signupUrl, jsonString, false, cancelToken);
+            if (responseText == null) {
+                return false;
+            }
+
+            AuthResponse resData = JsonUtility.FromJson<AuthResponse>(responseText);
+            if (resData != null && resData.success) {
+                SessionId = resData.data.sessionId;
+                Uid = resData.data.uid;
+                AuthState = LoginState.Login;
+                Managers.ExecuteAtMainThread(() => {
+                    Util.Log($"계정 생성 성공! [Session: {resData.data.sessionId} ]");
+                });
+                return true;
+            }
+
+            Managers.ExecuteAtMainThread(() => {
+                Util.LogError("서버에서 실패 응답을 보냈습니다.");
+            });
             return false;
         }
-
-        AuthResponse resData = JsonUtility.FromJson<AuthResponse>(responseText);
-        if (resData != null && resData.success) {
-            SessionId = resData.data.sessionId;
-            Uid = resData.data.uid;
-            Managers.ExecuteAtMainThread(() => {
-                Util.Log($"계정 생성 성공! [Session: {resData.data.sessionId} ]");
-            });
-            return true;
+        finally {
+            _tryingAuthCall = false;
         }
-
-        Managers.ExecuteAtMainThread(() => {
-            Util.LogError("서버에서 실패 응답을 보냈습니다.");
-        });
-        return false;
     }
 
     public async Task<bool> PostLoginCall(string id, string password, CancellationToken cancelToken = default) {
-        if (!string.IsNullOrEmpty(SessionId)) {
+        if (_tryingAuthCall) return false;
+
+        if (AuthState != LoginState.None) {
             Managers.ExecuteAtMainThread(() => Util.LogWarning("이미 로그인된 상태입니다."));
             return false;
         }
@@ -160,78 +178,109 @@ public class HTTPManager {
             return false;
         }
 
-        string jsonString = JsonUtility.ToJson(new AuthRequest { id = id, password = password });
-        string responseText = await SendRequestAsync(HttpMethod.Post, _loginUrl, jsonString, false, cancelToken);
-        if (responseText == null) return false;
+        _tryingAuthCall = true;
 
-        AuthResponse resData = JsonUtility.FromJson<AuthResponse>(responseText);
-        if (resData != null && resData.success) {
-            SessionId = resData.data.sessionId;
-            Uid = resData.data.uid;
-            Managers.ExecuteAtMainThread(() => {
-                Util.Log($"로그인 성공! [Session: {resData.data.sessionId} ]");
-            });
-            return true;
+        try {
+            string jsonString = JsonUtility.ToJson(new AuthRequest { id = id, password = password });
+            string responseText = await SendRequestAsync(HttpMethod.Post, _loginUrl, jsonString, false, cancelToken);
+            if (responseText == null) return false;
+
+            AuthResponse resData = JsonUtility.FromJson<AuthResponse>(responseText);
+            if (resData != null && resData.success) {
+                SessionId = resData.data.sessionId;
+                Uid = resData.data.uid;
+                AuthState = LoginState.Login;
+                Managers.ExecuteAtMainThread(() => {
+                    Util.Log($"로그인 성공! [Session: {resData.data.sessionId} ]");
+                });
+                return true;
+            }
+
+            Managers.ExecuteAtMainThread(() => Util.LogError("서버에서 실패 응답을 보냈습니다."));
+            return false;
         }
-
-        Managers.ExecuteAtMainThread(() => Util.LogError("서버에서 실패 응답을 보냈습니다."));
-        return false;
+        finally {
+            _tryingAuthCall = false;
+        }
     }
 
     public async Task<bool> PostGuestLoginCall(CancellationToken cancelToken = default) {
-        if (!string.IsNullOrEmpty(SessionId)) {
+        if (_tryingAuthCall) return false;
+
+        if (AuthState != LoginState.None) {
             Managers.ExecuteAtMainThread(() => Util.LogWarning("이미 로그인된 상태입니다."));
             return false;
         }
 
-        Managers.ExecuteAtMainThread(() => Util.Log("게스트 로그인 요청을 보냅니다..."));
+        _tryingAuthCall = true;
 
-        string responseText = await SendRequestAsync(HttpMethod.Post, _guestLoginUrl, null, false, cancelToken);
-        if (responseText == null) return false;
+        try {
+            Managers.ExecuteAtMainThread(() => Util.Log("게스트 로그인 요청을 보냅니다..."));
 
-        GuestAuthResponse resData = JsonUtility.FromJson<GuestAuthResponse>(responseText);
-        if (resData != null && resData.success) {
-            SessionId = resData.data.sessionId;
-            Uid = resData.data.uid;
-            GuestId = resData.data.guestId;
-            Managers.ExecuteAtMainThread(() => {
-                Util.Log($"게스트 로그인 성공! [Session: {resData.data.sessionId} | GuestID: {resData.data.guestId}]");
-            });
-            return true;
+            string responseText = await SendRequestAsync(HttpMethod.Post, _guestLoginUrl, null, false, cancelToken);
+            if (responseText == null) return false;
+
+            GuestAuthResponse resData = JsonUtility.FromJson<GuestAuthResponse>(responseText);
+            if (resData != null && resData.success) {
+                SessionId = resData.data.sessionId;
+                Uid = resData.data.uid;
+                GuestId = resData.data.guestId;
+                AuthState = LoginState.Guest;
+                Managers.ExecuteAtMainThread(() => {
+                    Util.Log($"게스트 로그인 성공! [Session: {resData.data.sessionId} | GuestID: {resData.data.guestId}]");
+                });
+                return true;
+            }
+
+            Managers.ExecuteAtMainThread(() => Util.LogError("서버에서 실패 응답을 보냈습니다."));
+            return false;
         }
-
-        Managers.ExecuteAtMainThread(() => Util.LogError("서버에서 실패 응답을 보냈습니다."));
-        return false;
+        finally {
+            _tryingAuthCall = false;
+        }
     }
 
     public async Task<bool> TestLogoutCall(CancellationToken cancelToken = default) {
-        if (string.IsNullOrEmpty(SessionId)) {
+        if (_tryingAuthCall) return false;
+
+        if (AuthState == LoginState.None) {
             Managers.ExecuteAtMainThread(() => Util.LogWarning("이미 로그아웃 되어 있거나 세션이 없습니다."));
             return false;
         }
 
-        Managers.ExecuteAtMainThread(() => Util.Log("로그아웃 요청을 보냅니다..."));
+        _tryingAuthCall = true;
+        try {
+            Managers.ExecuteAtMainThread(() => Util.Log("로그아웃 요청을 보냅니다..."));
 
-        string responseText = await SendRequestAsync(HttpMethod.Post, "api/logout", null, true, cancelToken);
-        if (responseText == null) return false;
+            string responseText = await SendRequestAsync(HttpMethod.Post, "api/logout", null, true, cancelToken);
+            if (responseText == null) return false;
 
-        AuthResponse resData = JsonUtility.FromJson<AuthResponse>(responseText);
-        if (resData != null && resData.success) {
-            SessionId = null;
-            GuestId = null;
-            Uid = 0;
-            Managers.ExecuteAtMainThread(() => {
-                Util.Log($"로그아웃 성공: {responseText}");
-            });
-            return true;
+            AuthResponse resData = JsonUtility.FromJson<AuthResponse>(responseText);
+            if (resData != null && resData.success) {
+                SessionId = null;
+                GuestId = null;
+                Uid = 0;
+                TicketId = null;
+                _token = null;
+                AuthState = LoginState.None;
+                Managers.ExecuteAtMainThread(() => {
+                    Util.Log($"로그아웃 성공: {responseText}");
+                });
+                return true;
+            }
+
+            Managers.ExecuteAtMainThread(() => Util.LogError("로그아웃 처리에 실패했습니다."));
+            return false;
         }
-
-        Managers.ExecuteAtMainThread(() => Util.LogError("로그아웃 처리에 실패했습니다."));
-        return false;
+        finally {
+            _tryingAuthCall = false;
+        }
     }
 
+    // ---------- Match Calls (Start Match, Check Status, Cancel Match, Connect) ----------
+
     public async Task<bool> StartMatchCall(int mapId, string loadoutType, EquippedItem[] equippedItems, CancellationToken cancelToken = default) {
-        if (string.IsNullOrEmpty(SessionId)) {
+        if (AuthState == LoginState.None) {
             Managers.ExecuteAtMainThread(() => Util.LogWarning("로그인이 필요한 기능입니다."));
             return false;
         }
@@ -283,7 +332,7 @@ public class HTTPManager {
     }
 
     public async Task<bool> CancelMatchCall(CancellationToken cancelToken = default) {
-        if (string.IsNullOrEmpty(SessionId)) {
+        if (AuthState == LoginState.None) {
             Managers.ExecuteAtMainThread(() => Util.LogWarning("로그인이 필요한 기능입니다."));
             return false;
         }
@@ -327,7 +376,7 @@ public class HTTPManager {
     }
 
     public async Task<bool> CheckMatchStatusCall(CancellationToken cancelToken = default) {
-        if (string.IsNullOrEmpty(SessionId) || string.IsNullOrEmpty(TicketId)) {
+        if (AuthState == LoginState.None || string.IsNullOrEmpty(TicketId)) {
             return false;
         }
 
@@ -368,7 +417,7 @@ public class HTTPManager {
     }
 
     public async Task<bool> TryConnectCall(CancellationToken cancelToken = default) {
-        if (string.IsNullOrEmpty(SessionId) || string.IsNullOrEmpty(_token)) {
+        if (AuthState == LoginState.None || string.IsNullOrEmpty(_token)) {
             Managers.ExecuteAtMainThread(() => Util.LogWarning("세션 또는 룸 토큰이 유효하지 않습니다."));
             return false;
         }
