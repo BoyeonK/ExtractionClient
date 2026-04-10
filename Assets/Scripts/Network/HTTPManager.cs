@@ -25,6 +25,7 @@ public class HTTPManager {
     public int Uid { get; private set; } = 0;
     public string GuestId { get; private set; } = null;
     public string TicketId { get; private set; } = null;
+    public InventoryItem[] Inventory { get; private set; } = null;
     private string _token = null;
 
     public string version = "alphaTest";
@@ -32,6 +33,7 @@ public class HTTPManager {
     private const string _signupUrl = "api/signup";
     private const string _loginUrl = "api/login";
     private const string _guestLoginUrl = "api/guest";
+    private const string _inventoryUrl = "api/inventory";
 
     private const string _matchStartUrl = "api/game/match/start";
     private const string _matchStatusUrl = "api/game/match/status";
@@ -149,7 +151,10 @@ public class HTTPManager {
             if (resData != null && resData.success) {
                 SessionId = resData.data.sessionId;
                 Uid = resData.data.uid;
+                Inventory = resData.data.inventory;
                 AuthState = LoginState.Login;
+
+                // TODO : 인벤토리 UI 새로고침 등 필요한 작업 실행하기
                 Managers.ExecuteAtMainThread(() => {
                     Util.Log($"계정 생성 성공! [Session: {resData.data.sessionId} ]");
                 });
@@ -173,7 +178,7 @@ public class HTTPManager {
             Managers.ExecuteAtMainThread(() => Util.LogWarning("이미 로그인된 상태입니다."));
             return false;
         }
-        if (!IsValidId(id) || !IsValidPassword(password)) {
+        if (!IsValidId(id) || string.IsNullOrEmpty(password)) {
             Managers.ExecuteAtMainThread(() => Util.LogWarning("아이디 또는 비밀번호의 형식이 올바르지 않습니다."));
             return false;
         }
@@ -189,7 +194,10 @@ public class HTTPManager {
             if (resData != null && resData.success) {
                 SessionId = resData.data.sessionId;
                 Uid = resData.data.uid;
+                Inventory = resData.data.inventory;
                 AuthState = LoginState.Login;
+
+                // TODO : 인벤토리 UI 새로고침 등 필요한 작업 실행하기
                 Managers.ExecuteAtMainThread(() => {
                     Util.Log($"로그인 성공! [Session: {resData.data.sessionId} ]");
                 });
@@ -261,6 +269,7 @@ public class HTTPManager {
                 GuestId = null;
                 Uid = 0;
                 TicketId = null;
+                Inventory = null;
                 _token = null;
                 AuthState = LoginState.None;
                 Managers.ExecuteAtMainThread(() => {
@@ -275,6 +284,24 @@ public class HTTPManager {
         finally {
             _tryingAuthCall = false;
         }
+    }
+
+    public async Task<bool> GetInventoryCall(CancellationToken cancelToken = default) {
+        if (AuthState == LoginState.None) {
+            Managers.ExecuteAtMainThread(() => Util.LogWarning("로그인이 필요한 기능입니다."));
+            return false;
+        }
+
+        string responseText = await SendRequestAsync(HttpMethod.Get, _inventoryUrl, null, true, cancelToken);
+        if (responseText == null) return false;
+
+        InventoryResponse resData = JsonUtility.FromJson<InventoryResponse>(responseText);
+        if (resData != null && resData.success) {
+            Inventory = resData.data.inventory;
+            // TODO : 인벤토리 UI 새로고침 등 필요한 작업 실행하기
+            return true;
+        }
+        return false;
     }
 
     // ---------- Match Calls (Start Match, Check Status, Cancel Match, Connect) ----------

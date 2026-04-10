@@ -1,0 +1,486 @@
+openapi: 3.0.0
+info:
+  title: "Game Logic Gateway API"
+  description: "클라이언트와 HTTPS 서버를 위한 REST API 명세서"
+  version: "1.0.0"
+
+servers:
+  - url: http://localhost:3000
+    description: "로컬 개발 환경"
+
+paths:
+  # 버전 및 상태 확인 API
+  /api/version:
+    get:
+      summary: "클라이언트 버전 및 점검 상태 확인"
+      tags:
+        - System
+      description: "게임 실행 시 클라이언트 버전이 유효한지, 서버가 점검 중은 아닌지 확인합니다."
+      responses:
+        '200':
+          description: "조회 성공"
+          content:
+            application/json:
+              schema:
+                allOf:
+                  - $ref: '#/components/schemas/CommonResponse'
+                  - type: object
+                  - properties:
+                      data:
+                        $ref: '#/components/schemas/VersionData'
+
+  # 계정 생성 API (회원가입)
+  /api/signup:
+    post:
+      summary: "신규 계정 생성"
+      tags:
+        - Auth
+      description: "ID와 비밀번호를 받아 새로운 유저 계정을 생성합니다."
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/AuthRequest'
+      responses:
+        '201':
+          description: "계정 생성 성공 (자동 로그인 처리되어 세션 키 발급)"
+          content:
+            application/json:
+              schema:
+                allOf:
+                  - $ref: '#/components/schemas/CommonResponse'
+                  - type: object
+                  - properties:
+                      data:
+                        $ref: '#/components/schemas/AuthData'
+        '409':
+          description: "이미 존재하는 ID (Conflict)"
+
+  # 로그인 API
+  /api/login:
+    post:
+      summary: "로그인 요청"
+      tags:
+        - Auth
+      description: "ID와 비밀번호로 로그인을 시도합니다."
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/AuthRequest'
+      responses:
+        '200':
+          description: "로그인 성공"
+          content:
+            application/json:
+              schema:
+                allOf:
+                  - $ref: '#/components/schemas/CommonResponse'
+                  - type: object
+                  - properties:
+                      data:
+                        $ref: '#/components/schemas/AuthData'
+        '401':
+          description: "인증 실패 (비밀번호 불일치 또는 존재하지 않는 ID)"
+
+  # 게스트 로그인 API [추가]
+  /api/guest:
+    post:
+      summary: "게스트 로그인"
+      tags:
+        - Auth
+      description: "계정 생성 없이 임시 게스트 ID를 발급받아 접속합니다."
+      responses:
+        '200':
+          description: "게스트 로그인 성공"
+          content:
+            application/json:
+              schema:
+                allOf:
+                  - $ref: '#/components/schemas/CommonResponse'
+                  - type: object
+                  - properties:
+                      data:
+                        $ref: '#/components/schemas/GuestAuthData'
+
+  # 인벤토리 조회
+  /api/inventory:
+    get:
+      summary: "유저 인벤토리 조회"
+      tags:
+        - Auth
+      security:
+        - SessionAuth: []
+      description: "로그인한 유저의 전체 인벤토리를 반환합니다. 인게임 아이템 변경 후 재조회 시 사용합니다."
+      responses:
+        '200':
+          description: "조회 성공"
+          content:
+            application/json:
+              schema:
+                allOf:
+                  - $ref: '#/components/schemas/CommonResponse'
+                  - type: object
+                  - properties:
+                      data:
+                        type: object
+                        properties:
+                          inventory:
+                            type: array
+                            items:
+                              $ref: '#/components/schemas/InventoryItem'
+        '401':
+          description: "인증 실패 (세션 없음 또는 만료)"
+
+  # 로그아웃 API [추가]
+  /api/logout:
+    post:
+      summary: "로그아웃 요청"
+      tags:
+        - Auth
+      security:
+        - SessionAuth: []
+      description: "현재 접속 중인 세션을 파기하고 로그아웃합니다."
+      responses:
+        '200':
+          description: "로그아웃 성공"
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/CommonResponse'
+
+  # 매치메이킹 시작
+  /api/game/match/start:
+    post:
+      summary: "매치메이킹 시작 요청"
+      tags:
+        - Game
+      security:
+        - SessionAuth: [] 
+      description: "사용할 맵과 아이템을 서버에 전달하고, 매치메이킹 대기열에 진입(티켓 발급)합니다."
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/GameReadyRequest'
+      responses:
+        '200':
+          description: "대기열 진입 성공 (매칭 확인용 티켓 ID 반환)"
+          content:
+            application/json:
+              schema:
+                allOf:
+                  - $ref: '#/components/schemas/CommonResponse'
+                  - type: object
+                  - properties:
+                      data:
+                        $ref: '#/components/schemas/MatchTicketData'
+
+  # 매치메이킹 상태 확인 (Polling)
+  /api/game/match/status:
+    get:
+      summary: "매치메이킹 상태 확인 (폴링)"
+      tags:
+        - Game
+      security:
+        - SessionAuth: []
+      description: "발급받은 티켓 ID를 이용해 주기적으로 매칭이 성사되었는지 확인합니다."
+      parameters:
+        - name: ticketId
+          in: query
+          required: true
+          schema:
+            type: string
+          description: "매치메이킹 시작 시 발급받은 티켓 ID"
+      responses:
+        '200':
+          description: "상태 조회 성공. 매칭 완료 시 접속 정보가 함께 반환됩니다."
+          content:
+            application/json:
+              schema:
+                allOf:
+                  - $ref: '#/components/schemas/CommonResponse'
+                  - type: object
+                  - properties:
+                      data:
+                        $ref: '#/components/schemas/MatchStatusData'
+        '403':
+          description: "본인의 티켓이 아님"
+        '404':
+          description: "존재하지 않거나 만료된 티켓"
+
+  # 매치메이킹 취소
+  /api/game/match/cancel:
+    post:
+      summary: "매치메이킹 취소 요청"
+      tags:
+        - Game
+      security:
+        - SessionAuth: []
+      description: "대기 중인 매치메이킹을 취소합니다."
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              required:
+                - ticketId
+              properties:
+                ticketId:
+                  type: string
+                  description: "취소할 매칭 티켓 ID"
+                  example: "ticket_1234abcd"
+      responses:
+        '200':
+          description: "취소 성공"
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/CommonResponse'
+        '403':
+          description: "본인의 티켓이 아님"
+        '409':
+          description: "이미 매칭이 성사되어 취소 불가능"
+
+  # 매치메이킹 서버 접속 정보 획득 (토큰 교환)
+  /api/game/match/connect:
+    post:
+      summary: "인게임 서버 접속 정보 요청 (토큰 교환)"
+      tags:
+        - Game
+      security:
+        - SessionAuth: []
+      description: "매칭 완료 후 받은 roomToken을 제출하여, 실제 데디케이티드 서버의 IP, Port 및 인게임 인증 키를 발급받습니다."
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              required: 
+                - roomToken
+              properties:
+                roomToken:
+                  type: string
+                  description: "매칭 성공 시 발급받은 방 입장 토큰"
+                  example: "token_abc123"
+      responses:
+        '200':
+          description: "접속 정보 발급 성공"
+          content:
+            application/json:
+              schema:
+                allOf:
+                  - $ref: '#/components/schemas/CommonResponse'
+                  - type: object
+                  - properties:
+                      data:
+                        $ref: '#/components/schemas/ConnectResponseData'
+        '400':
+          description: "잘못된 요청 (토큰 누락)"
+        '404':
+          description: "유효하지 않거나 이미 사용/만료된 토큰"
+
+components:
+  securitySchemes:
+    SessionAuth:
+      type: apiKey
+      in: header
+      name: X-Session-Id
+      description: "로그인 시 발급받은 세션 키를 입력해주세요."
+
+  schemas:
+    # ----------------------------------------------------
+    # 공통 응답 (Base Wrapper)
+    # ----------------------------------------------------
+    CommonResponse:
+      type: object
+      required: [success, code]
+      properties:
+        success:
+          type: boolean
+          example: true
+        code:
+          type: integer
+          example: 200
+        data:
+          type: object
+          nullable: true
+          description: "API 호출 결과 데이터 (API마다 구조가 다름)"
+        error:
+          $ref: '#/components/schemas/ErrorDetail'
+          
+    ErrorDetail:
+      type: object
+      nullable: true
+      properties:
+        message: { type: string, example: "Invalid request" }
+        code: { type: string, example: "ERR_BAD_REQUEST" }
+
+    # ----------------------------------------------------
+    # 공통 응답에 담을 진짜 내용물
+    # ----------------------------------------------------
+    VersionData:
+      type: object
+      properties:
+        latestVersion:
+          type: string
+          example: "1.0.5"
+        isMaintenance:
+          type: boolean
+          description: "서버 점검 중 여부"
+          example: false
+
+    AuthData:
+      type: object
+      properties:
+        sessionId:
+          type: string
+          description: "API 인증에 사용할 세션 키"
+          example: "sess_abc123xyz456"
+        uid: # [추가] 실제 코드에서 반환하는 uid 추가
+          type: integer
+          description: "데이터베이스 고유 식별자 (PK)"
+          example: 13
+        inventory:
+          type: array
+          description: "유저 보유 아이템 목록"
+          items:
+            $ref: '#/components/schemas/InventoryItem'
+
+    InventoryItem:
+      type: object
+      properties:
+        item_id:
+          type: integer
+          description: "아이템 고유 ID"
+          example: 101
+        quantity:
+          type: integer
+          description: "보유 수량"
+          example: 1
+
+    GuestAuthData: # [추가] 게스트 로그인 전용 반환 데이터
+      type: object
+      properties:
+        sessionId:
+          type: string
+          description: "API 인증에 사용할 세션 키"
+          example: "sess_guest987xyz"
+        guestId:
+          type: string
+          description: "임시로 발급된 게스트 계정 ID"
+          example: "guest_a1b2c3d4"
+        uid:
+          type: integer
+          description: "임시 데이터베이스 고유 식별자 (음수)"
+          example: -1
+
+    # ----------------------------------------------------
+    # 요청 본문 스키마들 (Request Bodies)
+    # ----------------------------------------------------
+    AuthRequest:
+      type: object
+      required:
+        - id
+        - password
+      properties:
+        id:
+          type: string
+          description: "아이디. alphanumeric 4자 이상, 16자 이하"
+          example: "tetepiti149"
+          minLength: 4
+          maxLength: 16
+          pattern: "^[a-zA-Z0-9]+$"
+        password:
+          type: string
+          format: password
+          description: "유저 비밀번호. 서버에서 해싱 처리 예정."
+          example: "q1w2e3r4!@"
+          minLength: 4
+          maxLength: 16
+
+    GameReadyRequest:
+      type: object
+      required:
+        - mapId
+        - loadoutType
+      properties:
+        mapId:
+          type: integer
+          description: "진입할 맵의 식별자"
+          example: "0"
+        loadoutType:   # FREE / CUSTOM 모드 명시
+          type: string
+          description: "장비 반입 모드 (FREE: 기본 장비 지급, CUSTOM: 내 장비 반입)"
+          enum: [FREE, CUSTOM]
+          example: "CUSTOM"
+        equippedItems:
+          type: array
+          description: "인게임에서 사용할 인벤토리 아이템 목록 (ID와 수량)"
+          items:
+            type: object
+            required:
+              - itemId
+              - quantity
+            properties:
+              itemId:
+                type: integer
+                description: "아이템 식별자 ID"
+                example: 101
+              quantity:
+                type: integer
+                description: "가져갈 아이템의 개수"
+                example: 5
+          example: 
+            - itemId: 101
+              quantity: 5
+            - itemId: 105
+              quantity: 2
+
+    MatchTicketData:
+      type: object
+      properties:
+        ticketId:
+          type: string
+          description: "상태 조회에 사용할 매칭 대기표 ID"
+          example: "ticket_987654321"
+
+    MatchStatusData:
+      type: object
+      required:
+        - status
+      properties:
+        status:
+          type: string
+          description: "현재 매칭 상태 (WAITING: 대기 중 또는 데디서버 생성 중, SUCCESS: 매칭 성공)"
+          enum: [WAITING, SUCCESS]
+          example: "SUCCESS"
+        roomToken:
+          type: string
+          description: "인게임 진입 시 사용할 방 입장 권한 토큰 (해당 토큰으로 접속 라우팅 처리)"
+          example: "room_token_abc"
+
+    ConnectResponseData:
+      type: object
+      properties:
+        ip:
+          type: string
+          description: "접속해야 할 인게임 UDP 서버 IP"
+          example: "127.0.0.1"
+        port:
+          type: integer
+          description: "접속해야 할 인게임 UDP 서버 포트"
+          example: 7777
+        securityKey:
+          type: string
+          description: "C++ 데디케이티드 서버가 생성한 숫자형 인증 키 (패킷 통신 시 사용, 2^31 이하)"
+          example: "147483647"
+        ingameSessionId:
+          type: integer
+          description: "인게임(UDP) 접속 전용 세션 식별자"
+          example: 45

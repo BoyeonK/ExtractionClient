@@ -37,7 +37,7 @@ This file provides guidance to Claude Code (claude.ai/code) when working with co
 - 인증이 필요한 요청은 `x-session-id` 헤더 포함
 - `Gitignores.cs`는 git에서 제외된 파일 — 서버 URL 등 민감 설정 관리. **베이스 URL 하드코딩 금지**
 
-주요 엔드포인트: `GET api/version`, `POST api/signup`, `POST api/login`, `POST api/guest`, `POST api/logout`, `POST api/game/match/start`, `GET api/game/match/status`, `POST api/game/match/cancel`, `POST api/game/match/connect`
+엔드포인트 전체 목록 및 요청/응답 스키마: `Assets/Scripts/Network/http-api-spec.yaml` (OpenAPI 3.0) 참고
 
 매칭 흐름: `StartMatchCall` → `CheckMatchStatusCall` 폴링 (WAITING → SUCCESS) → `TryConnectCall` → UDP 연결 시작
 

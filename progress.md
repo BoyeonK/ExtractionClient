@@ -1,6 +1,6 @@
 # 프로젝트 진행 상황
 
-> 최종 수정: 2026-04-10
+> 최종 수정: 2026-04-11
 > 장르: 멀티플레이어 Extraction 게임 (알파 단계)
 > 엔진: Unity 6000.4.0f1 / URP 17.4.0
 
@@ -15,7 +15,10 @@
 
 ### 네트워크
 - [x] HTTP 통신 기반 구조 (`HTTPManager`) — 정적 `HttpClient`, 5초 타임아웃, 세션 헤더
+- [x] HTTP API 명세서 작성 (`http-api-spec.yaml`, OpenAPI 3.0)
 - [x] 인증 전체 흐름 — 회원가입, 로그인, 게스트 로그인, 로그아웃 (서버 동작 확인)
+- [x] 로그인/회원가입 응답에서 인벤토리 데이터 수신 및 저장 (`HTTPManager.Inventory`)
+- [x] 인벤토리 조회 API 구현 — `GetInventoryCall` (`GET api/inventory`)
 - [x] 매칭 API 구현 — `StartMatchCall`, `CheckMatchStatusCall` (폴링), `CancelMatchCall`, `TryConnectCall`
 - [x] UDP 수신 스레드 + 안전한 종료 (`SocketException` 방식)
 - [x] 패킷 헤더 구조체 (`UDPHeader`, 13바이트) + Protobuf 직렬화 (`ExternalProtocol.cs`)
@@ -46,7 +49,7 @@
 ### 로비 (Lobby 상태)
 - [ ] `ShowLobby()`, `ShowInventory()`, `ShowShop()` 내부 로직 비어 있음
 - [ ] `UserState` (Main / Inventory / Shop) 전환 UI 연결 안 됨
-- [ ] 인벤토리 / 창고 데이터 서버 연동 (슬롯 UI는 있으나 데이터 없음)
+- [ ] 인벤토리 / 창고 데이터 UI 연동 (API는 구현됨, 슬롯에 데이터 바인딩 필요)
 - [ ] 상점 UI 미구현
 
 ### 매칭 (Matching 상태)
@@ -70,7 +73,7 @@
 ## 다음 작업 우선순위 (제안)
 
 1. **로비 UI 연결** — Header 버튼으로 인벤토리/창고 탭 전환, `UserState` 전환 구현
-2. **인벤토리/창고 서버 연동** — 아이템 목록 조회 API 추가 및 슬롯 바인딩
+2. **인벤토리/창고 UI 연동** — 슬롯에 `HTTPManager.Inventory` 데이터 바인딩
 3. **매칭 흐름 완성** — 맵 선택 → 매칭 시작 → 폴링 → 성공/취소 전환
 4. **인게임 씬 기초** — 씬 전환, 플레이어 오브젝트 스폰, 실제 게임 패킷 정의
 5. **에러 UX 개선** — 인증/네트워크 실패 시 팝업 메시지 표시

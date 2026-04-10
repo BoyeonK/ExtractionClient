@@ -1,18 +1,12 @@
 using System;
 
-// ----------------------------------------------------
-// 공통 응답 구조 (Base Wrapper)
-// ----------------------------------------------------
 [Serializable]
 public class BaseResponse {
     public bool success;
-    public int code; // ?? OpenAPI 명세서의 'code' 필드에 맞춤 (기존 status)
-    public string message; // 에러 발생 시 읽어올 메시지
+    public int code;
+    public string message;
 }
 
-// ----------------------------------------------------
-// [System] 시스템 API 응답
-// ----------------------------------------------------
 [Serializable]
 public class VersionData {
     public string latestVersion;
@@ -24,13 +18,17 @@ public class VersionResponse : BaseResponse {
     public VersionData data;
 }
 
-// ----------------------------------------------------
-// [Auth] 계정 API 응답
-// ----------------------------------------------------
+[Serializable]
+public class InventoryItem {
+    public int item_id;
+    public int quantity;
+}
+
 [Serializable]
 public class AuthData {
     public string sessionId;
     public int uid;
+    public InventoryItem[] inventory;
 }
 
 [Serializable]
@@ -50,9 +48,16 @@ public class GuestAuthResponse : BaseResponse {
     public GuestAuthData data;
 }
 
-// ----------------------------------------------------
-// [Game] 매치메이킹 API 응답
-// ----------------------------------------------------
+[Serializable]
+public class InventoryData {
+    public InventoryItem[] inventory;
+}
+
+[Serializable]
+public class InventoryResponse : BaseResponse {
+    public InventoryData data;
+}
+
 [Serializable]
 public class MatchTicketData {
     public string ticketId;
@@ -65,7 +70,7 @@ public class MatchStartResponse : BaseResponse {
 
 [Serializable]
 public class MatchStatusData {
-    public string status; // "WAITING", "SUCCESS", "FAILED" 등
+    public string status;
     public string roomToken;
 }
 
