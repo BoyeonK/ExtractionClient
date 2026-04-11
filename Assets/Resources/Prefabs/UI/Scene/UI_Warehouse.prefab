@@ -88,6 +88,7 @@ GameObject:
   - component: {fileID: 272661867089753089}
   - component: {fileID: 5941841797684686907}
   - component: {fileID: 8690465066488382721}
+  - component: {fileID: 8095201471868594465}
   m_Layer: 0
   m_Name: Tab_AMMO
   m_TagString: Untagged
@@ -153,6 +154,18 @@ MonoBehaviour:
   m_FillOrigin: 0
   m_UseSpriteMesh: 0
   m_PixelsPerUnitMultiplier: 1
+--- !u!114 &8095201471868594465
+MonoBehaviour:
+  m_ObjectHideFlags: 0
+  m_CorrespondingSourceObject: {fileID: 0}
+  m_PrefabInstance: {fileID: 0}
+  m_PrefabAsset: {fileID: 0}
+  m_GameObject: {fileID: 2281570201342128781}
+  m_Enabled: 1
+  m_EditorHideFlags: 0
+  m_Script: {fileID: 11500000, guid: 9262eaf6e8b234640a055af6ff165f51, type: 3}
+  m_Name: 
+  m_EditorClassIdentifier: Assembly-CSharp::UI_EventHandler
 --- !u!1 &2388657201776473616
 GameObject:
   m_ObjectHideFlags: 0
@@ -514,6 +527,7 @@ GameObject:
   - component: {fileID: 3233510127094554186}
   - component: {fileID: 3318844527845560967}
   - component: {fileID: 5447069184054860966}
+  - component: {fileID: 7488652259054372412}
   m_Layer: 0
   m_Name: UI_Warehouse
   m_TagString: Untagged
@@ -605,6 +619,18 @@ MonoBehaviour:
   m_BlockingMask:
     serializedVersion: 2
     m_Bits: 4294967295
+--- !u!114 &7488652259054372412
+MonoBehaviour:
+  m_ObjectHideFlags: 0
+  m_CorrespondingSourceObject: {fileID: 0}
+  m_PrefabInstance: {fileID: 0}
+  m_PrefabAsset: {fileID: 0}
+  m_GameObject: {fileID: 4025411658462282303}
+  m_Enabled: 1
+  m_EditorHideFlags: 0
+  m_Script: {fileID: 11500000, guid: ed623beac7b0c3448b73d4b04a59359f, type: 3}
+  m_Name: 
+  m_EditorClassIdentifier: Assembly-CSharp::UI_Warehouse
 --- !u!1 &4302563874938076340
 GameObject:
   m_ObjectHideFlags: 0
@@ -1027,6 +1053,7 @@ GameObject:
   - component: {fileID: 7733368711151688272}
   - component: {fileID: 9216035435749542826}
   - component: {fileID: 677748715339763771}
+  - component: {fileID: 5776806541057234701}
   m_Layer: 0
   m_Name: Tab_WEAPONS
   m_TagString: Untagged
@@ -1092,6 +1119,18 @@ MonoBehaviour:
   m_FillOrigin: 0
   m_UseSpriteMesh: 0
   m_PixelsPerUnitMultiplier: 1
+--- !u!114 &5776806541057234701
+MonoBehaviour:
+  m_ObjectHideFlags: 0
+  m_CorrespondingSourceObject: {fileID: 0}
+  m_PrefabInstance: {fileID: 0}
+  m_PrefabAsset: {fileID: 0}
+  m_GameObject: {fileID: 5436604611898329955}
+  m_Enabled: 1
+  m_EditorHideFlags: 0
+  m_Script: {fileID: 11500000, guid: 9262eaf6e8b234640a055af6ff165f51, type: 3}
+  m_Name: 
+  m_EditorClassIdentifier: Assembly-CSharp::UI_EventHandler
 --- !u!1 &6768435194526096660
 GameObject:
   m_ObjectHideFlags: 0
@@ -1394,6 +1433,7 @@ GameObject:
   - component: {fileID: 8334924014023296018}
   - component: {fileID: 3733046345346552774}
   - component: {fileID: 5746228893715718794}
+  - component: {fileID: 3720849167684732839}
   m_Layer: 0
   m_Name: Tab_ALL
   m_TagString: Untagged
@@ -1459,6 +1499,18 @@ MonoBehaviour:
   m_FillOrigin: 0
   m_UseSpriteMesh: 0
   m_PixelsPerUnitMultiplier: 1
+--- !u!114 &3720849167684732839
+MonoBehaviour:
+  m_ObjectHideFlags: 0
+  m_CorrespondingSourceObject: {fileID: 0}
+  m_PrefabInstance: {fileID: 0}
+  m_PrefabAsset: {fileID: 0}
+  m_GameObject: {fileID: 7562891688524208746}
+  m_Enabled: 1
+  m_EditorHideFlags: 0
+  m_Script: {fileID: 11500000, guid: 9262eaf6e8b234640a055af6ff165f51, type: 3}
+  m_Name: 
+  m_EditorClassIdentifier: Assembly-CSharp::UI_EventHandler
 --- !u!1 &7727269336646181489
 GameObject:
   m_ObjectHideFlags: 0
@@ -1822,6 +1874,7 @@ GameObject:
   - component: {fileID: 5445633773242743753}
   - component: {fileID: 5268480301886364541}
   - component: {fileID: 1829497912791253246}
+  - component: {fileID: 4546686074783701611}
   m_Layer: 0
   m_Name: Tab_MISC
   m_TagString: Untagged
@@ -1887,6 +1940,18 @@ MonoBehaviour:
   m_FillOrigin: 0
   m_UseSpriteMesh: 0
   m_PixelsPerUnitMultiplier: 1
+--- !u!114 &4546686074783701611
+MonoBehaviour:
+  m_ObjectHideFlags: 0
+  m_CorrespondingSourceObject: {fileID: 0}
+  m_PrefabInstance: {fileID: 0}
+  m_PrefabAsset: {fileID: 0}
+  m_GameObject: {fileID: 8297810418517448709}
+  m_Enabled: 1
+  m_EditorHideFlags: 0
+  m_Script: {fileID: 11500000, guid: 9262eaf6e8b234640a055af6ff165f51, type: 3}
+  m_Name: 
+  m_EditorClassIdentifier: Assembly-CSharp::UI_EventHandler
 --- !u!1 &8489311688418675822
 GameObject:
   m_ObjectHideFlags: 0
@@ -1978,6 +2043,7 @@ GameObject:
   - component: {fileID: 1779784235016628346}
   - component: {fileID: 7694018570512086725}
   - component: {fileID: 1013379170398246204}
+  - component: {fileID: 2067744457620566958}
   m_Layer: 0
   m_Name: Tab_EQUIPMENT
   m_TagString: Untagged
@@ -2043,6 +2109,18 @@ MonoBehaviour:
   m_FillOrigin: 0
   m_UseSpriteMesh: 0
   m_PixelsPerUnitMultiplier: 1
+--- !u!114 &2067744457620566958
+MonoBehaviour:
+  m_ObjectHideFlags: 0
+  m_CorrespondingSourceObject: {fileID: 0}
+  m_PrefabInstance: {fileID: 0}
+  m_PrefabAsset: {fileID: 0}
+  m_GameObject: {fileID: 8674629814124944800}
+  m_Enabled: 1
+  m_EditorHideFlags: 0
+  m_Script: {fileID: 11500000, guid: 9262eaf6e8b234640a055af6ff165f51, type: 3}
+  m_Name: 
+  m_EditorClassIdentifier: Assembly-CSharp::UI_EventHandler
 --- !u!1 &8864133629903636215
 GameObject:
   m_ObjectHideFlags: 0

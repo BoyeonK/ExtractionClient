@@ -112,5 +112,6 @@ UI_Base (abstract)
 
 ## 절대 규칙
 - Library/ 폴더는 절대 읽지 말 것. 참조가 필요하면 나에게 먼저 물어볼 것
+- Asset/LowPolyAssetBundle 폴더를 절대 읽지 말 것. 참조가 필요하면 나에게 먼저 물어볼 것
 - .gitignore 파일은 읽기만 가능, 절대 수정하지 말 것
-- Asset/Scripts/Utils/Gitignores.cs는 절대 읽거나 문서화하지 말 것
+- Asset/Scripts/Utils/Gitignores.cs는 절대 읽거나, 수정하거나, 문서화하지 말 것

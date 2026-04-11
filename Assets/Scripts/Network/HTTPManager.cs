@@ -1,5 +1,7 @@
 ﻿using NUnit.Framework.Interfaces;
 using System;
+using System.Collections.Generic;
+using System.Linq;
 using System.Net.Http;
 using System.Net.Sockets;
 using System.Text;
@@ -26,6 +28,7 @@ public class HTTPManager {
     public string GuestId { get; private set; } = null;
     public string TicketId { get; private set; } = null;
     public InventoryItem[] Inventory { get; private set; } = null;
+    public Dictionary<int, int> PackedItems { get; private set; } = new Dictionary<int, int>();
     private string _token = null;
 
     public string version = "alphaTest";
@@ -270,6 +273,7 @@ public class HTTPManager {
                 Uid = 0;
                 TicketId = null;
                 Inventory = null;
+                PackedItems.Clear();
                 _token = null;
                 AuthState = LoginState.None;
                 Managers.ExecuteAtMainThread(() => {
@@ -298,10 +302,47 @@ public class HTTPManager {
         InventoryResponse resData = JsonUtility.FromJson<InventoryResponse>(responseText);
         if (resData != null && resData.success) {
             Inventory = resData.data.inventory;
+            PackedItems.Clear();
             // TODO : 인벤토리 UI 새로고침 등 필요한 작업 실행하기
             return true;
         }
         return false;
+    }
+
+    // ---------- Inventory Packing Helpers ----------
+
+    // 아이템을 패킹 목록에 추가. 보유 수량 초과 시 false 반환
+    public bool TryPackItem(int itemId, int quantity) {
+        if (Inventory == null || quantity <= 0) return false;
+        InventoryItem item = Inventory.FirstOrDefault(i => i.item_id == itemId);
+        if (item == null) return false;
+        PackedItems.TryGetValue(itemId, out int alreadyPacked);
+        if (alreadyPacked + quantity > item.quantity) return false;
+        PackedItems[itemId] = alreadyPacked + quantity;
+        return true;
+    }
+
+    // 패킹 목록에서 아이템 제거
+    public void UnpackItem(int itemId, int quantity) {
+        if (!PackedItems.ContainsKey(itemId) || quantity <= 0) return;
+        PackedItems[itemId] -= quantity;
+        if (PackedItems[itemId] <= 0) PackedItems.Remove(itemId);
+    }
+
+    // 창고에서 사용 가능한 수량 (전체 보유량 - 패킹된 수량)
+    public int GetWarehouseQuantity(int itemId) {
+        if (Inventory == null) return 0;
+        InventoryItem item = Inventory.FirstOrDefault(i => i.item_id == itemId);
+        if (item == null) return 0;
+        PackedItems.TryGetValue(itemId, out int packed);
+        return item.quantity - packed;
+    }
+
+    // PackedItems를 MatchStartRequest용 배열로 변환
+    public EquippedItem[] ToEquippedItems() {
+        return PackedItems
+            .Select(kv => new EquippedItem { itemId = kv.Key, quantity = kv.Value })
+            .ToArray();
     }
 
     // ---------- Match Calls (Start Match, Check Status, Cancel Match, Connect) ----------
