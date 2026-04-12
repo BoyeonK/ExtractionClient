@@ -1,6 +1,7 @@
 using System.Threading;
 using UnityEngine;
 using UnityEngine.InputSystem;
+using UnityEngine.UI;
 
 public class TestLobbyScene : BaseScene {
     UI_TestStart _startUI;
@@ -8,6 +9,7 @@ public class TestLobbyScene : BaseScene {
     UI_Login _loginUI;
     UI_Register _registerUI;
     UI_Header _headerUI;
+
 
     private CancellationTokenSource _cts = new CancellationTokenSource();
 
@@ -32,6 +34,9 @@ public class TestLobbyScene : BaseScene {
         _loginUI = Managers.UI.CacheSceneUI<UI_Login>();
         _registerUI = Managers.UI.CacheSceneUI<UI_Register>();
         _headerUI = Managers.UI.ShowSceneUI<UI_Header>();
+        Transform dragGhostTrans = transform.Find("DragGhost");
+        if (dragGhostTrans != null) 
+            _dragGhost = dragGhostTrans.GetComponent<DragGhost>();
         Managers.Input.AddKeyListener(Key.Escape, OnEscapeInput, InputManager.KeyState.Up);
 
         // TODO : 최초 실행인지, 한 게임 종료 후 재실행인지에 따라 분기 처리
@@ -281,9 +286,33 @@ public class TestLobbyScene : BaseScene {
         });
     }
 
+    // ----------------------------------------------
+    // ---------- 드래그 앤 드롭 상태 관리 ----------
+    // ----------------------------------------------
+    ISlot _dragSourceSlot;
+    DragGhost _dragGhost;
+
+    public ISlot DragSource => _dragSourceSlot;
+
+    public void BeginDrag(ISlot source) {
+        _dragSourceSlot = source;
+        _dragGhost.BeginDrag(source);
+        UpdateDragPosition(Mouse.current.position.ReadValue());
+    }
+
+    public void UpdateDragPosition(Vector2 screenPos) {
+        _dragGhost.OnDrag(screenPos);
+    }
+
+    public void EndDrag() {
+        _dragGhost.EndDrag();
+        _dragSourceSlot = null;
+    }
+
     private void OnDestroy() {
         Managers.Input.RemoveKeyListener(Key.Escape, OnEscapeInput, InputManager.KeyState.Up);
         _cts.Cancel();
         _cts.Dispose();
+        EndDrag();
     }
 }

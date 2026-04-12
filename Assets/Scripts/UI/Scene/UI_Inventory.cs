@@ -1,4 +1,3 @@
-using NUnit.Framework;
 using System.Collections.Generic;
 using UnityEngine;
 
@@ -25,19 +24,37 @@ public class UI_Inventory : UI_Scene {
             Util.LogError("[UI_Inventory] ItemGrid 오브젝트를 찾을 수 없습니다.");
         }
 
-        // TODO :
-        // 1. islots의 크기만큼 List의 크기를 할당.
+        _inventoryItems = new List<InventoryItem>(new InventoryItem[_iSlots.Count]);
+        for (int i = 0; i < _iSlots.Count; i++)
+            _iSlots[i].Init(i, _scene);
 
         base.OnInitComplete();
     }
 
-    private void RefreshSlots( ) {
-        // TODO :
-        // 1. _inventoryItems 리스트를 순회하면서 순서대로 슬롯에 아이템 정보를 표시.
-        // 2. 슬롯이 비어있는 경우에는 빈 슬롯으로 표시
+    // 서버에서 받아온 아이템 목록으로 인벤토리를 채움
+    public void SetData(List<InventoryItem> items) {
+        for (int i = 0; i < _inventoryItems.Count; i++)
+            _inventoryItems[i] = i < items.Count ? items[i] : null;
+        RefreshSlots();
+    }
+
+    private void RefreshSlots() {
+        for (int i = 0; i < _iSlots.Count; i++) {
+            if (_inventoryItems[i] != null)
+                _iSlots[i].SetItem(_inventoryItems[i]);
+            else
+                _iSlots[i].ClearSlot();
+        }
+    }
+
+    // UI_Scene override — 드래그 앤 드롭으로 슬롯 데이터 교체
+    public override void SetItemAtSlot(int slotIndex, InventoryItem item) {
+        if (slotIndex < 0 || slotIndex >= _inventoryItems.Count) return;
+        _inventoryItems[slotIndex] = item;
+        RefreshSlots();
     }
 
     private void OnDestroy() {
-        
+
     }
 }
