@@ -36,7 +36,7 @@ public class HTTPManager {
     private const string _signupUrl = "api/signup";
     private const string _loginUrl = "api/login";
     private const string _guestLoginUrl = "api/guest";
-    private const string _inventoryUrl = "api/inventory";
+    private const string _inventoryUrl = "api/items/inventory";
 
     private const string _matchStartUrl = "api/game/match/start";
     private const string _matchStatusUrl = "api/game/match/status";

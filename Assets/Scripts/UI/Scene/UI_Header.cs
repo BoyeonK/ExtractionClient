@@ -159,7 +159,7 @@ public class UI_Header : UI_Scene {
     }
 
     private void OnClickLobbyBtn() {
-        _scene.ShowLobby();
+        _scene.BackToLobbyMain();
     }
 
     private void OnClickInventoryBtn() {

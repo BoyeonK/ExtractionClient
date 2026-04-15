@@ -1,3 +1,5 @@
+using System;
+using System.Collections.Generic;
 using System.Threading;
 using UnityEngine;
 using UnityEngine.InputSystem;
@@ -9,7 +11,13 @@ public class TestLobbyScene : BaseScene {
     UI_Login _loginUI;
     UI_Register _registerUI;
     UI_Header _headerUI;
+    UI_Inventory _inventoryUI;
+    UI_Warehouse _warehouseUI;
 
+    const int INVENTORY_SLOT_COUNT = 25;
+    const int WAREHOUSE_SLOT_COUNT = 80;
+    InventoryItem[] _inventorySlots = new InventoryItem[INVENTORY_SLOT_COUNT];
+    InventoryItem[] _warehouseSlots = new InventoryItem[WAREHOUSE_SLOT_COUNT];
 
     private CancellationTokenSource _cts = new CancellationTokenSource();
 
@@ -34,10 +42,11 @@ public class TestLobbyScene : BaseScene {
         _loginUI = Managers.UI.CacheSceneUI<UI_Login>();
         _registerUI = Managers.UI.CacheSceneUI<UI_Register>();
         _headerUI = Managers.UI.ShowSceneUI<UI_Header>();
-        Transform dragGhostTrans = transform.Find("DragGhost");
-        if (dragGhostTrans != null) 
-            _dragGhost = dragGhostTrans.GetComponent<DragGhost>();
+        _inventoryUI = Managers.UI.CacheSceneUI<UI_Inventory>();
+        _warehouseUI = Managers.UI.CacheSceneUI<UI_Warehouse>();
+        
         Managers.Input.AddKeyListener(Key.Escape, OnEscapeInput, InputManager.KeyState.Up);
+        InitDragGhost();
 
         // TODO : 최초 실행인지, 한 게임 종료 후 재실행인지에 따라 분기 처리
         _lobbyState = LobbyState.BeforeConnect;
@@ -135,6 +144,14 @@ public class TestLobbyScene : BaseScene {
         Managers.UI.DisableUI("UI_Login");
         Managers.UI.DisableUI("UI_Register");
         _headerUI.ApplyHeaderState(hState);
+
+        Array.Clear(_inventorySlots, 0, _inventorySlots.Length);
+        Array.Clear(_warehouseSlots, 0, _warehouseSlots.Length);
+        InventoryItem[] items = Managers.Network.httpManager.Inventory;
+        if (items != null) {
+            for (int i = 0; i < items.Length && i < WAREHOUSE_SLOT_COUNT; i++)
+                _warehouseSlots[i] = items[i];
+        }
     }
 
     public void OnClickSelectRegister() { 
@@ -209,6 +226,9 @@ public class TestLobbyScene : BaseScene {
         _userState = UserState.Main;
         _headerUI.ApplyHeaderState(UI_Header.HeaderState.BeforeAuth);
         Managers.UI.ShowSceneUI<UI_Auth>();
+
+        Array.Clear(_inventorySlots, 0, _inventorySlots.Length);
+        Array.Clear(_warehouseSlots, 0, _warehouseSlots.Length);
     }
 
     public void ShowLobby() {
@@ -222,6 +242,27 @@ public class TestLobbyScene : BaseScene {
         if (_lobbyState != LobbyState.Lobby || _userState == UserState.Inventory)
             return;
 
+        _userState = UserState.Inventory;
+        Managers.UI.ShowSceneUI<UI_Inventory>();
+        Managers.UI.ShowSceneUI<UI_Warehouse>();
+        _inventoryUI.SetData(new List<InventoryItem>(_inventorySlots));
+        _warehouseUI.SetData(new List<InventoryItem>(_warehouseSlots));
+    }
+
+    public void SyncSlot(UI_Scene ui, int slotIndex, InventoryItem item) {
+        if (ui is UI_Inventory && slotIndex >= 0 && slotIndex < INVENTORY_SLOT_COUNT)
+            _inventorySlots[slotIndex] = item;
+        else if (ui is UI_Warehouse && slotIndex >= 0 && slotIndex < WAREHOUSE_SLOT_COUNT)
+            _warehouseSlots[slotIndex] = item;
+    }
+
+    public void BackToLobbyMain() {
+        if (_lobbyState != LobbyState.Lobby || _userState == UserState.Main)
+            return;
+
+        _userState = UserState.Main;
+        Managers.UI.DisableUI("UI_Inventory");
+        Managers.UI.DisableUI("UI_Warehouse");
     }
 
     public void ShowShop() {
@@ -259,6 +300,8 @@ public class TestLobbyScene : BaseScene {
                 }
                 break;
             case LobbyState.Lobby:
+                if (_userState == UserState.Inventory)
+                    BackToLobbyMain();
                 break;
             case LobbyState.Matching:
                 break;
@@ -293,6 +336,14 @@ public class TestLobbyScene : BaseScene {
     DragGhost _dragGhost;
 
     public ISlot DragSource => _dragSourceSlot;
+
+    private void InitDragGhost() {
+        _dragGhost = UnityEngine.Object.FindAnyObjectByType<DragGhost>();
+
+        if (_dragGhost != null) {
+            _dragGhost.Init();
+        }
+    }
 
     public void BeginDrag(ISlot source) {
         _dragSourceSlot = source;

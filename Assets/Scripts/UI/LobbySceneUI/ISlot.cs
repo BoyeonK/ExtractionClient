@@ -55,9 +55,26 @@ public class ISlot : MonoBehaviour {
         ISlot source = _scene.DragSource;
         if (source == null || source == this) return;
 
-        // TODO : 다른종류의 아이템인 경우 교환. 같은 종류의 아이템인 경우 합치기
+        UI_Scene sourceUI = source.GetComponentInParent<UI_Scene>();
+        UI_Scene targetUI = GetComponentInParent<UI_Scene>();
+
         InventoryItem sourceItem = source.GetItem();
         InventoryItem targetItem = _item;
+
+        if (targetItem != null && targetItem.item_id == sourceItem.item_id) {
+            // 같은 품목: 수량 합산, source 슬롯 비움
+            targetItem.quantity += sourceItem.quantity;
+            sourceUI.SetItemAtSlot(source.SlotIndex, null);
+            targetUI.SetItemAtSlot(SlotIndex, targetItem);
+            _scene.SyncSlot(sourceUI, source.SlotIndex, null);
+            _scene.SyncSlot(targetUI, SlotIndex, targetItem);
+        } else {
+            // 다른 품목 or 빈 슬롯: swap
+            sourceUI.SetItemAtSlot(source.SlotIndex, targetItem);
+            targetUI.SetItemAtSlot(SlotIndex, sourceItem);
+            _scene.SyncSlot(sourceUI, source.SlotIndex, targetItem);
+            _scene.SyncSlot(targetUI, SlotIndex, sourceItem);
+        }
     }
 
     private void OnDestroy() {
