@@ -1,13 +1,15 @@
+using TMPro;
 using UnityEngine;
 using UnityEngine.EventSystems;
 using UnityEngine.UI;
 
 public class ISlot : MonoBehaviour {
-    InventoryItem _item = null;
-    int _slotIndex = -1;
-    TestLobbyScene _scene = null;
+    protected InventoryItem _item = null;
+    protected int _slotIndex = -1;
+    protected TestLobbyScene _scene = null;
     UI_EventHandler _eventHandler;
-    Image _iconImage;
+    protected Image _iconImage;
+    protected TextMeshProUGUI _quantity;
 
     public InventoryItem GetItem() => _item;
     public int SlotIndex => _slotIndex;
@@ -16,9 +18,15 @@ public class ISlot : MonoBehaviour {
         _slotIndex = index;
         _scene = scene;
         _eventHandler = GetComponent<UI_EventHandler>();
+        
         Transform fillTransform = transform.Find("Fill");
         if (fillTransform != null) {
             _iconImage = fillTransform.GetComponent<Image>();
+        }
+
+        Transform textTransform = transform.Find("Quantity");
+        if (textTransform != null) {
+            _quantity = textTransform.GetComponent<TextMeshProUGUI>();
         }
 
         _eventHandler.OnBeginDragHandler = OnBeginDrag;
@@ -40,6 +48,10 @@ public class ISlot : MonoBehaviour {
                 color.a = 1.0f;
                 _iconImage.color = color;
             }
+
+            if (_quantity != null) {
+                _quantity.text = _item.quantity >= 1 ? _item.quantity.ToString() : "";
+            }
         }
     }
 
@@ -47,6 +59,8 @@ public class ISlot : MonoBehaviour {
         _item = null;
         if (_iconImage != null)
             _iconImage.color = new Color(1f, 1f, 1f, 0f);
+        if (_quantity != null)
+            _quantity.text = "";
     }
 
     private void OnBeginDrag(PointerEventData eventData) {
@@ -65,9 +79,13 @@ public class ISlot : MonoBehaviour {
         _scene.EndDrag();
     }
 
+    protected virtual bool CanAcceptItem(InventoryItem item) => true;
+
     private void OnDrop(PointerEventData eventData) {
         ISlot source = _scene.DragSource;
         if (source == null || source == this) return;
+
+        if (!CanAcceptItem(source.GetItem())) return;
 
         UI_Scene sourceUI = source.GetComponentInParent<UI_Scene>();
         UI_Scene targetUI = GetComponentInParent<UI_Scene>();

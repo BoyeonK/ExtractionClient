@@ -16,8 +16,10 @@ public class TestLobbyScene : BaseScene {
 
     const int INVENTORY_SLOT_COUNT = 25;
     const int WAREHOUSE_SLOT_COUNT = 80;
+    const int LOADOUT_SLOT_COUNT = 3;
     InventoryItem[] _inventorySlots = new InventoryItem[INVENTORY_SLOT_COUNT];
     InventoryItem[] _warehouseSlots = new InventoryItem[WAREHOUSE_SLOT_COUNT];
+    InventoryItem[] _loadoutSlots   = new InventoryItem[LOADOUT_SLOT_COUNT];
 
     private CancellationTokenSource _cts = new CancellationTokenSource();
 
@@ -231,6 +233,7 @@ public class TestLobbyScene : BaseScene {
 
         Array.Clear(_inventorySlots, 0, _inventorySlots.Length);
         Array.Clear(_warehouseSlots, 0, _warehouseSlots.Length);
+        Array.Clear(_loadoutSlots,   0, _loadoutSlots.Length);
     }
 
     public void ShowLobby() {
@@ -248,14 +251,21 @@ public class TestLobbyScene : BaseScene {
         Managers.UI.ShowSceneUI<UI_Inventory>();
         Managers.UI.ShowSceneUI<UI_Warehouse>();
         _inventoryUI.SetData(new List<InventoryItem>(_inventorySlots));
+        _inventoryUI.SetLoadoutData(_loadoutSlots);
         _warehouseUI.SetData(new List<InventoryItem>(_warehouseSlots));
     }
 
     public void SyncSlot(UI_Scene ui, int slotIndex, InventoryItem item) {
-        if (ui is UI_Inventory && slotIndex >= 0 && slotIndex < INVENTORY_SLOT_COUNT)
-            _inventorySlots[slotIndex] = item;
-        else if (ui is UI_Warehouse && slotIndex >= 0 && slotIndex < WAREHOUSE_SLOT_COUNT)
+        if (ui is UI_Inventory) {
+            if (slotIndex >= UI_Inventory.LOADOUT_START) {
+                int li = slotIndex - UI_Inventory.LOADOUT_START;
+                if (li < LOADOUT_SLOT_COUNT) _loadoutSlots[li] = item;
+            } else if (slotIndex >= 0 && slotIndex < INVENTORY_SLOT_COUNT) {
+                _inventorySlots[slotIndex] = item;
+            }
+        } else if (ui is UI_Warehouse && slotIndex >= 0 && slotIndex < WAREHOUSE_SLOT_COUNT) {
             _warehouseSlots[slotIndex] = item;
+        }
     }
 
     public void BackToLobbyMain() {

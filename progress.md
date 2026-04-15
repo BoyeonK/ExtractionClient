@@ -1,6 +1,6 @@
 # 프로젝트 진행 상황
 
-> 최종 수정: 2026-04-11
+> 최종 수정: 2026-04-16
 > 장르: 멀티플레이어 Extraction 게임 (알파 단계)
 > 엔진: Unity 6000.4.0f1 / URP 17.4.0
 
@@ -34,7 +34,10 @@
 - [x] `UI_Register` — 회원가입 입력 화면
 - [x] `UI_Header` — 로그인 상태 표시 헤더 (BeforeAuth / Logined / Guest)
 - [x] `UI_OnlyConfirm`, `UI_ConfirmOrCancel` — 범용 팝업
-- [x] `UI_Inventory`, `UI_Warehouse` — 프리팹 및 슬롯 UI 구성 (껍데기 단계)
+- [x] `UI_Inventory`, `UI_Warehouse` — 슬롯 할당, 드래그 앤 드롭, 수량 표시, 데이터 바인딩
+- [x] `ISlot` / `LSlot` — 슬롯 컴포넌트 계층. LSlot은 로드아웃 전용(타입 제약)
+- [x] `ItemTypeHelper` — item_id 범위 기반 아이템 타입 판별
+- [x] 로드아웃 슬롯 (무기2 + 장비1) — UI_Inventory 내 별도 관리, TestLobbyScene에서 배열로 동기화
 
 ### 씬 / 게임 흐름
 - [x] `BaseScene` — EventSystem 자동 생성
@@ -49,7 +52,7 @@
 ### 로비 (Lobby 상태)
 - [ ] `ShowLobby()`, `ShowInventory()`, `ShowShop()` 내부 로직 비어 있음
 - [ ] `UserState` (Main / Inventory / Shop) 전환 UI 연결 안 됨
-- [ ] 인벤토리 / 창고 데이터 UI 연동 (API는 구현됨, 슬롯에 데이터 바인딩 필요)
+- [ ] 인벤토리 / 창고 탭 전환 버튼 연결 (Header → ShowInventory 호출 경로)
 - [ ] 상점 UI 미구현
 
 ### 매칭 (Matching 상태)
