@@ -226,6 +226,8 @@ public class TestLobbyScene : BaseScene {
         _userState = UserState.Main;
         _headerUI.ApplyHeaderState(UI_Header.HeaderState.BeforeAuth);
         Managers.UI.ShowSceneUI<UI_Auth>();
+        Managers.UI.DisableUI("UI_Inventory");
+        Managers.UI.DisableUI("UI_Warehouse");
 
         Array.Clear(_inventorySlots, 0, _inventorySlots.Length);
         Array.Clear(_warehouseSlots, 0, _warehouseSlots.Length);

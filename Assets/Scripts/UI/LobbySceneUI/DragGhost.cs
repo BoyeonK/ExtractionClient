@@ -21,7 +21,7 @@ public class DragGhost : MonoBehaviour {
 
     public void BeginDrag(ISlot slot) {
         //_img = slot.GetComponent<Image>();
-        Image slotImg = slot.transform.GetComponent<Image>();
+        Image slotImg = slot.GetIconImage();
         _img.sprite = slotImg.sprite;
 
         Color ghostColor = _img.color;

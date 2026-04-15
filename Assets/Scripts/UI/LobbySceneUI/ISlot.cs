@@ -16,7 +16,10 @@ public class ISlot : MonoBehaviour {
         _slotIndex = index;
         _scene = scene;
         _eventHandler = GetComponent<UI_EventHandler>();
-        _iconImage = GetComponent<Image>();
+        Transform fillTransform = transform.Find("Fill");
+        if (fillTransform != null) {
+            _iconImage = fillTransform.GetComponent<Image>();
+        }
 
         _eventHandler.OnBeginDragHandler = OnBeginDrag;
         _eventHandler.OnDragHandler = OnDrag;
@@ -26,9 +29,18 @@ public class ISlot : MonoBehaviour {
 
     public void SetItem(InventoryItem item) {
         _item = item;
-        // TODO: item_id 기반으로 아이콘 스프라이트 설정
-        if (_iconImage != null)
-            _iconImage.color = Color.white;
+        if (_iconImage != null && _item != null) {
+            string path = $"Images/Items/icon_item_{_item.item_id}";
+            Sprite iconSprite = Resources.Load<Sprite>(path);
+
+            if (iconSprite != null) {
+                _iconImage.sprite = iconSprite;
+                
+                Color color = _iconImage.color;
+                color.a = 1.0f;
+                _iconImage.color = color;
+            }
+        }
     }
 
     public void ClearSlot() {
@@ -41,6 +53,8 @@ public class ISlot : MonoBehaviour {
         if (_item == null) return;
         _scene.BeginDrag(this);
     }
+
+    public Image GetIconImage() => _iconImage;
 
     private void OnDrag(PointerEventData eventData) {
         _scene.UpdateDragPosition(eventData.position);
