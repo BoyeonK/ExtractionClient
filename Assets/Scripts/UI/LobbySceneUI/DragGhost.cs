@@ -13,8 +13,6 @@ public class DragGhost : MonoBehaviour {
         _dragGhostRectTrans = dragGhostTransform.GetComponent<RectTransform>();
         _img = dragGhostTransform.GetComponent<Image>();
 
-        Util.Log("DragGhost initialized");
-
         _img.raycastTarget = false;
         _img.sprite = null;
 
