@@ -435,7 +435,7 @@ public class HTTPManager {
             }
             else {
                 Managers.ExecuteAtMainThread(() => {
-                    Util.LogError($"매칭 취소 실패: {resData.message}");
+                    Util.LogError($"매칭 취소 실패: {resData.error?.message}");
                 });
                 return false;
             }
@@ -523,7 +523,7 @@ public class HTTPManager {
             }
             else {
                 Managers.ExecuteAtMainThread(() => {
-                    Util.LogError($"인게임 서버 접속 정보 획득 실패: {resData.message}");
+                    Util.LogError($"인게임 서버 접속 정보 획득 실패: {resData.error?.message}");
                     //_token = null;
                 });
                 return false;

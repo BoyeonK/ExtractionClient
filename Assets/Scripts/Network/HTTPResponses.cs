@@ -1,10 +1,16 @@
 using System;
 
 [Serializable]
+public class ErrorDetail {
+    public string message;
+    public string code;
+}
+
+[Serializable]
 public class BaseResponse {
     public bool success;
     public int code;
-    public string message;
+    public ErrorDetail error;
 }
 
 [Serializable]
@@ -21,6 +27,7 @@ public class VersionResponse : BaseResponse {
 [Serializable]
 public class InventoryItem {
     public int item_id;
+    public int slot_index;
     public int quantity;
 }
 
@@ -28,6 +35,7 @@ public class InventoryItem {
 public class AuthData {
     public string sessionId;
     public int uid;
+    public int money;
     public InventoryItem[] inventory;
 }
 

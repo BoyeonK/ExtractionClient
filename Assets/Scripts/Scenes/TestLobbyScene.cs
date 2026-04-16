@@ -151,8 +151,22 @@ public class TestLobbyScene : BaseScene {
         Array.Clear(_warehouseSlots, 0, _warehouseSlots.Length);
         InventoryItem[] items = Managers.Network.httpManager.Inventory;
         if (items != null) {
-            for (int i = 0; i < items.Length && i < WAREHOUSE_SLOT_COUNT; i++)
-                _warehouseSlots[i] = items[i];
+            foreach (var item in items) {
+                if (item.slot_index < 0) continue;
+
+                if (item.slot_index < WAREHOUSE_SLOT_COUNT) {
+                    _warehouseSlots[item.slot_index] = item;
+                } else {
+                    int invIndex = item.slot_index - WAREHOUSE_SLOT_COUNT;
+                    if (invIndex < INVENTORY_SLOT_COUNT) {
+                        _inventorySlots[invIndex] = item;
+                    } else {
+                        int loadoutIndex = invIndex - INVENTORY_SLOT_COUNT;
+                        if (loadoutIndex < LOADOUT_SLOT_COUNT)
+                            _loadoutSlots[loadoutIndex] = item;
+                    }
+                }
+            }
         }
     }
 
