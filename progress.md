@@ -31,10 +31,8 @@
 ## 진행 중 / 미완성
 
 ### 로비 (Lobby 상태)
-- [ ] `ShowLobby()`, `ShowInventory()`, `ShowShop()` 내부 로직 비어 있음
-- [ ] `UserState` (Main / Inventory / Shop) 전환 UI 연결 안 됨
-- [ ] 인벤토리 / 창고 탭 전환 버튼 연결 (Header → ShowInventory 호출 경로)
-- [ ] 상점 UI 미구현
+- [ ] 상점 UI 구현하기
+- [ ] 상점 이용 API 요청 및 Response처리
 
 ### 매칭 (Matching 상태)
 - [ ] `TryMatchMake()`, `ShowMapSelect()` 내부 로직 비어 있음
