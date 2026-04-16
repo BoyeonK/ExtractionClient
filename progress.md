@@ -17,11 +17,6 @@
 - [x] (2026-04-16) `FirstEmptySlot` / `HasEmptySlot` — UI_Inventory, UI_Warehouse에 구현
 - [x] (2026-04-16) Shift+클릭 수량 분할 — 인벤토리/창고 모두 지원
 
-### 씬 / 게임 흐름
-- [x] (2026-04-16) `TestLobbyScene` — `LobbyState` 상태 머신 (BeforeConnect → BeforeAuth → Lobby → Matching)
-- [x] (2026-04-16) ESC 키 흐름 전 단계 처리 (종료 팝업, 뒤로가기, 로그인 화면 복귀)
-- [x] (2026-04-16) 로그인 성공 / 실패 / 로그아웃 후 상태 전환
-
 ### 네트워크
 - [x] (2026-04-17) `http-api-spec.yaml` 변경사항 C# 동기화 — `ErrorDetail` 클래스 추가, `BaseResponse.message` → `error`, `InventoryItem`에 `slot_index` 추가, `AuthData`에 `money` 추가
 - [x] (2026-04-17) `TestLobbyScene` 인벤토리 로딩 로직 — `slot_index` 전역 범위 기반 배치 (0~79=창고, 80~104=인벤토리, 105~107=로드아웃)
