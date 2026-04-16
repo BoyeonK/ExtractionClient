@@ -968,6 +968,10 @@ PrefabInstance:
       propertyPath: m_Name
       value: DragGhost
       objectReference: {fileID: 0}
+    - target: {fileID: 5789450373307887295, guid: 1e64c647a481c5c4dba8f8b48ef11217, type: 3}
+      propertyPath: m_IsActive
+      value: 1
+      objectReference: {fileID: 0}
     - target: {fileID: 6416131704448088171, guid: 1e64c647a481c5c4dba8f8b48ef11217, type: 3}
       propertyPath: m_Pivot.x
       value: 0
