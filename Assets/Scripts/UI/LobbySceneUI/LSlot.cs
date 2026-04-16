@@ -6,6 +6,8 @@ public class LSlot : ISlot {
         _acceptedType = acceptedType;
     }
 
-    protected override bool CanAcceptItem(InventoryItem item) =>
+    public override bool CanAcceptItem(InventoryItem item) =>
         item != null && ItemTypeHelper.GetType(item.item_id) == _acceptedType;
+
+    protected override bool CanMerge(InventoryItem item) => false;
 }

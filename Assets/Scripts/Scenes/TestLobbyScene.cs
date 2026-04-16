@@ -250,22 +250,35 @@ public class TestLobbyScene : BaseScene {
         _userState = UserState.Inventory;
         Managers.UI.ShowSceneUI<UI_Inventory>();
         Managers.UI.ShowSceneUI<UI_Warehouse>();
-        _inventoryUI.SetData(new List<InventoryItem>(_inventorySlots));
-        _inventoryUI.SetLoadoutData(_loadoutSlots);
-        _warehouseUI.SetData(new List<InventoryItem>(_warehouseSlots));
+        _inventoryUI.Refresh();
+        _warehouseUI.Refresh();
     }
 
-    public void SyncSlot(UI_Scene ui, int slotIndex, InventoryItem item) {
-        if (ui is UI_Inventory) {
-            if (slotIndex >= UI_Inventory.LOADOUT_START) {
-                int li = slotIndex - UI_Inventory.LOADOUT_START;
-                if (li < LOADOUT_SLOT_COUNT) _loadoutSlots[li] = item;
-            } else if (slotIndex >= 0 && slotIndex < INVENTORY_SLOT_COUNT) {
-                _inventorySlots[slotIndex] = item;
-            }
-        } else if (ui is UI_Warehouse && slotIndex >= 0 && slotIndex < WAREHOUSE_SLOT_COUNT) {
-            _warehouseSlots[slotIndex] = item;
+    public InventoryItem[] InventorySlots => _inventorySlots;
+    public InventoryItem[] LoadoutSlots   => _loadoutSlots;
+    public InventoryItem[] WarehouseSlots => _warehouseSlots;
+
+    public bool IsShiftPressed {
+        get {
+            if (Keyboard.current == null) return false;
+            
+            return Keyboard.current.shiftKey.isPressed; 
         }
+    }
+
+    public void SetInventorySlot(int index, InventoryItem item) {
+        if (index >= 0 && index < INVENTORY_SLOT_COUNT)
+            _inventorySlots[index] = item;
+    }
+
+    public void SetLoadoutSlot(int index, InventoryItem item) {
+        if (index >= 0 && index < LOADOUT_SLOT_COUNT)
+            _loadoutSlots[index] = item;
+    }
+
+    public void SetWarehouseSlot(int index, InventoryItem item) {
+        if (index >= 0 && index < WAREHOUSE_SLOT_COUNT)
+            _warehouseSlots[index] = item;
     }
 
     public void BackToLobbyMain() {
@@ -354,6 +367,43 @@ public class TestLobbyScene : BaseScene {
 
         if (_dragGhost != null) {
             _dragGhost.Init();
+        }
+    }
+
+    public void OnSlotClick(ISlot slot) {
+        if (!IsShiftPressed) return;
+        if (slot is LSlot) return;
+
+        InventoryItem item = slot.GetItem();
+        if (item == null || item.quantity < 2) return;
+
+        UI_Scene ui = slot.GetComponentInParent<UI_Scene>();
+
+        if (ui is UI_Inventory) {
+            ISlot emptySlot = _inventoryUI.FirstEmptySlot;
+            if (emptySlot == null) return;
+
+            int smaller = item.quantity / 2;
+            int larger  = item.quantity - smaller;
+
+            item.quantity = larger;
+            _inventoryUI.SetItemAtSlot(slot.SlotIndex, item);
+
+            InventoryItem splitItem = new InventoryItem { item_id = item.item_id, quantity = smaller };
+            _inventoryUI.SetItemAtSlot(emptySlot.SlotIndex, splitItem);
+        }
+        else if (ui is UI_Warehouse) {
+            ISlot emptySlot = _warehouseUI.FirstEmptySlot;
+            if (emptySlot == null) return;
+
+            int smaller = item.quantity / 2;
+            int larger  = item.quantity - smaller;
+
+            item.quantity = larger;
+            _warehouseUI.SetItemAtSlot(slot.SlotIndex, item);
+
+            InventoryItem splitItem = new InventoryItem { item_id = item.item_id, quantity = smaller };
+            _warehouseUI.SetItemAtSlot(emptySlot.SlotIndex, splitItem);
         }
     }
 

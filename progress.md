@@ -8,39 +8,16 @@
 
 ## 완료된 것들
 
-### 인프라 / 매니저
-- [x] 싱글톤 매니저 허브 (`Managers.cs`) — Input, Network, Pool, Resource, UI, Scene, Sound, Setting
-- [x] 메인 스레드 브릿지 (`ExecuteAtMainThread` + `_jobQueue`)
-- [x] `ResourceManager`, `PoolManager`, `UIManager`, `SceneManagerEx`, `InputManager`
-
-### 네트워크
-- [x] HTTP 통신 기반 구조 (`HTTPManager`) — 정적 `HttpClient`, 5초 타임아웃, 세션 헤더
-- [x] HTTP API 명세서 작성 (`http-api-spec.yaml`, OpenAPI 3.0)
-- [x] 인증 전체 흐름 — 회원가입, 로그인, 게스트 로그인, 로그아웃 (서버 동작 확인)
-- [x] 로그인/회원가입 응답에서 인벤토리 데이터 수신 및 저장 (`HTTPManager.Inventory`)
-- [x] 인벤토리 조회 API 구현 — `GetInventoryCall` (`GET api/inventory`)
-- [x] 매칭 API 구현 — `StartMatchCall`, `CheckMatchStatusCall` (폴링), `CancelMatchCall`, `TryConnectCall`
-- [x] UDP 수신 스레드 + 안전한 종료 (`SocketException` 방식)
-- [x] 패킷 헤더 구조체 (`UDPHeader`, 13바이트) + Protobuf 직렬화 (`ExternalProtocol.cs`)
-- [x] UDP 에코 패킷 송수신 테스트 성공 (`C2DTestPkt` / `D2CTestPkt`)
-- [x] 세션/보안키 변수를 `HTTPManager`에서 단일 관리
-
 ### UI
-- [x] `UI_Base` → `UI_Scene` / `UI_Popup` 계층 구조
-- [x] `UIManager` — ShowSceneUI, ShowPopupUI, CacheSceneUI, DisableUI, EnableUI (SetActive 방식, Destroy 없음)
-- [x] `UI_TestStart` — 서버 연결 시도 화면
-- [x] `UI_Auth` — 로그인 / 회원가입 / 게스트 선택 화면
-- [x] `UI_Login` — 로그인 입력 화면
-- [x] `UI_Register` — 회원가입 입력 화면
-- [x] `UI_Header` — 로그인 상태 표시 헤더 (BeforeAuth / Logined / Guest)
-- [x] `UI_OnlyConfirm`, `UI_ConfirmOrCancel` — 범용 팝업
 - [x] `UI_Inventory`, `UI_Warehouse` — 슬롯 할당, 드래그 앤 드롭, 수량 표시, 데이터 바인딩
-- [x] `ISlot` / `LSlot` — 슬롯 컴포넌트 계층. LSlot은 로드아웃 전용(타입 제약)
+- [x] `ISlot` / `LSlot` — 슬롯 컴포넌트 계층. LSlot은 로드아웃 전용(타입 제약). Weapon/Equipment 수량 합산 전역 차단
 - [x] `ItemTypeHelper` — item_id 범위 기반 아이템 타입 판별
-- [x] 로드아웃 슬롯 (무기2 + 장비1) — UI_Inventory 내 별도 관리, TestLobbyScene에서 배열로 동기화
+- [x] 로드아웃 슬롯 (무기2 + 장비1) — UI_Inventory 내 별도 관리
+- [x] 인벤토리/창고 데이터 소유권 TestLobbyScene으로 이전 — UI는 뷰 역할만, SyncSlot 제거
+- [x] `FirstEmptySlot` / `HasEmptySlot` — UI_Inventory, UI_Warehouse에 구현
+- [x] Shift+클릭 수량 분할 — 인벤토리/창고 모두 지원
 
 ### 씬 / 게임 흐름
-- [x] `BaseScene` — EventSystem 자동 생성
 - [x] `TestLobbyScene` — `LobbyState` 상태 머신 (BeforeConnect → BeforeAuth → Lobby → Matching)
 - [x] ESC 키 흐름 전 단계 처리 (종료 팝업, 뒤로가기, 로그인 화면 복귀)
 - [x] 로그인 성공 / 실패 / 로그아웃 후 상태 전환
@@ -75,8 +52,7 @@
 
 ## 다음 작업 우선순위 (제안)
 
-1. **로비 UI 연결** — Header 버튼으로 인벤토리/창고 탭 전환, `UserState` 전환 구현
-2. **인벤토리/창고 UI 연동** — 슬롯에 `HTTPManager.Inventory` 데이터 바인딩
-3. **매칭 흐름 완성** — 맵 선택 → 매칭 시작 → 폴링 → 성공/취소 전환
-4. **인게임 씬 기초** — 씬 전환, 플레이어 오브젝트 스폰, 실제 게임 패킷 정의
-5. **에러 UX 개선** — 인증/네트워크 실패 시 팝업 메시지 표시
+1. **상점 기능** — Header 버튼으로 상점 탭으로 전환, 임의의 아이템 구매 API 구현.
+2. **매칭 흐름 완성** — 맵 선택 → 매칭 시작 → 폴링 → 성공/취소 전환
+3. **인게임 씬 기초** — 씬 전환, 플레이어 오브젝트 스폰, 실제 게임 패킷 정의
+4. **에러 UX 개선** — 인증/네트워크 실패 시 팝업 메시지 표시

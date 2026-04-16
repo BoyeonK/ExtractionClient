@@ -33,6 +33,7 @@ public class ISlot : MonoBehaviour {
         _eventHandler.OnDragHandler = OnDrag;
         _eventHandler.OnEndDragHandler = OnEndDrag;
         _eventHandler.OnDropHandler = OnDrop;
+        _eventHandler.OnClickHandler = OnClick;
     }
 
     public void SetItem(InventoryItem item) {
@@ -79,7 +80,15 @@ public class ISlot : MonoBehaviour {
         _scene.EndDrag();
     }
 
-    protected virtual bool CanAcceptItem(InventoryItem item) => true;
+    private void OnClick(PointerEventData eventData) {
+        _scene.OnSlotClick(this);
+    }
+
+    public virtual bool CanAcceptItem(InventoryItem item) => true;
+    protected virtual bool CanMerge(InventoryItem item) {
+        ItemType type = ItemTypeHelper.GetType(item.item_id);
+        return type != ItemType.Weapon && type != ItemType.Equipment;
+    }
 
     private void OnDrop(PointerEventData eventData) {
         ISlot source = _scene.DragSource;
@@ -93,19 +102,18 @@ public class ISlot : MonoBehaviour {
         InventoryItem sourceItem = source.GetItem();
         InventoryItem targetItem = _item;
 
-        if (targetItem != null && targetItem.item_id == sourceItem.item_id) {
+        if (targetItem != null && targetItem.item_id == sourceItem.item_id && CanMerge(sourceItem)) {
             // 같은 품목: 수량 합산, source 슬롯 비움
             targetItem.quantity += sourceItem.quantity;
             sourceUI.SetItemAtSlot(source.SlotIndex, null);
             targetUI.SetItemAtSlot(SlotIndex, targetItem);
-            _scene.SyncSlot(sourceUI, source.SlotIndex, null);
-            _scene.SyncSlot(targetUI, SlotIndex, targetItem);
         } else {
             // 다른 품목 or 빈 슬롯: swap
+            // source 슬롯도 target 아이템을 수용할 수 있는지 확인
+            if (targetItem != null && !source.CanAcceptItem(targetItem)) return;
+
             sourceUI.SetItemAtSlot(source.SlotIndex, targetItem);
             targetUI.SetItemAtSlot(SlotIndex, sourceItem);
-            _scene.SyncSlot(sourceUI, source.SlotIndex, targetItem);
-            _scene.SyncSlot(targetUI, SlotIndex, sourceItem);
         }
     }
 
