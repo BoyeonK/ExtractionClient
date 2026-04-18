@@ -28,6 +28,7 @@ public class HTTPManager {
     public string GuestId { get; private set; } = null;
     public string TicketId { get; private set; } = null;
     public InventoryItem[] Inventory { get; private set; } = null;
+    public int Money { get; private set; } = 0;
     public Dictionary<int, int> PackedItems { get; private set; } = new Dictionary<int, int>();
     private string _token = null;
 
@@ -37,6 +38,7 @@ public class HTTPManager {
     private const string _loginUrl = "api/login";
     private const string _guestLoginUrl = "api/guest";
     private const string _inventoryUrl = "api/items/inventory";
+    private const string _purchaseUrl = "api/items/purchase";
 
     private const string _matchStartUrl = "api/game/match/start";
     private const string _matchStatusUrl = "api/game/match/status";
@@ -154,6 +156,7 @@ public class HTTPManager {
             if (resData != null && resData.success) {
                 SessionId = resData.data.sessionId;
                 Uid = resData.data.uid;
+                Money = resData.data.money;
                 Inventory = resData.data.inventory;
                 AuthState = LoginState.Login;
 
@@ -197,6 +200,7 @@ public class HTTPManager {
             if (resData != null && resData.success) {
                 SessionId = resData.data.sessionId;
                 Uid = resData.data.uid;
+                Money = resData.data.money;
                 Inventory = resData.data.inventory;
                 AuthState = LoginState.Login;
 
@@ -271,6 +275,7 @@ public class HTTPManager {
                 SessionId = null;
                 GuestId = null;
                 Uid = 0;
+                Money = 0;
                 TicketId = null;
                 Inventory = null;
                 PackedItems.Clear();
@@ -304,6 +309,36 @@ public class HTTPManager {
             Inventory = resData.data.inventory;
             PackedItems.Clear();
             // TODO : 인벤토리 UI 새로고침 등 필요한 작업 실행하기
+            return true;
+        }
+        return false;
+    }
+
+    public async Task<bool> PostPurchaseCall(
+        int itemId, int slotIndex, int quantity,
+        InventoryItem[] inventorySnapshot,
+        CancellationToken cancelToken = default)
+    {
+        if (AuthState == LoginState.None) {
+            Managers.ExecuteAtMainThread(() => Util.LogWarning("로그인이 필요한 기능입니다."));
+            return false;
+        }
+
+        PurchaseRequest reqData = new PurchaseRequest {
+            item_id    = itemId,
+            slot_index = slotIndex,
+            quantity   = quantity,
+            inventory  = inventorySnapshot,
+        };
+        string jsonString = JsonUtility.ToJson(reqData);
+        string responseText = await SendRequestAsync(
+            HttpMethod.Post, _purchaseUrl, jsonString, true, cancelToken);
+        if (responseText == null) return false;
+
+        PurchaseResponse resData = JsonUtility.FromJson<PurchaseResponse>(responseText);
+        if (resData != null && resData.success) {
+            Money     = resData.data.money;
+            Inventory = resData.data.inventory;
             return true;
         }
         return false;

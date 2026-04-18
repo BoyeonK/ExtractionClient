@@ -36,10 +36,12 @@ This file provides guidance to Claude Code (claude.ai/code) when working with co
 - 정적 `HttpClient`, 타임아웃 5초, 베이스 URL은 `Gitignores.baseUrl`에서 가져옴
 - 인증이 필요한 요청은 `x-session-id` 헤더 포함
 - `Gitignores.cs`는 git에서 제외된 파일 — 서버 URL 등 민감 설정 관리. **베이스 URL 하드코딩 금지**
+- 주요 프로퍼티: `AuthState`, `SessionId`, `Uid`, `Inventory`, `Money`
 
 엔드포인트 전체 목록 및 요청/응답 스키마: `Assets/Scripts/Network/http-api-spec.yaml` (OpenAPI 3.0) 참고
 
 매칭 흐름: `StartMatchCall` → `CheckMatchStatusCall` 폴링 (WAITING → SUCCESS) → `TryConnectCall` → UDP 연결 시작
+구매 흐름: `TestLobbyScene.TryPurchase()` → 빈 슬롯 탐색(창고 우선) → 스냅샷 조립 → `PostPurchaseCall()` → `OnPurchaseComplete()`
 
 ### UDP (`UDPManager`)
 - 전용 백그라운드 수신 스레드(`UDP_Receive_Thread`) 사용
@@ -60,7 +62,7 @@ This file provides guidance to Claude Code (claude.ai/code) when working with co
 UI_Base (abstract)
 ├── UI_Scene    → Managers.UI.ShowSceneUI<T>() 로 표시
 │   ├── UI_TestStart, UI_Auth, UI_Login, UI_Register
-│   ├── UI_Header, UI_Inventory, UI_Warehouse
+│   ├── UI_Header, UI_Inventory, UI_Warehouse, UI_Shop
 └── UI_Popup    → Managers.UI.ShowPopupUI<T>() 로 표시
     ├── UI_OnlyConfirm, UI_ConfirmOrCancel
 ```

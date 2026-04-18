@@ -34,3 +34,14 @@ public class MatchCancelRequest {
 public class ConnectRequest {
     public string roomToken;
 }
+
+// ----------------------------------------------------
+// [Items] 아이템 구매 요청
+// ----------------------------------------------------
+[Serializable]
+public class PurchaseRequest {
+    public int item_id;
+    public int slot_index;
+    public int quantity;
+    public InventoryItem[] inventory;   // 현재 클라이언트 인벤토리 전체 스냅샷
+}

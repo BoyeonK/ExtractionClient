@@ -99,3 +99,14 @@ public class ConnectResponseData {
 public class ConnectResponse : BaseResponse {
     public ConnectResponseData data;
 }
+
+[Serializable]
+public class PurchaseData {
+    public int money;
+    public InventoryItem[] inventory;
+}
+
+[Serializable]
+public class PurchaseResponse : BaseResponse {
+    public PurchaseData data;
+}

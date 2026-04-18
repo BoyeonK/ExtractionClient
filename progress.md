@@ -9,25 +9,25 @@
 ## 완료된 것들
 
 ### UI
-- [x] (2026-04-16) `UI_Inventory`, `UI_Warehouse` — 슬롯 할당, 드래그 앤 드롭, 수량 표시, 데이터 바인딩
-- [x] (2026-04-16) `ISlot` / `LSlot` — 슬롯 컴포넌트 계층. LSlot은 로드아웃 전용(타입 제약). Weapon/Equipment 수량 합산 전역 차단
-- [x] (2026-04-16) `ItemTypeHelper` — item_id 범위 기반 아이템 타입 판별
 - [x] (2026-04-16) 로드아웃 슬롯 (무기2 + 장비1) — UI_Inventory 내 별도 관리
 - [x] (2026-04-16) 인벤토리/창고 데이터 소유권 TestLobbyScene으로 이전 — UI는 뷰 역할만, SyncSlot 제거
 - [x] (2026-04-16) `FirstEmptySlot` / `HasEmptySlot` — UI_Inventory, UI_Warehouse에 구현
 - [x] (2026-04-16) Shift+클릭 수량 분할 — 인벤토리/창고 모두 지원
+- [x] (2026-04-17) `UI_Shop.cs` 최소 구현 — `UI_Scene` 상속, `RequestPurchase(itemId, quantity)` 진입점 제공
 
 ### 네트워크
 - [x] (2026-04-17) `http-api-spec.yaml` 변경사항 C# 동기화 — `ErrorDetail` 클래스 추가, `BaseResponse.message` → `error`, `InventoryItem`에 `slot_index` 추가, `AuthData`에 `money` 추가
 - [x] (2026-04-17) `TestLobbyScene` 인벤토리 로딩 로직 — `slot_index` 전역 범위 기반 배치 (0~79=창고, 80~104=인벤토리, 105~107=로드아웃)
+- [x] (2026-04-17) `PurchaseRequest` / `PurchaseData` / `PurchaseResponse` 데이터 클래스 추가
+- [x] (2026-04-17) `HTTPManager.PostPurchaseCall()` 구현 — 인벤토리 스냅샷 전송, Money/Inventory 갱신. `Money` 프로퍼티 추가 및 로그인·로그아웃 동기화
+- [x] (2026-04-17) `TestLobbyScene` 상점 상태 처리 완성 — `ShowShop()`, `TryPurchase()`, `OnPurchaseComplete()`, 창고 우선 빈 슬롯 탐색(`FindEmptyPurchaseSlotIndex`), 스냅샷 조립(`BuildInventorySnapshot`)
 
 ---
 
 ## 진행 중 / 미완성
 
 ### 로비 (Lobby 상태)
-- [ ] 상점 UI 구현하기
-- [ ] 상점 이용 API 요청 및 Response처리
+- [ ] 상점 UI 본격 구현 — 판매 아이템 목록 표시, 구매 수량 입력, 잔액 표시 (UI_Shop 스크립트는 진입점만 존재)
 
 ### 매칭 (Matching 상태)
 - [ ] `TryMatchMake()`, `ShowMapSelect()` 내부 로직 비어 있음
