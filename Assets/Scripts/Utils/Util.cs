@@ -60,4 +60,19 @@ public class Util {
 
         return null;
     }
+
+    public static T BindComponent<T>(string path, GameObject go) where T : UnityEngine.Component {
+        Transform t = go.transform.Find(path);
+        if (t != null) {
+            T component = t.GetComponent<T>();
+            if (component != null) {
+                return component;
+            }
+            Util.LogError($"[{go.name}] '{path}' 오브젝트는 찾았지만, {typeof(T).Name} 컴포넌트가 없습니다!");
+            return null;
+        } 
+        
+        Util.LogError($"[{go.name}] '{path}' 경로의 오브젝트를 아예 찾을 수 없습니다!");
+        return null;
+    }
 }

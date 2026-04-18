@@ -2,6 +2,7 @@ using System;
 using System.Collections.Generic;
 using System.Threading;
 using UnityEngine;
+using UnityEngine.Diagnostics;
 using UnityEngine.InputSystem;
 using UnityEngine.UI;
 
@@ -13,6 +14,7 @@ public class TestLobbyScene : BaseScene {
     UI_Header _headerUI;
     UI_Inventory _inventoryUI;
     UI_Warehouse _warehouseUI;
+    LobbyReconfirmUI _lobbyReconfirmUI;
 
     const int INVENTORY_SLOT_COUNT = 25;
     const int WAREHOUSE_SLOT_COUNT = 80;
@@ -25,7 +27,6 @@ public class TestLobbyScene : BaseScene {
 
     LobbyState _lobbyState = LobbyState.BeforeConnect;
 
-    bool _isPopupOpened = false;
     HTTPManager.LoginState _loginState => Managers.Network.httpManager.AuthState;
 
     enum LobbyState {
@@ -46,7 +47,13 @@ public class TestLobbyScene : BaseScene {
         _headerUI = Managers.UI.ShowSceneUI<UI_Header>();
         _inventoryUI = Managers.UI.CacheSceneUI<UI_Inventory>();
         _warehouseUI = Managers.UI.CacheSceneUI<UI_Warehouse>();
-        
+
+        GameObject reconfirmObj = GameObject.Find("LobbyReconfirmUI");
+        if (reconfirmObj != null) {
+            _lobbyReconfirmUI = reconfirmObj.GetComponent<LobbyReconfirmUI>();
+            _lobbyReconfirmUI.Init();
+        }
+
         Managers.Input.AddKeyListener(Key.Escape, OnEscapeInput, InputManager.KeyState.Up);
         InitDragGhost();
 
@@ -91,16 +98,14 @@ public class TestLobbyScene : BaseScene {
     BeforeAuthState _beforeAuthState = BeforeAuthState.NoneSelected;
 
     public void BackToBeforeConnectPopup() {
-        if (_isPopupOpened == true || _lobbyState != LobbyState.BeforeAuth)
+        if (_lobbyState != LobbyState.BeforeAuth)
             return;
 
-        OnPopupOpened();
         Util.Log("TryConnectToServer 실행");
-        Managers.UI.ShowUIConfirmOrCancel("asdfasdf", BackToBeforeConnectState, OnPopupClosed);
+        _lobbyReconfirmUI.ActiveConfirmOrCancel("asdfasdf", BackToBeforeConnectState);
     }
 
     private void BackToBeforeConnectState() {
-        OnPopupClosed();
         if (_lobbyState != LobbyState.BeforeAuth) {
             return;
         }
@@ -219,15 +224,13 @@ public class TestLobbyScene : BaseScene {
     UserState _userState = UserState.Main;
 
     public void LogoutPopup() {
-        if (_isPopupOpened == true || _lobbyState != LobbyState.Lobby)
+        if (_lobbyState != LobbyState.Lobby)
             return;
 
-        OnPopupOpened();
-        Managers.UI.ShowUIConfirmOrCancel("Do you want to logout?", TryLogout, OnPopupClosed);
+        _lobbyReconfirmUI.ActiveConfirmOrCancel("Do you want to logout?", TryLogout);
     }
 
     public async void TryLogout() {
-        OnPopupClosed();
         bool isSuccess = await Managers.Network.httpManager.PostLogoutCall(_cts.Token);
         if (isSuccess == true) { 
             OnLogoutComplete();
@@ -244,6 +247,7 @@ public class TestLobbyScene : BaseScene {
         Managers.UI.ShowSceneUI<UI_Auth>();
         Managers.UI.DisableUI("UI_Inventory");
         Managers.UI.DisableUI("UI_Warehouse");
+        Managers.UI.DisableUI("UI_Shop");
 
         Array.Clear(_inventorySlots, 0, _inventorySlots.Length);
         Array.Clear(_warehouseSlots, 0, _warehouseSlots.Length);
@@ -302,12 +306,78 @@ public class TestLobbyScene : BaseScene {
         _userState = UserState.Main;
         Managers.UI.DisableUI("UI_Inventory");
         Managers.UI.DisableUI("UI_Warehouse");
+        Managers.UI.DisableUI("UI_Shop");
     }
 
     public void ShowShop() {
         if (_lobbyState != LobbyState.Lobby || _userState == UserState.Shop)
             return;
 
+        _userState = UserState.Shop;
+        Managers.UI.ShowSceneUI<UI_Shop>();
+    }
+
+    public async void TryPurchase(int itemId, int quantity) {
+        int slotIndex = FindEmptyPurchaseSlotIndex();
+        if (slotIndex < 0) {
+            Util.LogWarning("창고와 인벤토리가 모두 가득 찼습니다.");
+            return;
+        }
+        InventoryItem[] snapshot = BuildInventorySnapshot();
+        bool isSuccess = await Managers.Network.httpManager.PostPurchaseCall(
+            itemId, slotIndex, quantity, snapshot, _cts.Token);
+        if (isSuccess)
+            OnPurchaseComplete();
+    }
+
+    private void OnPurchaseComplete() {
+        Array.Clear(_inventorySlots, 0, _inventorySlots.Length);
+        Array.Clear(_warehouseSlots, 0, _warehouseSlots.Length);
+        Array.Clear(_loadoutSlots,   0, _loadoutSlots.Length);
+        InventoryItem[] items = Managers.Network.httpManager.Inventory;
+        if (items != null) {
+            foreach (var item in items) {
+                if (item.slot_index < 0) continue;
+                if (item.slot_index < WAREHOUSE_SLOT_COUNT)
+                    _warehouseSlots[item.slot_index] = item;
+                else {
+                    int invIndex = item.slot_index - WAREHOUSE_SLOT_COUNT;
+                    if (invIndex < INVENTORY_SLOT_COUNT)
+                        _inventorySlots[invIndex] = item;
+                    else {
+                        int loadoutIndex = invIndex - INVENTORY_SLOT_COUNT;
+                        if (loadoutIndex < LOADOUT_SLOT_COUNT)
+                            _loadoutSlots[loadoutIndex] = item;
+                    }
+                }
+            }
+        }
+    }
+
+    private int FindEmptyPurchaseSlotIndex() {
+        for (int i = 0; i < WAREHOUSE_SLOT_COUNT; i++) {
+            if (_warehouseSlots[i] == null)
+                return i;
+        }
+        for (int i = 0; i < INVENTORY_SLOT_COUNT; i++) {
+            if (_inventorySlots[i] == null)
+                return WAREHOUSE_SLOT_COUNT + i;
+        }
+        return -1;
+    }
+
+    private InventoryItem[] BuildInventorySnapshot() {
+        if (Managers.Network.httpManager.Inventory == null)
+            return new InventoryItem[0];
+
+        var list = new System.Collections.Generic.List<InventoryItem>();
+        for (int i = 0; i < WAREHOUSE_SLOT_COUNT; i++)
+            if (_warehouseSlots[i] != null) list.Add(_warehouseSlots[i]);
+        for (int i = 0; i < INVENTORY_SLOT_COUNT; i++)
+            if (_inventorySlots[i] != null) list.Add(_inventorySlots[i]);
+        for (int i = 0; i < LOADOUT_SLOT_COUNT; i++)
+            if (_loadoutSlots[i] != null) list.Add(_loadoutSlots[i]);
+        return list.ToArray();
     }
 
     public void ShowMapSelect() {
@@ -339,7 +409,7 @@ public class TestLobbyScene : BaseScene {
                 }
                 break;
             case LobbyState.Lobby:
-                if (_userState == UserState.Inventory)
+                if (_userState == UserState.Inventory || _userState == UserState.Shop)
                     BackToLobbyMain();
                 break;
             case LobbyState.Matching:
@@ -347,18 +417,11 @@ public class TestLobbyScene : BaseScene {
         }
     }
 
-    private void OnPopupOpened() { _isPopupOpened = true; }
-    private void OnPopupClosed() { _isPopupOpened = false; }
-
     private void QuitPopup() {
-        if (_isPopupOpened == true)
-            return;
-        OnPopupOpened();
-        Managers.UI.ShowUIConfirmOrCancel("Do you want to exit the game?", QuitGameApplication, OnPopupClosed);
+        _lobbyReconfirmUI.ActiveConfirmOrCancel("Do you want to exit the game?", QuitGameApplication);
     }
 
     private void QuitGameApplication() {
-        OnPopupClosed();
         Managers.ExecuteAtMainThread(() => {
 #if UNITY_EDITOR
             UnityEditor.EditorApplication.isPlaying = false;
