@@ -37,6 +37,7 @@ public class AuthData {
     public int uid;
     public int money;
     public InventoryItem[] inventory;
+    public int[] shopItems;
 }
 
 [Serializable]

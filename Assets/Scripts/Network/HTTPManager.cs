@@ -28,6 +28,7 @@ public class HTTPManager {
     public string GuestId { get; private set; } = null;
     public string TicketId { get; private set; } = null;
     public InventoryItem[] Inventory { get; private set; } = null;
+    public int[] ShopItems { get; private set; } = null;
     public int Money { get; private set; } = 0;
     public Dictionary<int, int> PackedItems { get; private set; } = new Dictionary<int, int>();
     private string _token = null;
@@ -158,6 +159,7 @@ public class HTTPManager {
                 Uid = resData.data.uid;
                 Money = resData.data.money;
                 Inventory = resData.data.inventory;
+                ShopItems = resData.data.shopItems;
                 AuthState = LoginState.Login;
 
                 // TODO : 인벤토리 UI 새로고침 등 필요한 작업 실행하기
@@ -202,6 +204,7 @@ public class HTTPManager {
                 Uid = resData.data.uid;
                 Money = resData.data.money;
                 Inventory = resData.data.inventory;
+                ShopItems = resData.data.shopItems;
                 AuthState = LoginState.Login;
 
                 // TODO : 인벤토리 UI 새로고침 등 필요한 작업 실행하기
@@ -278,6 +281,7 @@ public class HTTPManager {
                 Money = 0;
                 TicketId = null;
                 Inventory = null;
+                ShopItems = null;
                 PackedItems.Clear();
                 _token = null;
                 AuthState = LoginState.None;

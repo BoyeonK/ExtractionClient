@@ -1,6 +1,6 @@
 # 프로젝트 진행 상황
 
-> 최종 수정: 2026-04-17
+> 최종 수정: 2026-04-20
 > 장르: 멀티플레이어 Extraction 게임 (알파 단계)
 > 엔진: Unity 6000.4.0f1 / URP 17.4.0
 
@@ -9,7 +9,6 @@
 ## 완료된 것들
 
 ### UI
-- [x] (2026-04-16) 로드아웃 슬롯 (무기2 + 장비1) — UI_Inventory 내 별도 관리
 - [x] (2026-04-16) 인벤토리/창고 데이터 소유권 TestLobbyScene으로 이전 — UI는 뷰 역할만, SyncSlot 제거
 - [x] (2026-04-16) `FirstEmptySlot` / `HasEmptySlot` — UI_Inventory, UI_Warehouse에 구현
 - [x] (2026-04-16) Shift+클릭 수량 분할 — 인벤토리/창고 모두 지원
@@ -21,13 +20,14 @@
 - [x] (2026-04-17) `PurchaseRequest` / `PurchaseData` / `PurchaseResponse` 데이터 클래스 추가
 - [x] (2026-04-17) `HTTPManager.PostPurchaseCall()` 구현 — 인벤토리 스냅샷 전송, Money/Inventory 갱신. `Money` 프로퍼티 추가 및 로그인·로그아웃 동기화
 - [x] (2026-04-17) `TestLobbyScene` 상점 상태 처리 완성 — `ShowShop()`, `TryPurchase()`, `OnPurchaseComplete()`, 창고 우선 빈 슬롯 탐색(`FindEmptyPurchaseSlotIndex`), 스냅샷 조립(`BuildInventorySnapshot`)
+- [x] (2026-04-20) `http-api-spec.yaml` `AuthData.shopItems` 동기화 — `AuthData`에 `int[] shopItems` 추가, `HTTPManager.ShopItems` 프로퍼티 추가, 로그인·회원가입 수신 시 저장, 로그아웃 시 초기화
 
 ---
 
 ## 진행 중 / 미완성
 
 ### 로비 (Lobby 상태)
-- [ ] 상점 UI 본격 구현 — 판매 아이템 목록 표시, 구매 수량 입력, 잔액 표시 (UI_Shop 스크립트는 진입점만 존재)
+- [ ] 상점 UI 본격 구현 — `Managers.Network.http.ShopItems`로 판매 목록 수신 완료, 아이템 목록 표시·구매 수량 입력·잔액 표시 구현 필요 (UI_Shop 스크립트는 진입점만 존재)
 
 ### 매칭 (Matching 상태)
 - [ ] `TryMatchMake()`, `ShowMapSelect()` 내부 로직 비어 있음

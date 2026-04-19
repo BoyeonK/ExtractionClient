@@ -36,7 +36,7 @@ This file provides guidance to Claude Code (claude.ai/code) when working with co
 - 정적 `HttpClient`, 타임아웃 5초, 베이스 URL은 `Gitignores.baseUrl`에서 가져옴
 - 인증이 필요한 요청은 `x-session-id` 헤더 포함
 - `Gitignores.cs`는 git에서 제외된 파일 — 서버 URL 등 민감 설정 관리. **베이스 URL 하드코딩 금지**
-- 주요 프로퍼티: `AuthState`, `SessionId`, `Uid`, `Inventory`, `Money`
+- 주요 프로퍼티: `AuthState`, `SessionId`, `Uid`, `Inventory`, `Money`, `ShopItems`
 
 엔드포인트 전체 목록 및 요청/응답 스키마: `Assets/Scripts/Network/http-api-spec.yaml` (OpenAPI 3.0) 참고
 
