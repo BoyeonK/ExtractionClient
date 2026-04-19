@@ -35,8 +35,6 @@ public class SSlot : MonoBehaviour {
             _iconImage.color = color;
         }
         _priceTxt.text = _price.ToString();
-
-        ActiveThis();
     }
 
     private void OnClick(PointerEventData eventData) {

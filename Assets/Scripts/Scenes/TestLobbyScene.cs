@@ -14,6 +14,7 @@ public class TestLobbyScene : BaseScene {
     UI_Header _headerUI;
     UI_Inventory _inventoryUI;
     UI_Warehouse _warehouseUI;
+    UI_Shop _shopUI;
     LobbyReconfirmUI _lobbyReconfirmUI;
 
     const int INVENTORY_SLOT_COUNT = 25;
@@ -47,6 +48,7 @@ public class TestLobbyScene : BaseScene {
         _headerUI = Managers.UI.ShowSceneUI<UI_Header>();
         _inventoryUI = Managers.UI.CacheSceneUI<UI_Inventory>();
         _warehouseUI = Managers.UI.CacheSceneUI<UI_Warehouse>();
+        _shopUI = Managers.UI.CacheSceneUI<UI_Shop>();
 
         GameObject reconfirmObj = GameObject.Find("LobbyReconfirmUI");
         if (reconfirmObj != null) {
@@ -173,6 +175,8 @@ public class TestLobbyScene : BaseScene {
                 }
             }
         }
+
+        _shopUI.GetShopItems();
     }
 
     public void OnClickSelectRegister() { 
@@ -268,6 +272,7 @@ public class TestLobbyScene : BaseScene {
         _userState = UserState.Inventory;
         Managers.UI.ShowSceneUI<UI_Inventory>();
         Managers.UI.ShowSceneUI<UI_Warehouse>();
+        Managers.UI.DisableUI("UI_Shop");
         _inventoryUI.Refresh();
         _warehouseUI.Refresh();
     }
@@ -314,7 +319,12 @@ public class TestLobbyScene : BaseScene {
             return;
 
         _userState = UserState.Shop;
+
+        Managers.UI.DisableUI("UI_Inventory");
+        Managers.UI.ShowSceneUI<UI_Warehouse>();
         Managers.UI.ShowSceneUI<UI_Shop>();
+        _warehouseUI.Refresh();
+        _shopUI.Refresh();
     }
 
     public async void TryPurchase(int itemId, int quantity) {
