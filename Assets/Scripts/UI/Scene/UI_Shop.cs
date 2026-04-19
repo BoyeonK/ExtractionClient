@@ -56,6 +56,10 @@ public class UI_Shop : UI_Scene {
         for (int i = 0; i < _sSlots.Count; i++)
             _sSlots[i].Init(this);
 
+        _plusBtn.OnClickHandler += (e) => OnPlusBtnClick();
+        _minusBtn.OnClickHandler += (e) => OnMinusBtnClick();
+        _buyBtn.OnClickHandler += (e) => OnBuyBtnClick();
+
         base.OnInitComplete();
     }
 
@@ -67,6 +71,8 @@ public class UI_Shop : UI_Scene {
         }
         for(int i=count; i < _sSlots.Count; i++)
             _sSlots[i].DeactiveThis();
+
+        _myMoney.text = Managers.Network.httpManager.Money.ToString();
     }
 
     public void GetShopItems() {
@@ -77,10 +83,19 @@ public class UI_Shop : UI_Scene {
         }
     }
 
-    private void ResetDetailPanel() { 
-        // TODO :
-        // 1. ItemPreview를 ReDraw
-        // 2. 나머지 DetailPanel의 값을 초기화함.
+    private void ResetDetailPanel() {
+        string path = $"Images/Items/icon_item_{_selectedItemId}";
+        Sprite sprite = Resources.Load<Sprite>(path);
+        if (sprite != null) {
+            _selectedItemImage.sprite = sprite;
+            Color color = _selectedItemImage.color;
+            color.a = 1.0f;
+            _selectedItemImage.color = color;
+        }
+
+        _quantity = 1;
+        _quantityTxt.text = "1";
+        _totalPrice.text = _selectedItemPrice.ToString();
     }
 
     // --------------------------------------------------
@@ -96,14 +111,21 @@ public class UI_Shop : UI_Scene {
 
 
     private void OnPlusBtnClick() {
-
+        if (_quantity >= 99) return;
+        _quantity++;
+        _quantityTxt.text = _quantity.ToString();
+        _totalPrice.text = (_selectedItemPrice * _quantity).ToString();
     }
 
     private void OnMinusBtnClick() {
-
+        if (_quantity <= 1) return;
+        _quantity--;
+        _quantityTxt.text = _quantity.ToString();
+        _totalPrice.text = (_selectedItemPrice * _quantity).ToString();
     }
 
     private void OnBuyBtnClick() {
+        if (_selectedItemId == -1) return;
         _scene.TryPurchase(_selectedItemId, _quantity);
     }
 }
