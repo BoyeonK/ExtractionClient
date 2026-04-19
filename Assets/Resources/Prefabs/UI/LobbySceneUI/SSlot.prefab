@@ -224,6 +224,7 @@ GameObject:
   - component: {fileID: 1753213353225908949}
   - component: {fileID: 2999372132113635413}
   - component: {fileID: 3381498311264876318}
+  - component: {fileID: 9131398736715824843}
   m_Layer: 0
   m_Name: SSlot
   m_TagString: Untagged
@@ -302,3 +303,15 @@ MonoBehaviour:
   m_Script: {fileID: 11500000, guid: 931ab91503972e54985c1eef6308ba5a, type: 3}
   m_Name: 
   m_EditorClassIdentifier: Assembly-CSharp::SSlot
+--- !u!114 &9131398736715824843
+MonoBehaviour:
+  m_ObjectHideFlags: 0
+  m_CorrespondingSourceObject: {fileID: 0}
+  m_PrefabInstance: {fileID: 0}
+  m_PrefabAsset: {fileID: 0}
+  m_GameObject: {fileID: 3349369923644801383}
+  m_Enabled: 1
+  m_EditorHideFlags: 0
+  m_Script: {fileID: 11500000, guid: 9262eaf6e8b234640a055af6ff165f51, type: 3}
+  m_Name: 
+  m_EditorClassIdentifier: Assembly-CSharp::UI_EventHandler

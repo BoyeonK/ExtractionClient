@@ -127,6 +127,7 @@ GameObject:
   - component: {fileID: 4461632141847227868}
   - component: {fileID: 4453736252310303604}
   - component: {fileID: 2344783615060245382}
+  - component: {fileID: 1992681521242849265}
   m_Layer: 0
   m_Name: UI_Shop
   m_TagString: Untagged
@@ -218,6 +219,18 @@ MonoBehaviour:
   m_BlockingMask:
     serializedVersion: 2
     m_Bits: 4294967295
+--- !u!114 &1992681521242849265
+MonoBehaviour:
+  m_ObjectHideFlags: 0
+  m_CorrespondingSourceObject: {fileID: 0}
+  m_PrefabInstance: {fileID: 0}
+  m_PrefabAsset: {fileID: 0}
+  m_GameObject: {fileID: 304453961314060896}
+  m_Enabled: 1
+  m_EditorHideFlags: 0
+  m_Script: {fileID: 11500000, guid: 8f7436e47c8045d4eb603e98062eea99, type: 3}
+  m_Name: 
+  m_EditorClassIdentifier: Assembly-CSharp::UI_Shop
 --- !u!1 &392024672709413071
 GameObject:
   m_ObjectHideFlags: 0

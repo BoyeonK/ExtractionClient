@@ -2,7 +2,7 @@ using UnityEngine;
 using UnityEngine.UI;
 using System.Collections.Generic;
 
-public class UI_Warehouse : UI_Scene {
+public class UI_Warehouse : UI_ItemRepo {
     TestLobbyScene _scene;
 
     enum SelectedTab {

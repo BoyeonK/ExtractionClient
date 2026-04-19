@@ -28,7 +28,7 @@ public class HTTPManager {
     public string GuestId { get; private set; } = null;
     public string TicketId { get; private set; } = null;
     public InventoryItem[] Inventory { get; private set; } = null;
-    public int[] ShopItems { get; private set; } = null;
+    public ShopItem[] ShopItems { get; private set; } = null;
     public int Money { get; private set; } = 0;
     public Dictionary<int, int> PackedItems { get; private set; } = new Dictionary<int, int>();
     private string _token = null;

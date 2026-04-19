@@ -32,12 +32,18 @@ public class InventoryItem {
 }
 
 [Serializable]
+public class ShopItem {
+    public int item_id;
+    public int price;
+}
+
+[Serializable]
 public class AuthData {
     public string sessionId;
     public int uid;
     public int money;
     public InventoryItem[] inventory;
-    public int[] shopItems;
+    public ShopItem[] shopItems;
 }
 
 [Serializable]

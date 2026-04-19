@@ -1,7 +1,7 @@
 using System.Collections.Generic;
 using UnityEngine;
 
-public class UI_Inventory : UI_Scene {
+public class UI_Inventory : UI_ItemRepo {
     TestLobbyScene _scene;
 
     List<ISlot> _iSlots = new();

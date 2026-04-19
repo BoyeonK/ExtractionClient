@@ -96,8 +96,8 @@ public class ISlot : MonoBehaviour {
 
         if (!CanAcceptItem(source.GetItem())) return;
 
-        UI_Scene sourceUI = source.GetComponentInParent<UI_Scene>();
-        UI_Scene targetUI = GetComponentInParent<UI_Scene>();
+        UI_ItemRepo sourceUI = source.GetComponentInParent<UI_ItemRepo>();
+        UI_ItemRepo targetUI = GetComponentInParent<UI_ItemRepo>();
 
         InventoryItem sourceItem = source.GetItem();
         InventoryItem targetItem = _item;
