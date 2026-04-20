@@ -9,7 +9,6 @@
 ## 완료된 것들
 
 ### UI
-- [x] (2026-04-20) `UI_Shop.cs` 핵심 기능 완성 — `ResetDetailPanel()` 구현(아이콘 갱신), +/- 수량 조절(1~99), 버튼 이벤트 연결, `_myMoney` 보유금액 표시, 구매 버튼 guard 추가
 - [x] (2026-04-20) Weapon/Equipment 구매 수량 고정 — 선택 시 수량 1 고정, +/- 버튼 `SetActive(false)` (`UI_Shop.ResetDetailPanel()`)
 - [x] (2026-04-20) 구매 후 UI 즉시 갱신 — `OnPurchaseComplete()`에 `_shopUI.Refresh()` / `_warehouseUI.Refresh()` / `_inventoryUI.Refresh()` 추가
 - [x] (2026-04-21) `LobbyReconfirmUI` 리팩토링 — `isActive` 플래그로 중복 팝업 방지, `LobbyConfirmOrCancel` + `lobbyOnlyConfirm` 하위 컴포넌트 관리, 프리팹 이름 단수화
@@ -17,6 +16,7 @@
 - [x] (2026-04-21) `UI_Login` / `UI_Register` 기본 구조 완성 — 닫기 버튼 / Reload 구현, `UI_Register` 이메일 InputField 제거 및 `ConfirmPasswordInputField` 추가
 - [x] (2026-04-21) Tab 키 포커스 순환 구현 — `UI_Login`: id ↔ password, `UI_Register`: id → password → confirmPassword → id
 - [x] (2026-04-21) Enter 키로 로그인 시도 구현 — `OnEnterInput()` → `BeforeAuthEnter()` → `_loginUI.OnEnterBtnPressOn()` 연결
+- [x] (2026-04-21) `UI_Register` 로그인 화면 이동 버튼 연결 — `BackToLoginButton` 바인딩 → `OnClickCloseBtn()` 호출로 Auth 화면으로 복귀
 
 ### 버그 수정
 - [x] (2026-04-20) `BuildInventorySnapshot()` slot_index 불일치 버그 수정 — 스냅샷 조립 시 배열 인덱스로 `slot_index`를 직접 계산해 덮어씀
@@ -25,9 +25,6 @@
 ---
 
 ## 진행 중 / 미완성
-
-### 로그인 및 회원가입 (BeforeAuth 상태)
-- [ ] (회원가입) 로그인칸으로 이동 UI 기능 연결하기
 
 ### 로비 (Lobby 상태)
 - [ ] 상점 상단의 탭 필터링 미구현 — `SelectedTab` enum 및 필드 존재하나 탭 버튼 이벤트 미연결, 슬롯 필터링 로직 없음
@@ -51,7 +48,6 @@
 
 ## 다음 작업 우선순위 (제안)
 
-1. **회원가입 UX 완성** — 로그인 화면 이동 버튼 연결
-2. **상점 내용 필터링** — 서버로부터 가져온 상점 아이템 리스트와 별개로 scene에서 표시할 리스트를 따로 관리.
-3. **한글 폰트 Atlas만들기** - 현재 사용하는 폰트가 한글을 지원하지 않음. 한글 폰트를 적용하고, 각종 UI에 영어로 적어놓았던 것들 한글로 바꾸기.
-4. **맵 선택 및 매치메이킹 진행** — UI부터 처음부터 만들어야 함.
+1. **상점 내용 필터링** — 서버로부터 가져온 상점 아이템 리스트와 별개로 scene에서 표시할 리스트를 따로 관리.
+2. **한글 폰트 Atlas만들기** - 현재 사용하는 폰트가 한글을 지원하지 않음. 한글 폰트를 적용하고, 각종 UI에 영어로 적어놓았던 것들 한글로 바꾸기.
+3. **맵 선택 및 매치메이킹 진행** — UI부터 처음부터 만들어야 함.

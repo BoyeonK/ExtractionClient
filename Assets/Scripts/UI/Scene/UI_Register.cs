@@ -11,6 +11,7 @@ public class UI_Register : UI_Scene {
 
     Button _registerButton;
     Button _closeButton;
+    Button _backToLoginBtn;
 
     bool _isTryingRegister = false;
 
@@ -25,10 +26,12 @@ public class UI_Register : UI_Scene {
         _passwordField = BindComponent<TMP_InputField>("RegisterPanel/PasswordInputField");
         _passwordField2 = BindComponent<TMP_InputField>("RegisterPanel/ConfirmPasswordInputField");
         _registerButton = BindComponent<Button>("RegisterPanel/RegisterButton");
+        _backToLoginBtn = BindComponent<Button>("RegisterPanel/BackToLoginButton");
         _closeButton = BindComponent<Button>("RegisterPanel/CloseButton");
 
         _registerButton.onClick.AddListener(OnClickRegisterBtn);
         _closeButton.onClick.AddListener(OnClickCloseBtn);
+        _backToLoginBtn.onClick.AddListener(OnClickCloseBtn);
 
         base.OnInitComplete();
     }
