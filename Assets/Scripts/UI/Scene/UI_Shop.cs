@@ -79,6 +79,7 @@ public class UI_Shop : UI_Scene {
 
     public void GetShopItems() {
         ShopItem[] itemList = Managers.Network.httpManager.ShopItems;
+        if (itemList == null) return;
         for (int i=0; i < itemList.Length; i++) {
             if (i >= _sSlots.Count) break;
             _sSlots[i].SetItem(itemList[i]);
