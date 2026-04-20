@@ -362,6 +362,10 @@ public class TestLobbyScene : BaseScene {
                 }
             }
         }
+
+        _shopUI.Refresh();
+        _warehouseUI.Refresh();
+        _inventoryUI.Refresh();
     }
 
     private int FindEmptyPurchaseSlotIndex() {
@@ -381,12 +385,21 @@ public class TestLobbyScene : BaseScene {
             return new InventoryItem[0];
 
         var list = new System.Collections.Generic.List<InventoryItem>();
-        for (int i = 0; i < WAREHOUSE_SLOT_COUNT; i++)
-            if (_warehouseSlots[i] != null) list.Add(_warehouseSlots[i]);
-        for (int i = 0; i < INVENTORY_SLOT_COUNT; i++)
-            if (_inventorySlots[i] != null) list.Add(_inventorySlots[i]);
-        for (int i = 0; i < LOADOUT_SLOT_COUNT; i++)
-            if (_loadoutSlots[i] != null) list.Add(_loadoutSlots[i]);
+        for (int i = 0; i < WAREHOUSE_SLOT_COUNT; i++) {
+            if (_warehouseSlots[i] == null) continue;
+            _warehouseSlots[i].slot_index = i;
+            list.Add(_warehouseSlots[i]);
+        }
+        for (int i = 0; i < INVENTORY_SLOT_COUNT; i++) {
+            if (_inventorySlots[i] == null) continue;
+            _inventorySlots[i].slot_index = WAREHOUSE_SLOT_COUNT + i;
+            list.Add(_inventorySlots[i]);
+        }
+        for (int i = 0; i < LOADOUT_SLOT_COUNT; i++) {
+            if (_loadoutSlots[i] == null) continue;
+            _loadoutSlots[i].slot_index = WAREHOUSE_SLOT_COUNT + INVENTORY_SLOT_COUNT + i;
+            list.Add(_loadoutSlots[i]);
+        }
         return list.ToArray();
     }
 
