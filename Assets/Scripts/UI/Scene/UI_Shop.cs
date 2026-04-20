@@ -33,6 +33,8 @@ public class UI_Shop : UI_Scene {
 
     public override void Init() {
         base.Init();
+        if (isInit) return;
+
         BaseScene scene = Managers.Scene.CurrentScene;
         if (scene is TestLobbyScene lobbyScene)
             _scene = lobbyScene;
@@ -96,6 +98,11 @@ public class UI_Shop : UI_Scene {
         _quantity = 1;
         _quantityTxt.text = "1";
         _totalPrice.text = _selectedItemPrice.ToString();
+
+        ItemType type = ItemTypeHelper.GetType(_selectedItemId);
+        bool canStack = type != ItemType.Weapon && type != ItemType.Equipment;
+        _plusBtn.gameObject.SetActive(canStack);
+        _minusBtn.gameObject.SetActive(canStack);
     }
 
     // --------------------------------------------------
