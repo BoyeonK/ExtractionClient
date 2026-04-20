@@ -9,6 +9,7 @@
 ## 완료된 것들
 
 ### UI
+- [x] (2026-04-21) 한글 폰트 Atlas 3종 생성 및 전체 UI 적용 — 모든 프리팹(UI_Header, UI_Shop, UI_Login, UI_Register, UI_Auth, UI_Inventory, UI_Warehouse, UI_TestStart, Popup 2종, 슬롯 프리팹 등)에 한글 폰트 적용 완료
 - [x] (2026-04-20) Weapon/Equipment 구매 수량 고정 — 선택 시 수량 1 고정, +/- 버튼 `SetActive(false)` (`UI_Shop.ResetDetailPanel()`)
 - [x] (2026-04-20) 구매 후 UI 즉시 갱신 — `OnPurchaseComplete()`에 `_shopUI.Refresh()` / `_warehouseUI.Refresh()` / `_inventoryUI.Refresh()` 추가
 - [x] (2026-04-21) `LobbyReconfirmUI` 리팩토링 — `isActive` 플래그로 중복 팝업 방지, `LobbyConfirmOrCancel` + `lobbyOnlyConfirm` 하위 컴포넌트 관리, 프리팹 이름 단수화
@@ -49,5 +50,4 @@
 ## 다음 작업 우선순위 (제안)
 
 1. **상점 내용 필터링** — 서버로부터 가져온 상점 아이템 리스트와 별개로 scene에서 표시할 리스트를 따로 관리.
-2. **한글 폰트 Atlas만들기** - 현재 사용하는 폰트가 한글을 지원하지 않음. 한글 폰트를 적용하고, 각종 UI에 영어로 적어놓았던 것들 한글로 바꾸기.
-3. **맵 선택 및 매치메이킹 진행** — UI부터 처음부터 만들어야 함.
+2. **맵 선택 및 매치메이킹 진행** — UI부터 처음부터 만들어야 함.
