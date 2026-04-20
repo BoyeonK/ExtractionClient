@@ -25,7 +25,7 @@ public class UI_Login : UI_Scene {
         _loginButton = BindComponent<Button>("LoginPanel/LoginButton");
         _closeButton = BindComponent<Button>("LoginPanel/CloseButton");
 
-        _loginButton.onClick.AddListener(OnClickLoginBtn);
+        _loginButton.onClick.AddListener(TryLogin);
         _closeButton.onClick.AddListener(OnClickCloseBtn);
 
         base.OnInitComplete();
@@ -35,7 +35,7 @@ public class UI_Login : UI_Scene {
         Init();
     }
 
-    private void OnClickLoginBtn() { 
+    private void TryLogin() { 
         string id = _idField.text;
         string password = _passwordField.text;
 
@@ -54,6 +54,20 @@ public class UI_Login : UI_Scene {
         _isTryingLogin = false;
         _idField.text = "";
         _passwordField.text = "";
+    }
+
+    public void OnTabBtnPressOn() {
+        if (_passwordField.isFocused) {
+            _idField.Select();
+            _idField.ActivateInputField();
+        } else {
+            _passwordField.Select();
+            _passwordField.ActivateInputField();
+        }
+    }
+
+    public void OnEnterBtnPressOn() {
+        TryLogin();
     }
 
     private void OnClickCloseBtn() {

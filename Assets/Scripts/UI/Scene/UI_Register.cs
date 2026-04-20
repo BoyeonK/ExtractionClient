@@ -58,6 +58,19 @@ public class UI_Register : UI_Scene {
         _passwordField2.text = "";
     }
 
+    public void OnTabBtnPressOn() {
+        if (_idField.isFocused) {
+            _passwordField.Select();
+            _passwordField.ActivateInputField();
+        } else if (_passwordField.isFocused) {
+            _passwordField2.Select();
+            _passwordField2.ActivateInputField();
+        } else {
+            _idField.Select();
+            _idField.ActivateInputField();
+        }
+    }
+
     private void OnClickCloseBtn() {
         _scene.BackToAuthNoneSelected();
     }

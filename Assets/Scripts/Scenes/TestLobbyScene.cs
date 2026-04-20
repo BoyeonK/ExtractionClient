@@ -57,6 +57,8 @@ public class TestLobbyScene : BaseScene {
         }
 
         Managers.Input.AddKeyListener(Key.Escape, OnEscapeInput, InputManager.KeyState.Up);
+        Managers.Input.AddKeyListener(Key.Enter, OnEnterInput, InputManager.KeyState.Up);
+        Managers.Input.AddKeyListener(Key.Tab, OnTabInput, InputManager.KeyState.Up);
         InitDragGhost();
 
         // TODO : 최초 실행인지, 한 게임 종료 후 재실행인지에 따라 분기 처리
@@ -143,6 +145,7 @@ public class TestLobbyScene : BaseScene {
             OnLoginComplete(UI_Header.HeaderState.Logined);
         } else {
             OnAuthRequestFinished();
+            _lobbyReconfirmUI.ActiveOnlyConfirm("Login Failed");
         }
     }
 
@@ -195,6 +198,7 @@ public class TestLobbyScene : BaseScene {
             OnLoginComplete(UI_Header.HeaderState.Logined);
         } else {
             OnAuthRequestFinished();
+            _lobbyReconfirmUI.ActiveOnlyConfirm("Register Failed");
         }
     }
 
@@ -208,6 +212,32 @@ public class TestLobbyScene : BaseScene {
             OnLoginComplete(UI_Header.HeaderState.Guest);
         } else {
             OnAuthRequestFinished();
+            _lobbyReconfirmUI.ActiveOnlyConfirm("Guest Login Failed");
+        }
+    }
+
+    private void BeforeAuthEnter() {
+        switch (_beforeAuthState) { 
+            case BeforeAuthState.NoneSelected:
+                break;
+            case BeforeAuthState.Login:
+                _loginUI.OnEnterBtnPressOn();
+                break;
+            case BeforeAuthState.Register:
+                break;
+        }
+    }
+
+    private void BeforeAuthTab() { 
+        switch (_beforeAuthState) { 
+            case BeforeAuthState.NoneSelected:
+                break;
+            case BeforeAuthState.Login:
+                _loginUI.OnTabBtnPressOn();
+                break;
+            case BeforeAuthState.Register:
+                _registerUI.OnTabBtnPressOn();
+                break;
         }
     }
 
@@ -440,6 +470,34 @@ public class TestLobbyScene : BaseScene {
         }
     }
 
+    public void OnTabInput() { 
+        switch (_lobbyState) {
+            case LobbyState.BeforeConnect:
+                break;
+            case LobbyState.BeforeAuth:
+                BeforeAuthTab();
+                break;
+            case LobbyState.Lobby:
+                break;
+            case LobbyState.Matching:
+                break;
+        }
+    }
+
+    public void OnEnterInput() { 
+        switch (_lobbyState) {
+            case LobbyState.BeforeConnect:
+                break;
+            case LobbyState.BeforeAuth:
+                BeforeAuthEnter();
+                break;
+            case LobbyState.Lobby:
+                break;
+            case LobbyState.Matching:
+                break;
+        }
+    }
+
     private void QuitPopup() {
         _lobbyReconfirmUI.ActiveConfirmOrCancel("Do you want to exit the game?", QuitGameApplication);
     }
@@ -524,6 +582,8 @@ public class TestLobbyScene : BaseScene {
 
     private void OnDestroy() {
         Managers.Input.RemoveKeyListener(Key.Escape, OnEscapeInput, InputManager.KeyState.Up);
+        Managers.Input.RemoveKeyListener(Key.Enter, OnEnterInput, InputManager.KeyState.Up);
+        Managers.Input.RemoveKeyListener(Key.Tab, OnTabInput, InputManager.KeyState.Up);
         _cts.Cancel();
         _cts.Dispose();
         EndDrag();

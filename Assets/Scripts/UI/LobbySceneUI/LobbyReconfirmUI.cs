@@ -26,7 +26,7 @@ public class LobbyReconfirmUI : MonoBehaviour {
         return true;
     }
 
-    public bool ActiveOnlyConfirm(string bodyText, Action confirmOnClickEvent) {
+    public bool ActiveOnlyConfirm(string bodyText, Action confirmOnClickEvent = null) {
         if (isActive == true) return false;
         isActive = true;
 
