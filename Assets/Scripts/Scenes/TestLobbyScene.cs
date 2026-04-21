@@ -105,8 +105,8 @@ public class TestLobbyScene : BaseScene {
         if (_lobbyState != LobbyState.BeforeAuth)
             return;
 
-        Util.Log("TryConnectToServer 실행");
-        _lobbyReconfirmUI.ActiveConfirmOrCancel("asdfasdf", BackToBeforeConnectState);
+        Util.Log("BackToBeforeConnectPopup 실행");
+        _lobbyReconfirmUI.ActiveConfirmOrCancel("서버 연결 화면으로 돌아가시겠습니까?", BackToBeforeConnectState);
     }
 
     private void BackToBeforeConnectState() {

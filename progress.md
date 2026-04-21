@@ -9,7 +9,6 @@
 ## 완료된 것들
 
 ### UI
-- [x] (2026-04-21) 상점 탭 필터링 구현 — `FilterBy()` 구현 완료, `Refresh()` 리팩토링, `TabToItemType()` 헬퍼 추가, 중복 `GetShopItems()` 제거
 - [x] (2026-04-21) `UI_Shop` Detail Panel 빈 상태 처리 — `ResetDetailPanel()`에 `else` 분기 추가, `_selectedItemId == -1`일 때 이미지 숨김·텍스트 빈칸·+/- 버튼 비활성. `FilterBy()` 말미 `Refresh()` 호출 제거로 무한 재귀 방지
 - [x] (2026-04-21) `LobbyReconfirmUI` 리팩토링 — `isActive` 플래그로 중복 팝업 방지, `LobbyConfirmOrCancel` + `lobbyOnlyConfirm` 하위 컴포넌트 관리, 프리팹 이름 단수화
 - [x] (2026-04-21) 로그인/회원가입 실패 팝업 연결 — `TestLobbyScene`에서 `_lobbyReconfirmUI.ActiveOnlyConfirm()` 호출
@@ -23,6 +22,7 @@
 
 ### 버그 수정
 - [x] (2026-04-21) Enter 키 오등록 버그 수정 — `AddKeyListener(Key.Escape, OnEnterInput, ...)` → `Key.Enter`로 수정
+- [x] (2026-04-21) `BackToBeforeConnectPopup` 오복붙 로그 및 플레이스홀더 수정 — `TestLobbyScene.cs:108` 로그 문자열 정정, `"asdfasdf"` 팝업 문구를 실제 안내 문구로 교체
 
 ---
 
@@ -46,10 +46,6 @@
 - [ ] 버전 체크 응답(`resData.data`)에 실패한 경우 팝업창 띄우기
 
 ---
-
-## 발견된 버그
-
-1. TestLobbyScene의 BeforeAuth상태에서 esc버튼 클릭시, 의도치않은 TryConnectToServer요청이 실행됨
 
 ## 다음 작업 우선순위 (제안)
 
