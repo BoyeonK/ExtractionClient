@@ -28,4 +28,10 @@ public class Define {
         Player,
         MaxCount,
     }
+
+    public enum Map {
+        TestMap,
+        //Winchester,
+        MaxCount
+    }
 }
