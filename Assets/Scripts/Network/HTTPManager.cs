@@ -99,11 +99,11 @@ public class HTTPManager {
 
 
     // ---------- Version Call ----------
-    private bool _tryingVersionCall = false;
+    private bool _isRequesting = false;
 
     public async Task<bool> GetVersionCall(CancellationToken cancelToken = default) {
-        if (_tryingVersionCall == true) return false; 
-        _tryingVersionCall = true;
+        if (_isRequesting) return false;
+        _isRequesting = true;
         try {
             string responseText = await SendRequestAsync(HttpMethod.Get, _versionUrl, null, false, cancelToken);
             if (string.IsNullOrEmpty(responseText)) {
@@ -118,15 +118,14 @@ public class HTTPManager {
             return false;
         }
         finally {
-            _tryingVersionCall = false;
+            _isRequesting = false;
         }
     }
 
     // ---------- Auth Calls (Signup, Login, Guest Login, Logout) ----------
-    private bool _tryingAuthCall = false;
 
     public async Task<bool> PostCreateAccountCall(string id, string password, CancellationToken cancelToken = default) {
-        if (_tryingAuthCall) return false;
+        if (_isRequesting) return false;
 
         // TODO : 추후 메세지 팝업 UI를 만들고 Util.Log를 팝업으로 변경하기
         if (AuthState != LoginState.None) {
@@ -142,7 +141,7 @@ public class HTTPManager {
             return false;
         }
 
-        _tryingAuthCall = true;
+        _isRequesting = true;
 
         try { 
             Managers.ExecuteAtMainThread(() => Util.Log("계정 생성 요청을 보냅니다..."));
@@ -175,12 +174,12 @@ public class HTTPManager {
             return false;
         }
         finally {
-            _tryingAuthCall = false;
+            _isRequesting = false;
         }
     }
 
     public async Task<bool> PostLoginCall(string id, string password, CancellationToken cancelToken = default) {
-        if (_tryingAuthCall) return false;
+        if (_isRequesting) return false;
 
         if (AuthState != LoginState.None) {
             Managers.ExecuteAtMainThread(() => Util.LogWarning("이미 로그인된 상태입니다."));
@@ -191,7 +190,7 @@ public class HTTPManager {
             return false;
         }
 
-        _tryingAuthCall = true;
+        _isRequesting = true;
 
         try {
             string jsonString = JsonUtility.ToJson(new AuthRequest { id = id, password = password });
@@ -218,19 +217,19 @@ public class HTTPManager {
             return false;
         }
         finally {
-            _tryingAuthCall = false;
+            _isRequesting = false;
         }
     }
 
     public async Task<bool> PostGuestLoginCall(CancellationToken cancelToken = default) {
-        if (_tryingAuthCall) return false;
+        if (_isRequesting) return false;
 
         if (AuthState != LoginState.None) {
             Managers.ExecuteAtMainThread(() => Util.LogWarning("이미 로그인된 상태입니다."));
             return false;
         }
 
-        _tryingAuthCall = true;
+        _isRequesting = true;
 
         try {
             Managers.ExecuteAtMainThread(() => Util.Log("게스트 로그인 요청을 보냅니다..."));
@@ -254,19 +253,19 @@ public class HTTPManager {
             return false;
         }
         finally {
-            _tryingAuthCall = false;
+            _isRequesting = false;
         }
     }
 
     public async Task<bool> PostLogoutCall(CancellationToken cancelToken = default) {
-        if (_tryingAuthCall) return false;
+        if (_isRequesting) return false;
 
         if (AuthState == LoginState.None) {
             Managers.ExecuteAtMainThread(() => Util.LogWarning("이미 로그아웃 되어 있거나 세션이 없습니다."));
             return false;
         }
 
-        _tryingAuthCall = true;
+        _isRequesting = true;
         try {
             Managers.ExecuteAtMainThread(() => Util.Log("로그아웃 요청을 보냅니다..."));
 
@@ -295,27 +294,34 @@ public class HTTPManager {
             return false;
         }
         finally {
-            _tryingAuthCall = false;
+            _isRequesting = false;
         }
     }
 
     public async Task<bool> GetInventoryCall(CancellationToken cancelToken = default) {
+        if (_isRequesting) return false;
         if (AuthState == LoginState.None) {
             Managers.ExecuteAtMainThread(() => Util.LogWarning("로그인이 필요한 기능입니다."));
             return false;
         }
 
-        string responseText = await SendRequestAsync(HttpMethod.Get, _inventoryUrl, null, true, cancelToken);
-        if (responseText == null) return false;
+        _isRequesting = true;
+        try {
+            string responseText = await SendRequestAsync(HttpMethod.Get, _inventoryUrl, null, true, cancelToken);
+            if (responseText == null) return false;
 
-        InventoryResponse resData = JsonUtility.FromJson<InventoryResponse>(responseText);
-        if (resData != null && resData.success) {
-            Inventory = resData.data.inventory;
-            PackedItems.Clear();
-            // TODO : 인벤토리 UI 새로고침 등 필요한 작업 실행하기
-            return true;
+            InventoryResponse resData = JsonUtility.FromJson<InventoryResponse>(responseText);
+            if (resData != null && resData.success) {
+                Inventory = resData.data.inventory;
+                PackedItems.Clear();
+                // TODO : 인벤토리 UI 새로고침 등 필요한 작업 실행하기
+                return true;
+            }
+            return false;
         }
-        return false;
+        finally {
+            _isRequesting = false;
+        }
     }
 
     public async Task<bool> PostPurchaseCall(
@@ -323,29 +329,36 @@ public class HTTPManager {
         InventoryItem[] inventorySnapshot,
         CancellationToken cancelToken = default)
     {
+        if (_isRequesting) return false;
         if (AuthState == LoginState.None) {
             Managers.ExecuteAtMainThread(() => Util.LogWarning("로그인이 필요한 기능입니다."));
             return false;
         }
 
-        PurchaseRequest reqData = new PurchaseRequest {
-            item_id    = itemId,
-            slot_index = slotIndex,
-            quantity   = quantity,
-            inventory  = inventorySnapshot,
-        };
-        string jsonString = JsonUtility.ToJson(reqData);
-        string responseText = await SendRequestAsync(
-            HttpMethod.Post, _purchaseUrl, jsonString, true, cancelToken);
-        if (responseText == null) return false;
+        _isRequesting = true;
+        try {
+            PurchaseRequest reqData = new PurchaseRequest {
+                item_id    = itemId,
+                slot_index = slotIndex,
+                quantity   = quantity,
+                inventory  = inventorySnapshot,
+            };
+            string jsonString = JsonUtility.ToJson(reqData);
+            string responseText = await SendRequestAsync(
+                HttpMethod.Post, _purchaseUrl, jsonString, true, cancelToken);
+            if (responseText == null) return false;
 
-        PurchaseResponse resData = JsonUtility.FromJson<PurchaseResponse>(responseText);
-        if (resData != null && resData.success) {
-            Money     = resData.data.money;
-            Inventory = resData.data.inventory;
-            return true;
+            PurchaseResponse resData = JsonUtility.FromJson<PurchaseResponse>(responseText);
+            if (resData != null && resData.success) {
+                Money     = resData.data.money;
+                Inventory = resData.data.inventory;
+                return true;
+            }
+            return false;
         }
-        return false;
+        finally {
+            _isRequesting = false;
+        }
     }
 
     // ---------- Inventory Packing Helpers ----------
@@ -387,6 +400,7 @@ public class HTTPManager {
     // ---------- Match Calls (Start Match, Check Status, Cancel Match, Connect) ----------
 
     public async Task<bool> StartMatchCall(int mapId, string loadoutType, EquippedItem[] equippedItems, CancellationToken cancelToken = default) {
+        if (_isRequesting) return false;
         if (AuthState == LoginState.None) {
             Managers.ExecuteAtMainThread(() => Util.LogWarning("로그인이 필요한 기능입니다."));
             return false;
@@ -397,48 +411,55 @@ public class HTTPManager {
             return false;
         }
 
-        Managers.ExecuteAtMainThread(() => Util.Log("매치메이킹 큐 진입을 요청합니다..."));
+        _isRequesting = true;
+        try {
+            Managers.ExecuteAtMainThread(() => Util.Log("매치메이킹 큐 진입을 요청합니다..."));
 
-        // JSON으로 보낼 데이터 조립
-        MatchStartRequest reqData = new MatchStartRequest {
-            mapId = mapId,
-            loadoutType = loadoutType,
-            equippedItems = equippedItems ?? new EquippedItem[0] // null 방어
-        };
-        string jsonString = JsonUtility.ToJson(reqData);
+            // JSON으로 보낼 데이터 조립
+            MatchStartRequest reqData = new MatchStartRequest {
+                mapId = mapId,
+                loadoutType = loadoutType,
+                equippedItems = equippedItems ?? new EquippedItem[0] // null 방어
+            };
+            string jsonString = JsonUtility.ToJson(reqData);
 
-        // requireAuth 플래그를 true로 주어 헤더에 x-session-id를 자동으로 포함시킵니다!
-        string responseText = await SendRequestAsync(HttpMethod.Post, _matchStartUrl, jsonString, true, cancelToken);
-        if (responseText == null) return false;
+            // requireAuth 플래그를 true로 주어 헤더에 x-session-id를 자동으로 포함시킵니다!
+            string responseText = await SendRequestAsync(HttpMethod.Post, _matchStartUrl, jsonString, true, cancelToken);
+            if (responseText == null) return false;
 
-        Managers.ExecuteAtMainThread(() => Util.Log($"[매칭 시작 응답 원본] {responseText}"));
-        if (!responseText.Trim().StartsWith("{")) {
-            Managers.ExecuteAtMainThread(() => Util.LogError("서버 응답이 JSON 형식이 아닙니다."));
-            return false;
-        }
-
-        // 응답 데이터 파싱
-        MatchStartResponse resData = JsonUtility.FromJson<MatchStartResponse>(responseText);
-
-        if (resData != null) {
-            if (resData.success) {
-                TicketId = resData.data.ticketId;
-                Managers.ExecuteAtMainThread(() => {
-                    Util.Log($"매칭 큐 진입 성공! [Ticket ID: {TicketId}]");
-                });
-                return true;
-            }
-            else {
-                Managers.ExecuteAtMainThread(() => {
-                    Util.LogError($"매칭 큐 진입 실패");
-                });
+            Managers.ExecuteAtMainThread(() => Util.Log($"[매칭 시작 응답 원본] {responseText}"));
+            if (!responseText.Trim().StartsWith("{")) {
+                Managers.ExecuteAtMainThread(() => Util.LogError("서버 응답이 JSON 형식이 아닙니다."));
                 return false;
             }
+
+            // 응답 데이터 파싱
+            MatchStartResponse resData = JsonUtility.FromJson<MatchStartResponse>(responseText);
+
+            if (resData != null) {
+                if (resData.success) {
+                    TicketId = resData.data.ticketId;
+                    Managers.ExecuteAtMainThread(() => {
+                        Util.Log($"매칭 큐 진입 성공! [Ticket ID: {TicketId}]");
+                    });
+                    return true;
+                }
+                else {
+                    Managers.ExecuteAtMainThread(() => {
+                        Util.LogError($"매칭 큐 진입 실패");
+                    });
+                    return false;
+                }
+            }
+            return false;
         }
-        return false;
+        finally {
+            _isRequesting = false;
+        }
     }
 
     public async Task<bool> CancelMatchCall(CancellationToken cancelToken = default) {
+        if (_isRequesting) return false;
         if (AuthState == LoginState.None) {
             Managers.ExecuteAtMainThread(() => Util.LogWarning("로그인이 필요한 기능입니다."));
             return false;
@@ -449,78 +470,91 @@ public class HTTPManager {
             return false;
         }
 
-        Managers.ExecuteAtMainThread(() => Util.Log("매치메이킹 취소를 요청합니다..."));
+        _isRequesting = true;
+        try {
+            Managers.ExecuteAtMainThread(() => Util.Log("매치메이킹 취소를 요청합니다..."));
 
-        // JSON 데이터 조립
-        MatchCancelRequest reqData = new MatchCancelRequest {
-            ticketId = TicketId
-        };
-        string jsonString = JsonUtility.ToJson(reqData);
+            // JSON 데이터 조립
+            MatchCancelRequest reqData = new MatchCancelRequest {
+                ticketId = TicketId
+            };
+            string jsonString = JsonUtility.ToJson(reqData);
 
-        // API 호출 (POST, requireAuth = true)
-        string responseText = await SendRequestAsync(HttpMethod.Post, _matchCancelUrl, jsonString, true, cancelToken);
-        if (responseText == null) return false;
+            // API 호출 (POST, requireAuth = true)
+            string responseText = await SendRequestAsync(HttpMethod.Post, _matchCancelUrl, jsonString, true, cancelToken);
+            if (responseText == null) return false;
 
-        // 응답 파싱
-        BaseResponse resData = JsonUtility.FromJson<BaseResponse>(responseText);
+            // 응답 파싱
+            BaseResponse resData = JsonUtility.FromJson<BaseResponse>(responseText);
 
-        if (resData != null) {
-            if (resData.success) {
-                TicketId = null;
-                Managers.ExecuteAtMainThread(() => {
-                    Util.Log("매칭 취소 완료!");
-                });
-                return true;
+            if (resData != null) {
+                if (resData.success) {
+                    TicketId = null;
+                    Managers.ExecuteAtMainThread(() => {
+                        Util.Log("매칭 취소 완료!");
+                    });
+                    return true;
+                }
+                else {
+                    Managers.ExecuteAtMainThread(() => {
+                        Util.LogError($"매칭 취소 실패: {resData.error?.message}");
+                    });
+                    return false;
+                }
             }
-            else {
-                Managers.ExecuteAtMainThread(() => {
-                    Util.LogError($"매칭 취소 실패: {resData.error?.message}");
-                });
-                return false;
-            }
+            return false;
         }
-        return false;
+        finally {
+            _isRequesting = false;
+        }
     }
 
     public async Task<bool> CheckMatchStatusCall(CancellationToken cancelToken = default) {
+        if (_isRequesting) return false;
         if (AuthState == LoginState.None || string.IsNullOrEmpty(TicketId)) {
             return false;
         }
 
-        string url = $"{_matchStatusUrl}?ticketId={TicketId}";
-        string responseText = await SendRequestAsync(HttpMethod.Get, url, null, true, cancelToken);
+        _isRequesting = true;
+        try {
+            string url = $"{_matchStatusUrl}?ticketId={TicketId}";
+            string responseText = await SendRequestAsync(HttpMethod.Get, url, null, true, cancelToken);
 
-        if (string.IsNullOrEmpty(responseText)) return false;
+            if (string.IsNullOrEmpty(responseText)) return false;
 
-        MatchStatusResponse resData = JsonUtility.FromJson<MatchStatusResponse>(responseText);
+            MatchStatusResponse resData = JsonUtility.FromJson<MatchStatusResponse>(responseText);
 
-        if (resData != null) {
-            if (resData.success) {
-                if (resData.data.status == "WAITING") {
-                    Managers.ExecuteAtMainThread(() => Util.Log("매칭 대기 중... (서버 응답 확인)"));
+            if (resData != null) {
+                if (resData.success) {
+                    if (resData.data.status == "WAITING") {
+                        Managers.ExecuteAtMainThread(() => Util.Log("매칭 대기 중... (서버 응답 확인)"));
+                        return false;
+                    }
+                    else if (resData.data.status == "SUCCESS") {
+                        _token = resData.data.roomToken;
+                        Managers.ExecuteAtMainThread(() => {
+                            Util.Log($"Token: {resData.data.roomToken}");
+                        });
+
+                        bool connectSuccess = await TryConnectCall(cancelToken);
+
+                        return connectSuccess;
+                    }
+                }
+                else {
+                    // 서버 로직 실패 (티켓 만료 등)
+                    TicketId = null;
+                    Managers.ExecuteAtMainThread(() => {
+                        Util.LogError($"매칭 상태 확인 실패");
+                    });
                     return false;
                 }
-                else if (resData.data.status == "SUCCESS") {
-                    _token = resData.data.roomToken;
-                    Managers.ExecuteAtMainThread(() => {
-                        Util.Log($"Token: {resData.data.roomToken}");
-                    });
-
-                    bool connectSuccess = await TryConnectCall(cancelToken);
-
-                    return connectSuccess;
-                }
             }
-            else {
-                // 서버 로직 실패 (티켓 만료 등)
-                TicketId = null;
-                Managers.ExecuteAtMainThread(() => {
-                    Util.LogError($"매칭 상태 확인 실패");
-                });
-                return false;
-            }
+            return false;
         }
-        return false;
+        finally {
+            _isRequesting = false;
+        }
     }
 
     public async Task<bool> TryConnectCall(CancellationToken cancelToken = default) {
