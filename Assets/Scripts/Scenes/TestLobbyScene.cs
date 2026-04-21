@@ -179,7 +179,7 @@ public class TestLobbyScene : BaseScene {
             }
         }
 
-        _shopUI.GetShopItems();
+        _shopUI.Refresh();
     }
 
     public void OnClickSelectRegister() { 

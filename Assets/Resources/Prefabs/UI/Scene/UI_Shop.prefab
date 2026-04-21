@@ -242,6 +242,7 @@ GameObject:
   - component: {fileID: 4283405756395992086}
   - component: {fileID: 5308036633545889851}
   - component: {fileID: 6607497854175275822}
+  - component: {fileID: 3743084953655986407}
   m_Layer: 0
   m_Name: Tab_WEAPONS
   m_TagString: Untagged
@@ -307,6 +308,18 @@ MonoBehaviour:
   m_FillOrigin: 0
   m_UseSpriteMesh: 0
   m_PixelsPerUnitMultiplier: 1
+--- !u!114 &3743084953655986407
+MonoBehaviour:
+  m_ObjectHideFlags: 0
+  m_CorrespondingSourceObject: {fileID: 0}
+  m_PrefabInstance: {fileID: 0}
+  m_PrefabAsset: {fileID: 0}
+  m_GameObject: {fileID: 392024672709413071}
+  m_Enabled: 1
+  m_EditorHideFlags: 0
+  m_Script: {fileID: 11500000, guid: 9262eaf6e8b234640a055af6ff165f51, type: 3}
+  m_Name: 
+  m_EditorClassIdentifier: Assembly-CSharp::UI_EventHandler
 --- !u!1 &503681997408109563
 GameObject:
   m_ObjectHideFlags: 0
@@ -318,6 +331,7 @@ GameObject:
   - component: {fileID: 4119216610288685922}
   - component: {fileID: 6103945355104098883}
   - component: {fileID: 3570531608679213188}
+  - component: {fileID: 6577068097179978345}
   m_Layer: 0
   m_Name: Tab_AMMO
   m_TagString: Untagged
@@ -383,6 +397,18 @@ MonoBehaviour:
   m_FillOrigin: 0
   m_UseSpriteMesh: 0
   m_PixelsPerUnitMultiplier: 1
+--- !u!114 &6577068097179978345
+MonoBehaviour:
+  m_ObjectHideFlags: 0
+  m_CorrespondingSourceObject: {fileID: 0}
+  m_PrefabInstance: {fileID: 0}
+  m_PrefabAsset: {fileID: 0}
+  m_GameObject: {fileID: 503681997408109563}
+  m_Enabled: 1
+  m_EditorHideFlags: 0
+  m_Script: {fileID: 11500000, guid: 9262eaf6e8b234640a055af6ff165f51, type: 3}
+  m_Name: 
+  m_EditorClassIdentifier: Assembly-CSharp::UI_EventHandler
 --- !u!1 &968964821247169097
 GameObject:
   m_ObjectHideFlags: 0
@@ -1957,6 +1983,7 @@ GameObject:
   - component: {fileID: 2678969596816137099}
   - component: {fileID: 1087268780576391038}
   - component: {fileID: 5197667758239582597}
+  - component: {fileID: 8273327104809509123}
   m_Layer: 0
   m_Name: Tab_EQUIPMENT
   m_TagString: Untagged
@@ -2022,6 +2049,18 @@ MonoBehaviour:
   m_FillOrigin: 0
   m_UseSpriteMesh: 0
   m_PixelsPerUnitMultiplier: 1
+--- !u!114 &8273327104809509123
+MonoBehaviour:
+  m_ObjectHideFlags: 0
+  m_CorrespondingSourceObject: {fileID: 0}
+  m_PrefabInstance: {fileID: 0}
+  m_PrefabAsset: {fileID: 0}
+  m_GameObject: {fileID: 4708531415233564521}
+  m_Enabled: 1
+  m_EditorHideFlags: 0
+  m_Script: {fileID: 11500000, guid: 9262eaf6e8b234640a055af6ff165f51, type: 3}
+  m_Name: 
+  m_EditorClassIdentifier: Assembly-CSharp::UI_EventHandler
 --- !u!1 &4929482667236977569
 GameObject:
   m_ObjectHideFlags: 0
@@ -3449,6 +3488,7 @@ GameObject:
   - component: {fileID: 4554672992237825502}
   - component: {fileID: 2842852641131585472}
   - component: {fileID: 3160304330684037363}
+  - component: {fileID: 2290887100514645869}
   m_Layer: 0
   m_Name: Tab_MISC
   m_TagString: Untagged
@@ -3514,6 +3554,18 @@ MonoBehaviour:
   m_FillOrigin: 0
   m_UseSpriteMesh: 0
   m_PixelsPerUnitMultiplier: 1
+--- !u!114 &2290887100514645869
+MonoBehaviour:
+  m_ObjectHideFlags: 0
+  m_CorrespondingSourceObject: {fileID: 0}
+  m_PrefabInstance: {fileID: 0}
+  m_PrefabAsset: {fileID: 0}
+  m_GameObject: {fileID: 6728966456141179614}
+  m_Enabled: 1
+  m_EditorHideFlags: 0
+  m_Script: {fileID: 11500000, guid: 9262eaf6e8b234640a055af6ff165f51, type: 3}
+  m_Name: 
+  m_EditorClassIdentifier: Assembly-CSharp::UI_EventHandler
 --- !u!1 &7200769058464059790
 GameObject:
   m_ObjectHideFlags: 0
@@ -3918,6 +3970,7 @@ GameObject:
   - component: {fileID: 4034666851732834879}
   - component: {fileID: 2452147229686974560}
   - component: {fileID: 1579506771230780474}
+  - component: {fileID: 1805149021650687501}
   m_Layer: 0
   m_Name: Tab_ALL
   m_TagString: Untagged
@@ -3983,6 +4036,18 @@ MonoBehaviour:
   m_FillOrigin: 0
   m_UseSpriteMesh: 0
   m_PixelsPerUnitMultiplier: 1
+--- !u!114 &1805149021650687501
+MonoBehaviour:
+  m_ObjectHideFlags: 0
+  m_CorrespondingSourceObject: {fileID: 0}
+  m_PrefabInstance: {fileID: 0}
+  m_PrefabAsset: {fileID: 0}
+  m_GameObject: {fileID: 8411125404377949783}
+  m_Enabled: 1
+  m_EditorHideFlags: 0
+  m_Script: {fileID: 11500000, guid: 9262eaf6e8b234640a055af6ff165f51, type: 3}
+  m_Name: 
+  m_EditorClassIdentifier: Assembly-CSharp::UI_EventHandler
 --- !u!1 &8704298240052608535
 GameObject:
   m_ObjectHideFlags: 0
