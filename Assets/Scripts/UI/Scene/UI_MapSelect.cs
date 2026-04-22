@@ -1,6 +1,7 @@
 using TMPro;
 using UnityEngine;
 using UnityEngine.UI;
+using static UnityEditor.Progress;
 
 public class UI_MapSelect : UI_Scene {
     TestLobbyScene _scene;
@@ -51,6 +52,7 @@ public class UI_MapSelect : UI_Scene {
         _cancelBtn.onClick.AddListener(OnCancelBtnClick);
 
         SetNormalState();
+        RefreshMapSelectWindow();
 
         base.OnInitComplete();
     }
@@ -58,23 +60,27 @@ public class UI_MapSelect : UI_Scene {
     private void OnLeftBtnClick() {
         int max = (int)Define.Map.MaxCount;
         _selectedMapId = (_selectedMapId + max - 1) % max;
+        RefreshMapSelectWindow();
     }
 
     private void OnRightBtnClick() {
         int max = (int)Define.Map.MaxCount;
         _selectedMapId = (_selectedMapId + 1) % max;
+        RefreshMapSelectWindow();
     }
 
     private void OnMatchStartBtnClick() { 
         SetFinalDecisionState();
     }
 
-    private void OnCustomLoadoutBtnClick() { 
-        
+    private void OnCustomLoadoutBtnClick() {
+        _scene.TryMatchMake(_selectedMapId, "CUSTOM");
+        SetNormalState();
     }
 
-    private void OnFreeLoadoutBtnClick() { 
-    
+    private void OnFreeLoadoutBtnClick() {
+        _scene.TryMatchMake(_selectedMapId, "FREE");
+        SetNormalState();
     }
 
     private void OnCancelBtnClick() {
@@ -96,10 +102,15 @@ public class UI_MapSelect : UI_Scene {
     }
 
     private void RefreshMapSelectWindow() {
-        // TODO :
-        // 1. 스프라이트 추가하기
-        // 2. _selectedMapId에 해당하는 map sprite적용
-        // 3. _selectedMapId에 해당하는 map name적용
+        string path = $"Images/MapSprites/map_sprite_{_selectedMapId}";
+        Sprite mapSp = Resources.Load<Sprite>(path);
+        if (mapSp != null) {
+            _mapSprite.sprite = mapSp;
+
+            Color color = _mapSprite.color;
+            color.a = 1.0f;
+            _mapSprite.color = color;
+        }
     }
 
     private void OnDestroy() {
