@@ -31,7 +31,7 @@ public class Define {
 
     public enum Map {
         TestMap,
-        //Winchester,
+        Winchester,
         MaxCount
     }
 }

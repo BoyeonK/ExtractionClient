@@ -443,8 +443,14 @@ public class TestLobbyScene : BaseScene {
         return list.ToArray();
     }
 
-    public void TryMatchMake() {
+    public async void TryMatchMake(int mapId, string loadoutType) {
+        if (_lobbyState != LobbyState.Lobby) return;
 
+        InventoryItem[] snapshot = loadoutType == "CUSTOM" ? BuildInventorySnapshot() : null;
+        bool isSuccess = await Managers.Network.httpManager.StartMatchCall(
+            mapId, loadoutType, snapshot, _cts.Token);
+        if (isSuccess)
+            _lobbyState = LobbyState.Matching;
     }
 
     // ------------------------------------------------
