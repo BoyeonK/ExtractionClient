@@ -16,6 +16,7 @@ public class TestLobbyScene : BaseScene {
     UI_Warehouse _warehouseUI;
     UI_Shop _shopUI;
     UI_MapSelect _mapSelectUI;
+    UI_MatchProcess _matchProgressUI;
     LobbyReconfirmUI _lobbyReconfirmUI;
 
     const int INVENTORY_SLOT_COUNT = 25;
@@ -51,6 +52,7 @@ public class TestLobbyScene : BaseScene {
         _warehouseUI = Managers.UI.CacheSceneUI<UI_Warehouse>();
         _shopUI = Managers.UI.CacheSceneUI<UI_Shop>();
         _mapSelectUI = Managers.UI.CacheSceneUI<UI_MapSelect>();
+        _matchProgressUI = Managers.UI.CacheSceneUI<UI_MatchProcess>();
 
         GameObject reconfirmObj = GameObject.Find("LobbyReconfirmUI");
         if (reconfirmObj != null) {
@@ -288,6 +290,7 @@ public class TestLobbyScene : BaseScene {
         Managers.UI.DisableUI("UI_Inventory");
         Managers.UI.DisableUI("UI_Warehouse");
         Managers.UI.DisableUI("UI_Shop");
+        Managers.UI.DisableUI("UI_MatchProgress");
 
         Array.Clear(_inventorySlots, 0, _inventorySlots.Length);
         Array.Clear(_warehouseSlots, 0, _warehouseSlots.Length);
@@ -465,6 +468,36 @@ public class TestLobbyScene : BaseScene {
             TryLogout();
     }
 
+    public void OnMatchCancelBtnClick() {
+        _lobbyReconfirmUI.ActiveConfirmOrCancel(
+            "매칭을 취소하시겠습니까?",
+            TryCancelMatch,
+            _matchProgressUI.RestoreCancelButton);
+    }
+
+    public async void TryCancelMatch() {
+        bool isSuccess = await Managers.Network.httpManager.CancelMatchCall(_cts.Token);
+        if (isSuccess) {
+            ExitMatchingState();
+            Managers.UI.ShowSceneUI<UI_MapSelect>();
+        } else {
+            _lobbyReconfirmUI.ActiveOnlyConfirm("매칭 취소에 실패했습니다.");
+            _matchProgressUI.RestoreCancelButton();
+        }
+    }
+
+    private void ExitMatchingState() {
+        _lobbyState = LobbyState.Lobby;
+        _matchProgressUI.StopMatching();
+        Managers.UI.DisableUI("UI_MatchProcess");
+    }
+
+    private void OnMatchingSuccess() {
+        _matchProgressUI.StopMatching();
+        Util.Log("[Matching] 매칭 성공. 게임 씬 로드 예정");
+        // TODO: 게임 씬 로드
+    }
+
     private void EnterMatchingState() {
         _userState = UserState.Main;
         _mapSelectUI.SetNormalState();
@@ -472,6 +505,8 @@ public class TestLobbyScene : BaseScene {
         Managers.UI.DisableUI("UI_Inventory");
         Managers.UI.DisableUI("UI_Warehouse");
         Managers.UI.DisableUI("UI_Shop");
+        Managers.UI.ShowSceneUI<UI_MatchProcess>();
+        Managers.Network.httpManager.StartMatchPolling(OnMatchingSuccess, _cts.Token);
     }
 
 

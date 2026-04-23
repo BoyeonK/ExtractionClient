@@ -586,4 +586,23 @@ public class HTTPManager {
             IsMatching = false;
         }
     }
+
+    public async void StartMatchPolling(Action onSuccess, CancellationToken cancelToken = default) {
+        while (IsMatching) {
+            try {
+                await Task.Delay(3000, cancelToken);
+            }
+            catch (OperationCanceledException) {
+                break;
+            }
+
+            if (!IsMatching) break;
+
+            bool isSuccess = await CheckMatchStatusCall(cancelToken);
+            if (isSuccess) {
+                Managers.ExecuteAtMainThread(onSuccess);
+                break;
+            }
+        }
+    }
 }

@@ -1241,6 +1241,10 @@ PrefabInstance:
       propertyPath: m_Name
       value: LobbyReconfirmUI
       objectReference: {fileID: 0}
+    - target: {fileID: 6339798090739008732, guid: 04dca34a52a6cda4589e12f7cecfe475, type: 3}
+      propertyPath: m_IsActive
+      value: 1
+      objectReference: {fileID: 0}
     - target: {fileID: 6689159706924989822, guid: 04dca34a52a6cda4589e12f7cecfe475, type: 3}
       propertyPath: m_Colors.m_HighlightedColor.b
       value: 0.19607843
