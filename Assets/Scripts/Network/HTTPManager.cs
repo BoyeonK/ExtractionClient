@@ -23,6 +23,7 @@ public class HTTPManager {
     }
 
     public LoginState AuthState { get; private set; } = LoginState.None;
+    public bool IsMatching { get; private set; } = false;
     public string SessionId { get; private set; } = null;
     public int Uid { get; private set; } = 0;
     public string GuestId { get; private set; } = null;
@@ -102,6 +103,7 @@ public class HTTPManager {
 
     public async Task<bool> GetVersionCall(CancellationToken cancelToken = default) {
         if (_isRequesting) return false;
+        if (IsMatching) return false;
         _isRequesting = true;
         try {
             string responseText = await SendRequestAsync(HttpMethod.Get, _versionUrl, null, false, cancelToken);
@@ -125,6 +127,7 @@ public class HTTPManager {
 
     public async Task<bool> PostCreateAccountCall(string id, string password, CancellationToken cancelToken = default) {
         if (_isRequesting) return false;
+        if (IsMatching) return false;
 
         // TODO : 추후 메세지 팝업 UI를 만들고 Util.Log를 팝업으로 변경하기
         if (AuthState != LoginState.None) {
@@ -179,6 +182,7 @@ public class HTTPManager {
 
     public async Task<bool> PostLoginCall(string id, string password, CancellationToken cancelToken = default) {
         if (_isRequesting) return false;
+        if (IsMatching) return false;
 
         if (AuthState != LoginState.None) {
             Managers.ExecuteAtMainThread(() => Util.LogWarning("이미 로그인된 상태입니다."));
@@ -222,6 +226,7 @@ public class HTTPManager {
 
     public async Task<bool> PostGuestLoginCall(CancellationToken cancelToken = default) {
         if (_isRequesting) return false;
+        if (IsMatching) return false;
 
         if (AuthState != LoginState.None) {
             Managers.ExecuteAtMainThread(() => Util.LogWarning("이미 로그인된 상태입니다."));
@@ -258,6 +263,7 @@ public class HTTPManager {
 
     public async Task<bool> PostLogoutCall(CancellationToken cancelToken = default) {
         if (_isRequesting) return false;
+        if (IsMatching) return false;
 
         if (AuthState == LoginState.None) {
             Managers.ExecuteAtMainThread(() => Util.LogWarning("이미 로그아웃 되어 있거나 세션이 없습니다."));
@@ -298,6 +304,7 @@ public class HTTPManager {
 
     public async Task<bool> GetInventoryCall(CancellationToken cancelToken = default) {
         if (_isRequesting) return false;
+        if (IsMatching) return false;
         if (AuthState == LoginState.None) {
             Managers.ExecuteAtMainThread(() => Util.LogWarning("로그인이 필요한 기능입니다."));
             return false;
@@ -327,6 +334,7 @@ public class HTTPManager {
         CancellationToken cancelToken = default)
     {
         if (_isRequesting) return false;
+        if (IsMatching) return false;
         if (AuthState == LoginState.None) {
             Managers.ExecuteAtMainThread(() => Util.LogWarning("로그인이 필요한 기능입니다."));
             return false;
@@ -362,6 +370,7 @@ public class HTTPManager {
 
     public async Task<bool> StartMatchCall(int mapId, string loadoutType, InventoryItem[] inventory, CancellationToken cancelToken = default) {
         if (_isRequesting) return false;
+        if (IsMatching) return false;
         if (AuthState == LoginState.None) {
             Managers.ExecuteAtMainThread(() => Util.LogWarning("로그인이 필요한 기능입니다."));
             return false;
@@ -400,18 +409,21 @@ public class HTTPManager {
             if (resData != null) {
                 if (resData.success) {
                     TicketId = resData.data.ticketId;
+                    IsMatching = true;
                     Managers.ExecuteAtMainThread(() => {
                         Util.Log($"매칭 큐 진입 성공! [Ticket ID: {TicketId}]");
                     });
                     return true;
                 }
                 else {
+                    IsMatching = false;
                     Managers.ExecuteAtMainThread(() => {
                         Util.LogError($"매칭 큐 진입 실패");
                     });
                     return false;
                 }
             }
+            IsMatching = false;
             return false;
         }
         finally {
@@ -451,6 +463,7 @@ public class HTTPManager {
             if (resData != null) {
                 if (resData.success) {
                     TicketId = null;
+                    IsMatching = false;
                     Managers.ExecuteAtMainThread(() => {
                         Util.Log("매칭 취소 완료!");
                     });
@@ -505,6 +518,7 @@ public class HTTPManager {
                 else {
                     // 서버 로직 실패 (티켓 만료 등)
                     TicketId = null;
+                    IsMatching = false;
                     Managers.ExecuteAtMainThread(() => {
                         Util.LogError($"매칭 상태 확인 실패");
                     });
@@ -519,52 +533,57 @@ public class HTTPManager {
     }
 
     public async Task<bool> TryConnectCall(CancellationToken cancelToken = default) {
-        if (AuthState == LoginState.None || string.IsNullOrEmpty(_token)) {
-            Managers.ExecuteAtMainThread(() => Util.LogWarning("세션 또는 룸 토큰이 유효하지 않습니다."));
-            return false;
-        }
-
-        ConnectRequest reqData = new ConnectRequest {
-            roomToken = _token
-        };
-        string jsonString = JsonUtility.ToJson(reqData);
-
-        string responseText = await SendRequestAsync(HttpMethod.Post, _connectUrl, jsonString, true, cancelToken);
-        if (string.IsNullOrEmpty(responseText)) return false;
-
-        ConnectResponse resData = JsonUtility.FromJson<ConnectResponse>(responseText);
-
-        if (resData != null) {
-            if (resData.success && resData.data != null) {
-                Managers.ExecuteAtMainThread(() => {
-                    Util.Log($"[IP: {resData.data.ip}, Port: {resData.data.port}], SID: {resData.data.ingameSessionId}, sKey: {resData.data.securityKey}");
-                    Managers.Network.udpManager.RegisterEndPointAndStart(resData.data.ip, resData.data.port);
-                    Managers.Network.udpManager.Handler.SetSessionVariable((ushort)resData.data.ingameSessionId, Convert.ToUInt32(resData.data.securityKey));
-                });
-
-                try {
-                    await Task.Delay(1500, cancelToken);
-                }
-                catch (TaskCanceledException) {
-                    return false;
-                }
-
-                Managers.ExecuteAtMainThread(() => {
-                    Managers.Network.udpManager.RequestSessionIdAndSecurityKey();
-                });
-
-                return true;
-            }
-            else {
-                Managers.ExecuteAtMainThread(() => {
-                    Util.LogError($"인게임 서버 접속 정보 획득 실패: {resData.error?.message}");
-                    //_token = null;
-                });
+        try {
+            if (AuthState == LoginState.None || string.IsNullOrEmpty(_token)) {
+                Managers.ExecuteAtMainThread(() => Util.LogWarning("세션 또는 룸 토큰이 유효하지 않습니다."));
                 return false;
             }
-        }
 
-        Managers.ExecuteAtMainThread(() => Util.LogError("응답 데이터 파싱에 실패했습니다."));
-        return false;
+            ConnectRequest reqData = new ConnectRequest {
+                roomToken = _token
+            };
+            string jsonString = JsonUtility.ToJson(reqData);
+
+            string responseText = await SendRequestAsync(HttpMethod.Post, _connectUrl, jsonString, true, cancelToken);
+            if (string.IsNullOrEmpty(responseText)) return false;
+
+            ConnectResponse resData = JsonUtility.FromJson<ConnectResponse>(responseText);
+
+            if (resData != null) {
+                if (resData.success && resData.data != null) {
+                    Managers.ExecuteAtMainThread(() => {
+                        Util.Log($"[IP: {resData.data.ip}, Port: {resData.data.port}], SID: {resData.data.ingameSessionId}, sKey: {resData.data.securityKey}");
+                        Managers.Network.udpManager.RegisterEndPointAndStart(resData.data.ip, resData.data.port);
+                        Managers.Network.udpManager.Handler.SetSessionVariable((ushort)resData.data.ingameSessionId, Convert.ToUInt32(resData.data.securityKey));
+                    });
+
+                    try {
+                        await Task.Delay(1500, cancelToken);
+                    }
+                    catch (TaskCanceledException) {
+                        return false;
+                    }
+
+                    Managers.ExecuteAtMainThread(() => {
+                        Managers.Network.udpManager.RequestSessionIdAndSecurityKey();
+                    });
+
+                    return true;
+                }
+                else {
+                    Managers.ExecuteAtMainThread(() => {
+                        Util.LogError($"인게임 서버 접속 정보 획득 실패: {resData.error?.message}");
+                        //_token = null;
+                    });
+                    return false;
+                }
+            }
+
+            Managers.ExecuteAtMainThread(() => Util.LogError("응답 데이터 파싱에 실패했습니다."));
+            return false;
+        }
+        finally {
+            IsMatching = false;
+        }
     }
 }

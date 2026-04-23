@@ -69,7 +69,11 @@ public class UI_MapSelect : UI_Scene {
         RefreshMapSelectWindow();
     }
 
-    private void OnMatchStartBtnClick() { 
+    private void OnMatchStartBtnClick() {
+        if (Managers.Network.httpManager.AuthState == HTTPManager.LoginState.Guest) {
+            _scene.TryMatchMake(_selectedMapId, "FREE");
+            return;
+        }
         SetFinalDecisionState();
     }
 
