@@ -147,7 +147,7 @@ public class TestLobbyScene : BaseScene {
             OnLoginComplete(UI_Header.HeaderState.Logined);
         } else {
             OnAuthRequestFinished();
-            _lobbyReconfirmUI.ActiveOnlyConfirm("Login Failed");
+            _lobbyReconfirmUI.ActiveOnlyConfirm("아이디와 비밀번호를 확인해주세요.");
         }
     }
 
@@ -201,7 +201,7 @@ public class TestLobbyScene : BaseScene {
             OnLoginComplete(UI_Header.HeaderState.Logined);
         } else {
             OnAuthRequestFinished();
-            _lobbyReconfirmUI.ActiveOnlyConfirm("Register Failed");
+            _lobbyReconfirmUI.ActiveOnlyConfirm("계정생성 중 오류가 발생했습니다.");
         }
     }
 
@@ -215,7 +215,7 @@ public class TestLobbyScene : BaseScene {
             OnLoginComplete(UI_Header.HeaderState.Guest);
         } else {
             OnAuthRequestFinished();
-            _lobbyReconfirmUI.ActiveOnlyConfirm("Guest Login Failed");
+            _lobbyReconfirmUI.ActiveOnlyConfirm("게스트 로그인에 실패했습니다.");
         }
     }
 
@@ -261,10 +261,11 @@ public class TestLobbyScene : BaseScene {
     UserState _userState = UserState.Main;
 
     public void LogoutPopup() {
-        if (_lobbyState != LobbyState.Lobby)
-            return;
-
-        _lobbyReconfirmUI.ActiveConfirmOrCancel("Do you want to logout?", TryLogout);
+        if (_lobbyState == LobbyState.Lobby) {
+            _lobbyReconfirmUI.ActiveConfirmOrCancel("로그아웃을 진행하시겠습니까?", TryLogout);
+        } else if (_lobbyState == LobbyState.Matching) {
+            _lobbyReconfirmUI.ActiveConfirmOrCancel("매치를 취소하고 로그아웃하시겠습니까?", TryCancelMatchThenLogout);
+        }
     }
 
     public async void TryLogout() {
@@ -449,13 +450,29 @@ public class TestLobbyScene : BaseScene {
         InventoryItem[] snapshot = loadoutType == "CUSTOM" ? BuildInventorySnapshot() : null;
         bool isSuccess = await Managers.Network.httpManager.StartMatchCall(
             mapId, loadoutType, snapshot, _cts.Token);
-        if (isSuccess)
+        if (isSuccess) {
             _lobbyState = LobbyState.Matching;
+            EnterMatchingState();
+        }
     }
 
     // ------------------------------------------------
     // ---------- Matching 상태에서의 메서드 ----------
     // ------------------------------------------------
+    private async void TryCancelMatchThenLogout() {
+        bool isSuccess = await Managers.Network.httpManager.CancelMatchCall(_cts.Token);
+        if (isSuccess)
+            TryLogout();
+    }
+
+    private void EnterMatchingState() {
+        _userState = UserState.Main;
+        _mapSelectUI.SetNormalState();
+        Managers.UI.DisableUI("UI_MapSelect");
+        Managers.UI.DisableUI("UI_Inventory");
+        Managers.UI.DisableUI("UI_Warehouse");
+        Managers.UI.DisableUI("UI_Shop");
+    }
 
 
     // ------------------------------------------------
@@ -511,7 +528,7 @@ public class TestLobbyScene : BaseScene {
     }
 
     private void QuitPopup() {
-        _lobbyReconfirmUI.ActiveConfirmOrCancel("Do you want to exit the game?", QuitGameApplication);
+        _lobbyReconfirmUI.ActiveConfirmOrCancel("게임을 종료하시겠습니까?", QuitGameApplication);
     }
 
     private void QuitGameApplication() {
