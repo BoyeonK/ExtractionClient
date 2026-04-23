@@ -2,27 +2,43 @@ using System.Collections.Generic;
 
 public enum ItemType { None, Weapon, Equipment, Ammo, Misc }
 
-// AI로 DB긁어서 Dictionary채우기 자동화.
 public static class ItemTypeHelper {
-    public static ItemType GetType(int itemId) {
-        if (itemId >= 1 && itemId < 4) return ItemType.Weapon;
-        if (itemId >= 4 && itemId < 5) return ItemType.Equipment;
-        if (itemId >= 5 && itemId < 7) return ItemType.Ammo;
-        return ItemType.Misc;
-    }
+    static Dictionary<int, ItemType> _typeMap = new() {
+        { 1, ItemType.Weapon },
+        { 2, ItemType.Weapon },
+        { 3, ItemType.Weapon },
+        { 4, ItemType.Equipment },
+        { 5, ItemType.Ammo },
+        { 6, ItemType.Ammo },
+        { 7, ItemType.Misc },
+    };
 
-    /*
-    public static ItemType GetType(int itemId) =>
-        _typeMap.TryGetValue(itemId, out var type) ? type : ItemType.Misc;
+    static Dictionary<int, string> _nameMap = new() {
+        { 1, "AK-47" },
+        { 2, "M4A1" },
+        { 3, "M16" },
+        { 4, "경량 조끼" },
+        { 5, "5.56mm" },
+        { 6, "7.62mm" },
+        { 7, "돌맹이" },
+    };
 
-    public static string GetName(int itemId) =>
-        _nameMap.TryGetValue(itemId, out var name) ? name : "알 수 없는 아이템";
+    static Dictionary<int, string> _descriptionMap = new() {
+        { 1, "테스트용 임시데이터" },
+        { 2, "테스트용 임시데이터" },
+        { 3, "테스트용 임시데이터" },
+        { 4, "테스트용 임시데이터" },
+        { 5, "테스트용 임시데이터" },
+        { 6, "테스트용 임시데이터" },
+        { 7, "테스트용 임시데이터" },
+    };
 
-    public static string GetDescription(int itemId) =>
-        _descriptionMap.TryGetValue(itemId, out var desc) ? desc : "";
+    public static ItemType GetType(int id) =>
+        _typeMap.TryGetValue(id, out var t) ? t : ItemType.Misc;
 
-    static Dictionary<int, ItemType> _typeMap = new();
-    static Dictionary<int, string> _nameMap = new();
-    static Dictionary<int, string> _descriptionMap = new();
-    */
+    public static string GetName(int id) =>
+        _nameMap.TryGetValue(id, out var n) ? n : "버그 발생";
+
+    public static string GetDescription(int id) =>
+        _descriptionMap.TryGetValue(id, out var d) ? d : "조속히 클라이언트를 종료할 수 있도록!";
 }

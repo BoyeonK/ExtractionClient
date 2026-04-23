@@ -9,12 +9,12 @@
 ## 완료된 것들
 
 ### UI
-- [x] (2026-04-21 00) Enter 키로 로그인 시도 구현 — `OnEnterInput()` → `BeforeAuthEnter()` → `_loginUI.OnEnterBtnPressOn()` 연결
-- [x] (2026-04-21 00) `UI_Register` 로그인 화면 이동 버튼 연결 — `BackToLoginButton` 바인딩 → `OnClickCloseBtn()` 호출로 Auth 화면으로 복귀
-- [x] (2026-04-22 06) `UI_MapSelect` 상태 연결 — Lobby/Main 진입(OnLoginComplete·BackToLobbyMain)에서 ShowSceneUI, 이탈(ShowInventory·ShowShop·OnLogoutComplete)에서 SetNormalState() 후 DisableUI, ShowMapSelect() 삭제
 - [x] (2026-04-23 00) `UI_MapSelect` 외형 디자인
 - [x] (2026-04-23 00) `UI_MapSelect` 컴포넌트 추가 및 하위 컴포넌트 연결
 - [x] (2026-04-23 00) 상점탭 필터 기능 추가
+- [x] (2026-04-23 05) 버튼 마우스 호버 색 변화 적용 — UI_Auth, UI_Login, UI_MapSelect, UI_Register
+- [x] (2026-04-23 05) `UI_MapSelect` 맵 브라우징 기능 추가 — 임시 스프라이트 추가, 좌우 버튼 순환 로직
+- [x] (2026-04-23 23) `ItemTypeHelper` `_nameMap` / `_descriptionMap` 실제 데이터로 채우기 — 아이템 7종(무기 3, 장비 1, 탄약 2, 기타 1) 이름·설명 등록, range 기반 판별 → Dictionary 방식으로 전환
 
 ### 네트워크
 - [x] (2026-04-21 00) HTTP 요청 전역 중복 차단 — `_tryingVersionCall` / `_tryingAuthCall` 제거, `_isRequesting` 단일 플래그로 통합. 미보호였던 `GetInventoryCall`, `PostPurchaseCall`, `StartMatchCall`, `CancelMatchCall`, `CheckMatchStatusCall` 5개 메서드에 try-finally 가드 추가
@@ -29,12 +29,9 @@
 ## 진행 중 / 미완성
 
 ### 로비 (BeforeAuth 상태)
-- [ ] UI의 버튼 위에 마우스가 올려질 경우 색 변화 적용
 
 ### 로비 (Lobby 상태)
-- [ ] UI_MapSelect - 맵 브라우징 기능 (스프라이트·이름 표시, 좌우 버튼 순환 로직)
 - [ ] UI_MapSelect - 게스트 계정의 경우, 로드아웃 타입 결정하지 않음. 무료 로드아웃으로 즉시 매치메이킹 시도
-- [ ] UI_Shop의 DetailPanel에 채워넣을 item_description과 item_name 맵 작성하기
 - [ ] UI_Shop의 상단 탭의 버튼에 마우스가 올려질 경우 색 변화 적용 (현재 아예 버튼 컴포넌트가 아니라 Image임)
 - [ ] 창고 상단의 탭 가려놓기 - 남겨놓되, y를 0으로 하기. 추후에 소팅이 구현될 일이 있으면 연결 할 수 있도록.
 
