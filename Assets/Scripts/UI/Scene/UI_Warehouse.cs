@@ -5,6 +5,8 @@ using System.Collections.Generic;
 public class UI_Warehouse : UI_ItemRepo {
     TestLobbyScene _scene;
 
+    // Tab구현 보류. 필요없을 것 같음
+    /*
     enum SelectedTab {
         All,
         Weapon,
@@ -27,6 +29,7 @@ public class UI_Warehouse : UI_ItemRepo {
     Image _imageEquipment;
     Image _imageAmmo;
     Image _imageMisc;
+    */
 
     List<ISlot> _iSlots = new();
 
@@ -38,6 +41,7 @@ public class UI_Warehouse : UI_ItemRepo {
         if (scene is TestLobbyScene lobbyScene)
             _scene = lobbyScene;
 
+        /*
         _tabAll = BindComponent<UI_EventHandler>("WarehouseWindow/TabBar/Tab_ALL");
         _tabWeapon = BindComponent<UI_EventHandler>("WarehouseWindow/TabBar/Tab_WEAPONS");
         _tabEquipment = BindComponent<UI_EventHandler>("WarehouseWindow/TabBar/Tab_EQUIPMENT");
@@ -49,6 +53,7 @@ public class UI_Warehouse : UI_ItemRepo {
         _imageEquipment = BindComponent<Image>("WarehouseWindow/TabBar/Tab_EQUIPMENT");
         _imageAmmo = BindComponent<Image>("WarehouseWindow/TabBar/Tab_AMMO");
         _imageMisc = BindComponent<Image>("WarehouseWindow/TabBar/Tab_MISC");
+        */
 
         Transform gridTransform = transform.Find("WarehouseWindow/WarehouseSection/WarehouseGrid");
         if (gridTransform != null) {
