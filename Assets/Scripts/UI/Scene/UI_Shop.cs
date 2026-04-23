@@ -34,6 +34,7 @@ public class UI_Shop : UI_Scene {
     SelectedTab _selectedTab = SelectedTab.All;
     Color _selectedTabColor = new Color(51 / 255f, 153 / 255f, 1f, 1f);
     Color _unselectedTabColor = new Color(33 / 255f, 33 / 255f, 41 / 255f, 1f);
+    Color _hoverTabColor = new Color(50 / 255f, 60 / 255f, 75 / 255f, 1f);
 
     int _quantity = 1;
     TextMeshProUGUI _quantityTxt;
@@ -90,6 +91,17 @@ public class UI_Shop : UI_Scene {
         _equipmentBtn.OnClickHandler += (e) => OnEquipBtnClick();
         _ammoBtn.OnClickHandler += (e) => OnAmmoBtnClick();
         _miscBtn.OnClickHandler += (e) => OnMiscBtnClick();
+
+        _allBtn.OnPointerEnterHandler       += (e) => { if (_selectedTab != SelectedTab.All)       _allBtnColor.color = _hoverTabColor; };
+        _allBtn.OnPointerExitHandler        += (e) => { if (_selectedTab != SelectedTab.All)       _allBtnColor.color = _unselectedTabColor; };
+        _weaponBtn.OnPointerEnterHandler    += (e) => { if (_selectedTab != SelectedTab.Weapon)    _weaponBtnColor.color = _hoverTabColor; };
+        _weaponBtn.OnPointerExitHandler     += (e) => { if (_selectedTab != SelectedTab.Weapon)    _weaponBtnColor.color = _unselectedTabColor; };
+        _equipmentBtn.OnPointerEnterHandler += (e) => { if (_selectedTab != SelectedTab.Equipment) _equipmentBtnColor.color = _hoverTabColor; };
+        _equipmentBtn.OnPointerExitHandler  += (e) => { if (_selectedTab != SelectedTab.Equipment) _equipmentBtnColor.color = _unselectedTabColor; };
+        _ammoBtn.OnPointerEnterHandler      += (e) => { if (_selectedTab != SelectedTab.Ammo)      _ammoBtnColor.color = _hoverTabColor; };
+        _ammoBtn.OnPointerExitHandler       += (e) => { if (_selectedTab != SelectedTab.Ammo)      _ammoBtnColor.color = _unselectedTabColor; };
+        _miscBtn.OnPointerEnterHandler      += (e) => { if (_selectedTab != SelectedTab.Misc)      _miscBtnColor.color = _hoverTabColor; };
+        _miscBtn.OnPointerExitHandler       += (e) => { if (_selectedTab != SelectedTab.Misc)      _miscBtnColor.color = _unselectedTabColor; };
 
         base.OnInitComplete();
     }
