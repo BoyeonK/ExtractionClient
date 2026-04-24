@@ -15,6 +15,9 @@ Include/
 Fonts/
 Images/
 
+# 내 커스텀 Asset파일 무시 (올리고 싶은데 용량문제 때문에... 별도의 백업 필요함)
+humanoidBot1/
+
 # Unity 에셋 스토어 관련 파일 무시
 TinyRPGTown/
 Tiny RPG Forest/
