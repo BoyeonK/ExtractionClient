@@ -80,6 +80,7 @@ public class TestLobbyScene : BaseScene {
             OnConnectedComplete();
         } else {
             OnConnectedFailed();
+            _lobbyReconfirmUI.ActiveOnlyConfirm("서버 버전 확인에 실패했습니다.");
         }
     }
 
@@ -272,10 +273,10 @@ public class TestLobbyScene : BaseScene {
 
     public async void TryLogout() {
         bool isSuccess = await Managers.Network.httpManager.PostLogoutCall(_cts.Token);
-        if (isSuccess == true) { 
-            OnLogoutComplete();
-        } else { 
-            
+        if (isSuccess == true) {
+            _lobbyReconfirmUI.ActiveOnlyConfirm("로그아웃되었습니다.", OnLogoutComplete);
+        } else {
+
         }
     }
 

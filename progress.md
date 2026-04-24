@@ -1,6 +1,6 @@
 # 프로젝트 진행 상황
 
-> 최종 수정: 2026-04-24
+> 최종 수정: 2026-04-25
 > 장르: 멀티플레이어 Extraction 게임 (알파 단계)
 > 엔진: Unity 6000.4.0f1 / URP 17.4.0
 
@@ -9,12 +9,11 @@
 ## 완료된 것들
 
 ### UI
-- [x] (2026-04-24 #1) 창고 상단 탭 가리기 — y=0 처리, 소팅 구현 시 연결할 수 있도록 오브젝트 유지
-- [x] (2026-04-24 #2) 로그아웃 안내 팝업 내용 한글화
-- [x] (2026-04-24 #3) `LobbyReconfirmUI` 버튼 호버 색 변화 적용
-- [x] (2026-04-24 #4) `UI_MapSelect` 게스트 계정 즉시 FreeLoadout 매치메이킹 — Button_StartMatch 클릭 시 게스트이면 오버레이 생략하고 바로 `TryMatchMake` 호출
 - [x] (2026-04-24 #8) `UI_MatchProgress` 표시/숨김 연결 — Matching 진입 시 ShowSceneUI, 로그아웃 완료 시 DisableUI
 - [x] (2026-04-24 #9) `UI_MatchProgress` 타이머·취소 버튼 기능 완성 — OnEnable 초기화, Update MM:SS 표시, 취소 클릭 시 `LobbyReconfirmUI` 재확인 후 `TryCancelMatch` 호출
+- [x] (2026-04-25 #0) Lobby 화면에 더미 캐릭터 세워놓기 (애니메이션 적용)
+- [x] (2026-04-25 #1) 로그아웃 성공 시 LobbyReconfirmUI 확인 팝업 — `TryLogout` 성공 시 `ActiveOnlyConfirm` → 확인 클릭 후 `OnLogoutComplete` 실행
+- [x] (2026-04-25 #2) 버전 확인 실패 시 LobbyReconfirmUI 알림 팝업 — `GetVersionCall` 실패 시 `OnConnectedFailed` 즉시 실행 후 `ActiveOnlyConfirm` 알림 표시
 
 ### 네트워크
 - [x] (2026-04-24 #5) `HTTPManager` `IsMatching` 플래그 추가 — 매칭 중 `CancelMatchCall` / `CheckMatchStatusCall` 이외 모든 요청 차단. StartMatchCall 성공/실패, 취소, 티켓 만료, TryConnectCall 종료 시 해제
@@ -32,8 +31,15 @@
 ### 로비 (Matching 상태)
 - [ ] 매칭 성공 시 게임 씬 로드 — `OnMatchingSuccess()`에서 씬 전환 로직 구현 (`TryConnectCall`은 `CheckMatchStatusCall` 내부에서 이미 호출됨)
 
+### 매칭 성공시 씬 전환
+- [ ] LoadingScene 만들고 SceneManagerEx와 연동하기
+- [ ] 테스트용 GameScene만들기
+- [ ] /status가 SUCCESS반환 시 LoadingScene으로 전환하고, 동시에 비 동기적으로 해당 Map의 Scene을 로딩
+- [ ] RUDP패킷 헤더 완성 및 ACK bitfield를 이용한 재전송 로직 완성하기
+- 
+
 ### 기타
-- [ ] 로그아웃 성공, 버전 체크 실패의 경우, LobbyReconfirmUI 활용하여 안내 팝업 띄우기
+- [ ] TestLobbyScene을 LobbyScene으로 변경.
 - [ ] 설정 UI 만들기
 
 ---
@@ -41,4 +47,3 @@
 ## 다음 작업 우선순위 (제안)
 
 1. **매칭 성공 씬 전환** — `OnMatchingSuccess()` → 게임 씬 로드
-2. **버전 체크 실패 팝업** — 로그아웃 성공/버전 체크 실패 시 LobbyReconfirmUI 안내 팝업 띄우기
