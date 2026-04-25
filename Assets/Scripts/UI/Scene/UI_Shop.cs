@@ -5,7 +5,7 @@ using UnityEngine;
 using UnityEngine.UI;
 
 public class UI_Shop : UI_Scene {
-    TestLobbyScene _scene;
+    LobbyScene _scene;
     int _selectedItemId = -1;
     int _selectedItemPrice = 0;
     Image _selectedItemImage;
@@ -49,7 +49,7 @@ public class UI_Shop : UI_Scene {
         if (isInit) return;
 
         BaseScene scene = Managers.Scene.CurrentScene;
-        if (scene is TestLobbyScene lobbyScene)
+        if (scene is LobbyScene lobbyScene)
             _scene = lobbyScene;
 
         Transform gridTransform = transform.Find("ShopWindow/ShopContent/ShopSection/ShopGrid");

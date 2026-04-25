@@ -3,7 +3,7 @@ using UnityEngine.UI;
 using System.Collections.Generic;
 
 public class UI_Warehouse : UI_ItemRepo {
-    TestLobbyScene _scene;
+    LobbyScene _scene;
 
     // Tab구현 보류. 필요없을 것 같음
     /*
@@ -38,7 +38,7 @@ public class UI_Warehouse : UI_ItemRepo {
         if (isInit) return;
 
         BaseScene scene = Managers.Scene.CurrentScene;
-        if (scene is TestLobbyScene lobbyScene)
+        if (scene is LobbyScene lobbyScene)
             _scene = lobbyScene;
 
         /*

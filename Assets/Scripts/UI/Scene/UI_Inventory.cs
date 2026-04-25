@@ -2,7 +2,7 @@ using System.Collections.Generic;
 using UnityEngine;
 
 public class UI_Inventory : UI_ItemRepo {
-    TestLobbyScene _scene;
+    LobbyScene _scene;
 
     List<ISlot> _iSlots = new();
 
@@ -14,7 +14,7 @@ public class UI_Inventory : UI_ItemRepo {
         if (isInit) return;
 
         BaseScene scene = Managers.Scene.CurrentScene;
-        if (scene is TestLobbyScene lobbyScene)
+        if (scene is LobbyScene lobbyScene)
             _scene = lobbyScene;
 
         Transform gridTransform = transform.Find("InventoryWindow/GridPanel/ItemGrid");

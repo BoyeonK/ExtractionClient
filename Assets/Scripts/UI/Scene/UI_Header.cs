@@ -2,7 +2,7 @@ using UnityEngine;
 using UnityEngine.UI;
 
 public class UI_Header : UI_Scene {
-    TestLobbyScene _scene;
+    LobbyScene _scene;
 
     public enum HeaderState {
         BeforeAuth,
@@ -37,7 +37,7 @@ public class UI_Header : UI_Scene {
         base.Init();
         if (isInit) return;
         BaseScene scene = Managers.Scene.CurrentScene;
-        if (scene is TestLobbyScene lobbyScene)
+        if (scene is LobbyScene lobbyScene)
             _scene = lobbyScene;
 
         _lobbyButton = BindComponent<Button>("HeaderPanel/LeftMenuGroup/Btn_LOBBY");
@@ -175,7 +175,7 @@ public class UI_Header : UI_Scene {
     }
 
     private void OnClickOptionBtn() {
-
+        _scene.ShowSettingUI();
     }
 
     private void OnDestroy() {

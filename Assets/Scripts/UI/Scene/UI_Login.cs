@@ -3,7 +3,7 @@ using UnityEngine;
 using UnityEngine.UI;
 
 public class UI_Login : UI_Scene {
-    TestLobbyScene _scene;
+    LobbyScene _scene;
 
     TMP_InputField _idField;
     TMP_InputField _passwordField;
@@ -17,7 +17,7 @@ public class UI_Login : UI_Scene {
         base.Init();
         if (isInit) return;
         BaseScene scene = Managers.Scene.CurrentScene;
-        if (scene is TestLobbyScene lobbyScene)
+        if (scene is LobbyScene lobbyScene)
             _scene = lobbyScene;
 
         _idField = BindComponent<TMP_InputField>("LoginPanel/IdInputField");

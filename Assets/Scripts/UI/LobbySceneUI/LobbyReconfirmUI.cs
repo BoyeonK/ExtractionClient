@@ -2,11 +2,17 @@ using System;
 using UnityEngine;
 
 public class LobbyReconfirmUI : MonoBehaviour {
+    LobbyScene _scene;
+
     bool isActive = false;
     LobbyConfirmOrCancel _confirmOrCancelUI;
     lobbyOnlyConfirm _onlyConfirmUI;
 
     public void Init() {
+        BaseScene scene = Managers.Scene.CurrentScene;
+        if (scene is LobbyScene lobbyScene)
+            _scene = lobbyScene;
+
         _confirmOrCancelUI = Util.BindComponent<LobbyConfirmOrCancel>("LobbyConfirmOrCancel", this.gameObject);
         _onlyConfirmUI = Util.BindComponent<lobbyOnlyConfirm>("LobbyOnlyConfirm", this.gameObject);
 

@@ -1,7 +1,7 @@
 public class LSlot : ISlot {
     ItemType _acceptedType;
 
-    public void Init(int index, TestLobbyScene scene, ItemType acceptedType) {
+    public void Init(int index, LobbyScene scene, ItemType acceptedType) {
         base.Init(index, scene);
         _acceptedType = acceptedType;
     }

@@ -6,7 +6,7 @@ using UnityEngine.UI;
 public class ISlot : MonoBehaviour {
     protected InventoryItem _item = null;
     protected int _slotIndex = -1;
-    protected TestLobbyScene _scene = null;
+    protected LobbyScene _scene = null;
     UI_EventHandler _eventHandler;
     protected Image _iconImage;
     protected TextMeshProUGUI _quantity;
@@ -14,7 +14,7 @@ public class ISlot : MonoBehaviour {
     public InventoryItem GetItem() => _item;
     public int SlotIndex => _slotIndex;
 
-    public void Init(int index, TestLobbyScene scene) {
+    public void Init(int index, LobbyScene scene) {
         _slotIndex = index;
         _scene = scene;
         _eventHandler = GetComponent<UI_EventHandler>();

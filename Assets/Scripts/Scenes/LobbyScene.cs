@@ -6,7 +6,7 @@ using UnityEngine.Diagnostics;
 using UnityEngine.InputSystem;
 using UnityEngine.UI;
 
-public class TestLobbyScene : BaseScene {
+public class LobbyScene : BaseScene {
     UI_TestStart _startUI;
     UI_Auth _authUI;
     UI_Login _loginUI;
@@ -18,6 +18,7 @@ public class TestLobbyScene : BaseScene {
     UI_MapSelect _mapSelectUI;
     UI_MatchProcess _matchProgressUI;
     LobbyReconfirmUI _lobbyReconfirmUI;
+    LobbySettingUI _lobbySettingUI;
 
     const int INVENTORY_SLOT_COUNT = 25;
     const int WAREHOUSE_SLOT_COUNT = 80;
@@ -58,6 +59,12 @@ public class TestLobbyScene : BaseScene {
         if (reconfirmObj != null) {
             _lobbyReconfirmUI = reconfirmObj.GetComponent<LobbyReconfirmUI>();
             _lobbyReconfirmUI.Init();
+        }
+        GameObject settingObj = GameObject.Find("LobbySettingUI");
+        if (settingObj != null) {
+            _lobbySettingUI = settingObj.GetComponent<LobbySettingUI>();
+            _lobbySettingUI.Init();
+            _lobbySettingUI.Hide();
         }
 
         Managers.Input.AddKeyListener(Key.Escape, OnEscapeInput, InputManager.KeyState.Up);
@@ -262,6 +269,14 @@ public class TestLobbyScene : BaseScene {
     }
 
     UserState _userState = UserState.Main;
+
+    public void ShowSettingUI() {
+        _lobbySettingUI.Show();
+    }
+
+    public bool ActiveReconfirmConfirmOrCancel(string msg, Action onConfirm, Action onCancel = null) {
+        return _lobbyReconfirmUI.ActiveConfirmOrCancel(msg, onConfirm, onCancel);
+    }
 
     public void LogoutPopup() {
         if (_lobbyState == LobbyState.Lobby) {

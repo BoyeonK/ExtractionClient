@@ -4,7 +4,7 @@ using UnityEngine.UI;
 using static UnityEditor.Progress;
 
 public class UI_MapSelect : UI_Scene {
-    TestLobbyScene _scene;
+    LobbyScene _scene;
 
     bool _finalDecision = true;
     GameObject _overlay;
@@ -26,7 +26,7 @@ public class UI_MapSelect : UI_Scene {
         if (isInit) return;
 
         BaseScene scene = Managers.Scene.CurrentScene;
-        if (scene is TestLobbyScene lobbyScene)
+        if (scene is LobbyScene lobbyScene)
             _scene = lobbyScene;
 
         Transform overlayTrans = Util.BindComponent<Transform>("DarkOverlay", this.gameObject);

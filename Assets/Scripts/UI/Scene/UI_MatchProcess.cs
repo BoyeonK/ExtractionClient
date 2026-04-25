@@ -3,7 +3,7 @@ using UnityEngine;
 using UnityEngine.UI;
 
 public class UI_MatchProcess : UI_Scene {
-    TestLobbyScene _scene;
+    LobbyScene _scene;
 
     TextMeshProUGUI _timerTxt;
     Button _cancelBtn;
@@ -15,7 +15,7 @@ public class UI_MatchProcess : UI_Scene {
         base.Init();
         if (isInit) return;
         BaseScene scene = Managers.Scene.CurrentScene;
-        if (scene is TestLobbyScene lobbyScene)
+        if (scene is LobbyScene lobbyScene)
             _scene = lobbyScene;
 
         _timerTxt = Util.BindComponent<TextMeshProUGUI>("ProgressWindow/Timer", this.gameObject);

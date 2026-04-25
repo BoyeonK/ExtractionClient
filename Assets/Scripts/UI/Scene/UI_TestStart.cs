@@ -3,7 +3,7 @@ using Unity.VisualScripting;
 using UnityEngine;
 
 public class UI_TestStart : UI_Scene {
-    TestLobbyScene _scene;
+    LobbyScene _scene;
 
     //TextMeshProUGUI _pressToStartText;
     TextMeshProUGUI _testSpinnerText;
@@ -15,7 +15,7 @@ public class UI_TestStart : UI_Scene {
         base.Init();
         if (isInit) return;
         BaseScene scene = Managers.Scene.CurrentScene;
-        if (scene is TestLobbyScene lobbyScene)
+        if (scene is LobbyScene lobbyScene)
             _scene = lobbyScene;
 
         //_pressToStartText = BindComponent<TextMeshProUGUI>("PressToStart");

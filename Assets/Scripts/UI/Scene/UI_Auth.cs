@@ -2,7 +2,7 @@ using UnityEngine;
 using UnityEngine.UI;
 
 public class UI_Auth : UI_Scene {
-    TestLobbyScene _scene;
+    LobbyScene _scene;
 
     Button _loginButton;
     Button _registerButton;
@@ -15,7 +15,7 @@ public class UI_Auth : UI_Scene {
         if (isInit) return;
 
         BaseScene scene = Managers.Scene.CurrentScene;
-        if (scene is TestLobbyScene lobbyScene)
+        if (scene is LobbyScene lobbyScene)
             _scene = lobbyScene;
 
         _loginButton = BindComponent<Button>("Card/LoginButton");
