@@ -9,7 +9,6 @@
 ## 완료된 것들
 
 ### UI
-- [x] (2026-04-24 #9) `UI_MatchProgress` 타이머·취소 버튼 기능 완성 — OnEnable 초기화, Update MM:SS 표시, 취소 클릭 시 `LobbyReconfirmUI` 재확인 후 `TryCancelMatch` 호출
 - [x] (2026-04-25 #0) Lobby 화면에 더미 캐릭터 세워놓기 (애니메이션 적용)
 - [x] (2026-04-25 #1) 로그아웃 성공 시 LobbyReconfirmUI 확인 팝업 — `TryLogout` 성공 시 `ActiveOnlyConfirm` → 확인 클릭 후 `OnLogoutComplete` 실행
 - [x] (2026-04-25 #2) 버전 확인 실패 시 LobbyReconfirmUI 알림 팝업 — `GetVersionCall` 실패 시 `OnConnectedFailed` 즉시 실행 후 `ActiveOnlyConfirm` 알림 표시
@@ -19,6 +18,7 @@
 - [x] (2026-04-24 #11) Matching 상태 중 옵션·로그아웃 버튼 외 모든 UI 접근 차단 — `EnterMatchingState()`에서 전체 비활성화, 각 Show 메서드에 Lobby 상태 가드 존재, ESC 무동작
 - [x] (2026-04-28 #0) RUDP 전환 — 헤더 31B, reliable/unreliable 채널 분리, ACK bitfield 재전송 로직, 고정 RTO 100ms
 - [x] (2026-04-28 #1) `_pendingReliable` 최적화 — Dictionary → 32슬롯 링 버퍼, byte[1400] 사전 할당, `BuildPacketInto(Span<byte>)` 직접 쓰기, `CollectRetransmits` 반환 List 재사용
+- [x] (2026-04-28 #2) 적응형 RTO 적용 — 고정 100ms → `max(100ms, SRTT + 4×RTTVAR)` RFC 6298 EWMA, `timestampEcho` 기반 RTT 샘플링, `UpdateRtt()` 메인 스레드 전용
 
 ### 기타
 - [x] (2026-04-26 #0) TestLobbyScene을 LobbyScene으로 변경

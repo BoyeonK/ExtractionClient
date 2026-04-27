@@ -47,10 +47,18 @@ public class PacketHandler {
     private uint _timestampEcho = 0;
 
     // ── Reliable 재전송 링 버퍼 ────────────────────────
-    private const float RTO_MS         = 100f;   // 재전송 타임아웃 (ms)
+    private const float MIN_RTO_MS     = 100f;   // RTO 하한 (ms)
     private const int   MAX_RETRY      = 10;     // 최대 재전송 횟수
     private const int   WINDOW_SIZE    = 32;     // ACK bitfield 32비트와 일치
     private const int   MAX_PACKET_SIZE = 1400;  // 이더넷 MTU 기준 안전 최대치
+
+    // ── RTT 추정 (RFC 6298 EWMA) ──────────────────────
+    private float _srtt            = 0f;
+    private float _rttvar          = 0f;
+    private bool  _rttInitialized  = false;
+    private float CurrentRto => _rttInitialized
+        ? Mathf.Max(MIN_RTO_MS, _srtt + 4f * _rttvar)
+        : MIN_RTO_MS;
 
     private struct PendingSlot {
         public bool   inUse;
@@ -155,10 +163,11 @@ public class PacketHandler {
         shouldDisconnect = false;
         _retransmitCache.Clear();
 
+        float rto = CurrentRto;
         for (int i = 0; i < WINDOW_SIZE; i++) {
             ref PendingSlot slot = ref _pendingSlots[i];
             if (!slot.inUse) continue;
-            if (nowMs - slot.sentAtMs < RTO_MS) continue;
+            if (nowMs - slot.sentAtMs < rto) continue;
 
             if (slot.retryCount >= MAX_RETRY) {
                 shouldDisconnect = true;
@@ -195,6 +204,12 @@ public class PacketHandler {
             uint serverRSeq = header.rSeqNum;
             uint serverTs   = header.timestamp;
             Managers.ExecuteAtMainThread(() => UpdateRecvAckState(serverRSeq, serverTs));
+        }
+
+        // 서버가 우리 timestamp를 에코해 준 경우 → RTT 샘플 수집
+        if (header.timestampEcho != 0) {
+            uint echoed = header.timestampEcho;
+            Managers.ExecuteAtMainThread(() => UpdateRtt(echoed));
         }
 
         ushort id = header.packetId;
@@ -244,6 +259,27 @@ public class PacketHandler {
             if (diff <= 32) _recvAckBitfield |= (1u << ((int)diff - 1));
         }
         // serverRSeq == _recvAckRSeqNum: 중복 수신, 무시
+    }
+
+    // 메인 스레드 전용: RTT 샘플 반영 (RFC 6298 EWMA)
+    private void UpdateRtt(uint echoedTs) {
+        uint nowMs = (uint)(Time.realtimeSinceStartup * 1000f);
+    
+        // 비정상적인 시간 역전 방어 (클라이언트 렉 등)
+        if (nowMs < echoedTs) return; 
+
+        float rtt = (float)(nowMs - echoedTs);
+
+        if (!_rttInitialized) {
+            _srtt = rtt;
+            _rttvar = rtt / 2f;
+            _rttInitialized = true;
+        } else {
+            // RFC 6298 EWMA 공식 (alpha = 0.125, beta = 0.25)
+            float delta = rtt - _srtt;
+            _srtt += 0.125f * delta;
+            _rttvar = 0.75f * _rttvar + 0.25f * Mathf.Abs(delta);
+        }
     }
 
     // ====================
