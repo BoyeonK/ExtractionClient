@@ -75,11 +75,11 @@ public class UDPManager {
     }
 
 
-    public void SendPacket(byte[] data) {
+    public void SendPacket(byte[] data, int length) {
         UdpClient client = _udpClient; // 로컬 변수에 캡처
         if (client == null) return;
         try {
-            client.Send(data, data.Length);
+            client.Send(data, length);
         }
         catch (ObjectDisposedException) { } // Disconnect와 동시 호출 방어
         catch (Exception e) {
@@ -88,25 +88,25 @@ public class UDPManager {
     }
 
     public void SendReliable(ushort packetId, IMessage proto) {
-        byte[] data = Handler.MakeReliablePacket(packetId, proto);
-        SendPacket(data);
+        var (data, length) = Handler.MakeReliablePacket(packetId, proto);
+        SendPacket(data, length);
     }
 
     public void SendUnreliable(ushort packetId, IMessage proto) {
-        byte[] data = Handler.MakeUnreliablePacket(packetId, proto);
-        SendPacket(data);
+        var (data, length) = Handler.MakeUnreliablePacket(packetId, proto);
+        SendPacket(data, length);
     }
 
     public void OnUpdate() {
         if (_udpClient == null) return;
         float nowMs = Time.realtimeSinceStartup * 1000f;
-        List<byte[]> retransmits = Handler.CollectRetransmits(nowMs, out bool shouldDisconnect);
+        var retransmits = Handler.CollectRetransmits(nowMs, out bool shouldDisconnect);
         if (shouldDisconnect) {
             Util.LogError("[UDP] 재전송 한도 초과. 연결 종료.");
             Disconnect();
             return;
         }
-        foreach (byte[] pkt in retransmits) SendPacket(pkt);
+        foreach (var (data, length) in retransmits) SendPacket(data, length);
     }
 
     public void Disconnect() {

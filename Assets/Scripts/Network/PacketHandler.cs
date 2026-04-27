@@ -46,20 +46,33 @@ public class PacketHandler {
     // ── 타임스탬프 에코 (서버의 timestamp를 그대로 돌려줌) ──
     private uint _timestampEcho = 0;
 
-    // ── Reliable 재전송 큐 ─────────────────────────────
-    private const float RTO_MS    = 100f;  // 재전송 타임아웃 (ms)
-    private const int   MAX_RETRY = 10;    // 최대 재전송 횟수
-    private struct PendingEntry {
-        public byte[] data;
+    // ── Reliable 재전송 링 버퍼 ────────────────────────
+    private const float RTO_MS         = 100f;   // 재전송 타임아웃 (ms)
+    private const int   MAX_RETRY      = 10;     // 최대 재전송 횟수
+    private const int   WINDOW_SIZE    = 32;     // ACK bitfield 32비트와 일치
+    private const int   MAX_PACKET_SIZE = 1400;  // 이더넷 MTU 기준 안전 최대치
+
+    private struct PendingSlot {
+        public bool   inUse;
+        public uint   seqNum;
         public float  sentAtMs;
         public int    retryCount;
+        public int    dataLength;
+        public byte[] data;  // 생성자에서 new byte[MAX_PACKET_SIZE] 할당
     }
-    private Dictionary<uint, PendingEntry> _pendingReliable = new Dictionary<uint, PendingEntry>();
+    private PendingSlot[] _pendingSlots;
+    private byte[]        _unreliableScratch;
+    private List<(byte[] data, int length)> _retransmitCache = new List<(byte[], int)>(WINDOW_SIZE);
 
     // ── 핸들러 ─────────────────────────────────────────
     private Dictionary<ushort, HandlerFunc> _handlers = new Dictionary<ushort, HandlerFunc>();
 
     public PacketHandler() {
+        _pendingSlots = new PendingSlot[WINDOW_SIZE];
+        for (int i = 0; i < WINDOW_SIZE; i++)
+            _pendingSlots[i].data = new byte[MAX_PACKET_SIZE];
+        _unreliableScratch = new byte[MAX_PACKET_SIZE];
+
         _handlers.Add((ushort)PktId.D2CTestPkt, Handle_D2CTestPkt);
     }
 
@@ -78,9 +91,8 @@ public class PacketHandler {
     // 송신 패킷 생성
     // ==========================================
 
-    private byte[] BuildPacket(ushort packetId, bool reliable, IMessage proto) {
-        byte[] payload = proto != null ? proto.ToByteArray() : Array.Empty<byte>();
-        uint   nowMs   = (uint)(Time.realtimeSinceStartup * 1000f);
+    private int BuildPacketInto(ushort packetId, bool reliable, IMessage proto, Span<byte> dest) {
+        uint nowMs = (uint)(Time.realtimeSinceStartup * 1000f);
 
         byte flags = reliable ? UDPFlags.FLAG_RELIABLE : (byte)0;
         if (_hasReceivedReliable) flags |= UDPFlags.FLAG_HAS_ACK;
@@ -98,51 +110,66 @@ public class PacketHandler {
             timestampEcho = _timestampEcho,
         };
 
-        byte[] packet = new byte[UDPHeader.Size + payload.Length];
-        Span<byte> span = packet;
-        MemoryMarshal.Write(span.Slice(0, UDPHeader.Size), ref hdr);
-        if (payload.Length > 0) payload.CopyTo(span.Slice(UDPHeader.Size));
+        MemoryMarshal.Write(dest.Slice(0, UDPHeader.Size), ref hdr);
 
-        return packet;
+        int payloadLen = 0;
+    
+        if (proto != null) {
+            payloadLen = proto.CalculateSize();
+            proto.WriteTo(dest.Slice(UDPHeader.Size, payloadLen)); 
+        }
+
+        return UDPHeader.Size + payloadLen;
     }
 
-    public byte[] MakeReliablePacket(ushort packetId, IMessage proto) {
-        byte[] data  = BuildPacket(packetId, reliable: true, proto);
-        float  nowMs = Time.realtimeSinceStartup * 1000f;
-        _pendingReliable[_rSeqNum] = new PendingEntry { data = data, sentAtMs = nowMs, retryCount = 0 };
+    public (byte[] data, int length) MakeReliablePacket(ushort packetId, IMessage proto) {
+        int slotIndex = (int)(_rSeqNum % WINDOW_SIZE);
+        ref PendingSlot slot = ref _pendingSlots[slotIndex];
+
+#if UNITY_EDITOR || DEVELOPMENT_BUILD
+        if (slot.inUse)
+            Util.LogWarning($"[PacketHandler] 슬롯 {slotIndex} 덮어쓰기 — in-flight 패킷 32개 초과");
+#endif
+
+        slot.inUse      = true;
+        slot.seqNum     = _rSeqNum;
+        slot.sentAtMs   = Time.realtimeSinceStartup * 1000f;
+        slot.retryCount = 0;
+        slot.dataLength = BuildPacketInto(packetId, true, proto, slot.data);
+
         _rSeqNum++;
-        return data;
+        return (slot.data, slot.dataLength);
     }
 
-    public byte[] MakeUnreliablePacket(ushort packetId, IMessage proto) {
-        byte[] data = BuildPacket(packetId, reliable: false, proto);
+    public (byte[] data, int length) MakeUnreliablePacket(ushort packetId, IMessage proto) {
+        int len = BuildPacketInto(packetId, false, proto, _unreliableScratch);
         _uSeqNum++;
-        return data;
+        return (_unreliableScratch, len);
     }
 
     // ==========================================
     // 재전송 큐 관리 (메인 스레드에서 호출)
     // ==========================================
 
-    public List<byte[]> CollectRetransmits(float nowMs, out bool shouldDisconnect) {
+    public List<(byte[] data, int length)> CollectRetransmits(float nowMs, out bool shouldDisconnect) {
         shouldDisconnect = false;
-        var result = new List<byte[]>();
+        _retransmitCache.Clear();
 
-        foreach (var key in new List<uint>(_pendingReliable.Keys)) {
-            var entry = _pendingReliable[key];
-            if (nowMs - entry.sentAtMs < RTO_MS) continue;
+        for (int i = 0; i < WINDOW_SIZE; i++) {
+            ref PendingSlot slot = ref _pendingSlots[i];
+            if (!slot.inUse) continue;
+            if (nowMs - slot.sentAtMs < RTO_MS) continue;
 
-            if (entry.retryCount >= MAX_RETRY) {
+            if (slot.retryCount >= MAX_RETRY) {
                 shouldDisconnect = true;
-                return result;
+                return _retransmitCache;
             }
 
-            entry.retryCount++;
-            entry.sentAtMs = nowMs;
-            _pendingReliable[key] = entry;
-            result.Add(entry.data);
+            slot.retryCount++;
+            slot.sentAtMs = nowMs;
+            _retransmitCache.Add((slot.data, slot.dataLength));
         }
-        return result;
+        return _retransmitCache;
     }
 
     // ==========================================
@@ -156,7 +183,7 @@ public class PacketHandler {
         UDPHeader header = MemoryMarshal.Read<UDPHeader>(packetSpan.Slice(0, UDPHeader.Size));
         ReadOnlySpan<byte> payloadSpan = packetSpan.Slice(UDPHeader.Size);
 
-        // 서버가 우리 reliable 패킷을 확인한 ACK → pending 큐 정리
+        // 서버가 우리 reliable 패킷을 확인한 ACK → pending 슬롯 정리
         if ((header.flags & UDPFlags.FLAG_HAS_ACK) != 0) {
             uint ack = header.ackRSeqNum;
             uint bf  = header.ackBitfield;
@@ -184,16 +211,20 @@ public class PacketHandler {
         }
     }
 
-    // 메인 스레드 전용: 서버가 확인한 우리 reliable 패킷 제거
+    // 메인 스레드 전용: 서버가 확인한 우리 reliable 패킷 슬롯 해제
     private void ProcessAck(uint ackSeq, uint bitfield) {
-        _pendingReliable.Remove(ackSeq);
-
+        ClearSlot(ackSeq);
         for (int i = 0; i < 32; i++) {
-            if ((bitfield & (1u << i)) != 0) {
-                uint seq = ackSeq - (uint)(i + 1);
-                _pendingReliable.Remove(seq);
-            }
+            if ((bitfield & (1u << i)) != 0)
+                ClearSlot(ackSeq - (uint)(i + 1));
         }
+    }
+
+    private void ClearSlot(uint seqNum) {
+        int idx = (int)(seqNum % WINDOW_SIZE);
+        ref PendingSlot slot = ref _pendingSlots[idx];
+        if (slot.inUse && slot.seqNum == seqNum)
+            slot.inUse = false;
     }
 
     // 메인 스레드 전용: 서버 reliable 패킷 수신 기록 → 다음 송신에 piggybacked할 ACK 갱신

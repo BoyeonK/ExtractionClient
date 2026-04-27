@@ -47,9 +47,16 @@ This file provides guidance to Claude Code (claude.ai/code) when working with co
 - 전용 백그라운드 수신 스레드(`UDP_Receive_Thread`) 사용
 - `UdpClient.Connect()`로 목적지 고정. `Disconnect()` 시 `_udpClient.Close()` → 수신 루프의 `SocketException`으로 안전하게 종료
 - 수신 데이터는 모두 `Managers.ExecuteAtMainThread`를 통해 메인 스레드에서 처리
+- 송신: `SendReliable(packetId, IMessage)` / `SendUnreliable(packetId, IMessage)` — 채널에 따라 선택
+- `OnUpdate()`가 매 프레임 `PacketHandler.CollectRetransmits()`를 호출해 RTO(100ms) 초과 패킷을 재전송. 재전송 10회 초과 시 `Disconnect()`
 
 ### 패킷 형식 (`PacketHandler`)
-- **헤더** (`UDPHeader`, 13바이트, `LayoutKind.Sequential Pack=1`): `packetId(2) | sessionId(2) | sequenceNum(4) | securityKey(4) | flags(1)`
+- **헤더** (`UDPHeader`, 31바이트, `LayoutKind.Sequential Pack=1`):
+  `packetId(2) | sessionId(2) | rSeqNum(4) | uSeqNum(2) | securityKey(4) | flags(1) | ackRSeqNum(4) | ackBitfield(4) | timestamp(4) | timestampEcho(4)`
+- **플래그** (`UDPFlags`): `FLAG_HAS_ACK=0x01` (ack 필드 유효) / `FLAG_RELIABLE=0x02` (재전송 대상) / `FLAG_FRAGMENTED=0x04` (예약)
+- Reliable 채널: `rSeqNum` 사용, pending 큐에 등록, ACK 수신 시 제거
+- Unreliable 채널: `uSeqNum` 사용, 재전송 없음
+- ACK 전송: 모든 송신 패킷 헤더에 piggybacked (`FLAG_HAS_ACK` + `ackRSeqNum` + `ackBitfield`)
 - 직렬화: Google.Protobuf (`GameProtocol` 네임스페이스, `ExternalProtocol.cs`에 정의)
 - 핸들러 등록: `PacketHandler` 생성자에서 `_handlers.Add((ushort)PktId.XXX, Handle_XXX)`
 - Zero-Allocation 패킷 조립: `MemoryMarshal.Write/Read` + `Span<byte>` 사용
