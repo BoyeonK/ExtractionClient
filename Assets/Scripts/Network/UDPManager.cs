@@ -1,9 +1,9 @@
 using GameProtocol;
+using Google.Protobuf;
 using System;
+using System.Collections.Generic;
 using System.Net;
 using System.Net.Sockets;
-// using Google.Protobuf;
-// using GameProtocol;
 using System.Runtime.InteropServices;
 using System.Threading;
 using UnityEngine;
@@ -87,6 +87,28 @@ public class UDPManager {
         }
     }
 
+    public void SendReliable(ushort packetId, IMessage proto) {
+        byte[] data = Handler.MakeReliablePacket(packetId, proto);
+        SendPacket(data);
+    }
+
+    public void SendUnreliable(ushort packetId, IMessage proto) {
+        byte[] data = Handler.MakeUnreliablePacket(packetId, proto);
+        SendPacket(data);
+    }
+
+    public void OnUpdate() {
+        if (_udpClient == null) return;
+        float nowMs = Time.realtimeSinceStartup * 1000f;
+        List<byte[]> retransmits = Handler.CollectRetransmits(nowMs, out bool shouldDisconnect);
+        if (shouldDisconnect) {
+            Util.LogError("[UDP] 재전송 한도 초과. 연결 종료.");
+            Disconnect();
+            return;
+        }
+        foreach (byte[] pkt in retransmits) SendPacket(pkt);
+    }
+
     public void Disconnect() {
         _isRunning = false; // 루프 종료 플래그
 
@@ -106,15 +128,9 @@ public class UDPManager {
     // 게임 로직 함수
     // ====================
     public void RequestSessionIdAndSecurityKey() {
-        // 1. Protobuf 페이로드 생성
         C2DTestPkt testPkt = new C2DTestPkt {
             Echo = "Hello, UDP Server! Let me in!"
         };
-
-        // 2. 패킷 핸들러에게 조립(헤더 씌우기)을 부탁함
-        byte[] sendBuffer = Handler.MakeSendBuffer(testPkt);
-
-        // 3. 만들어진 바이트 배열을 전송
-        SendPacket(sendBuffer);
+        SendReliable((ushort)GameProtocol.PktId.C2DTestPkt, testPkt);
     }
 }
