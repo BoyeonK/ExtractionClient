@@ -30,13 +30,18 @@
 
 ## 진행 중 / 미완성
 
-### 로비 (Matching 상태)
-- [ ] 매칭 성공 시 게임 씬 로드 — `OnMatchingSuccess()`에서 씬 전환 로직 구현 (`TryConnectCall`은 `CheckMatchStatusCall` 내부에서 이미 호출됨)
-
 ### 매칭 성공시 씬 전환
-- [ ] LoadingScene 만들고 SceneManagerEx와 연동하기
-- [ ] 테스트용 GameScene 만들기
-- [ ] /status가 SUCCESS 반환 시 LoadingScene으로 전환하고, 동시에 비동기적으로 해당 Map의 Scene을 로딩
+/connect요청을 통해서 ip와 port를 받았을 경우
+1. workerThread를 살려내고 루프 작동. (ping 작동)
+    - workerThread내에서 ReliableFlag로 C2DHeartBeat전송, D2CHeartBeat로 응답 받음.
+2. Scene을 LoadingScene으로 변경하고, GameScene의 비동기 로딩 시작.
+3. 비동기 로딩 완료되었을 경우, GameScene의 현재 정적인 내용을 요구하는 패킷 전송.
+    - C2DRequestBluePrint 전송
+4. 3의 패킷의 응답을 받았을 경우, 해당 내용을 역직렬화해서 보관하고 Scene교체 진행.
+    - D2CResponseBlueprint, 여기서 Spawn위치 결정됨.
+5. 교체된 Scene의 Init() 함수에서 C2DRequestBluePrint에서 받아온 친구들 까지 포함해서 그려냄
+6. Init함수가 실행된 이후, 서버에 Scene 로딩 완료됬음을 알려줌과 동시에 동적인 정보를 다시 요청.
+    - C2DRequestSpawnMe
 
 ---
 

@@ -3,7 +3,8 @@ using UnityEngine;
 public class Define {
     public enum Scene {
         Undefined,
-        TestLobby,
+        Lobby,
+        LoadingScene1,
         MaxCount,
     }
 

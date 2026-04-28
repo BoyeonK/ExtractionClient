@@ -107,7 +107,7 @@ public class Managers : MonoBehaviour {
         Pool.Clear();
     }
 
-    // ���ø����̼��� ����� �� �̱��� �ν��Ͻ��� �ı��Ǵ� ���� �����ϱ� ���� �÷��׸� ����
+    // 애플리케이션이 종료될 때 싱글톤 인스턴스가 파괴되는 것을 방지하기 위한 플래그를 설정
     private void OnApplicationQuit() {
         s_isQuitting = true;
     }

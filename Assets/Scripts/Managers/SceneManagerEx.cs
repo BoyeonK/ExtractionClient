@@ -20,15 +20,6 @@ public class SceneManagerEx {
     private AsyncOperation _asyncLoadSceneOp;
     private float _progress = 0.0f;
 
-    public bool _isWinner = false;
-    public bool _isScoreResult = true;
-    public int _winnerIdx = -1;
-    public List<string> _playerIds = new List<string>();
-    public List<int> _scores = new List<int>();
-
-    private readonly object _loadingProgressLock = new object();
-    List<int> _loadingProgress = Enumerable.Repeat(0, 4).ToList();
-
     public BaseScene CurrentScene { get { return GameObject.FindAnyObjectByType<BaseScene>(); } }
 
     public void OnUpdate() {
@@ -90,13 +81,6 @@ public class SceneManagerEx {
         if (go == null) return null;
         return go.GetComponent<BaseScene>();
     }
-
-    public void RenewLoadingProgress(int playerIdx, int loadingProgress) {
-        lock (_loadingProgressLock) {
-            _loadingProgress[playerIdx] = loadingProgress;
-        }
-    }
-
     public void Clear() {
         CurrentScene.Clear();
     }

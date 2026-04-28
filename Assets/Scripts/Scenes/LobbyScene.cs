@@ -41,7 +41,8 @@ public class LobbyScene : BaseScene {
     }
 
     protected override void Init() {
-        SceneType = Define.Scene.TestLobby;
+        SceneType = Define.Scene.Lobby;
+        Managers.Scene.ResetLoadSceneOp();
 
         // UI 초기화, Header의 sortorder를 뒤로 두어야 함.
         _startUI = Managers.UI.CacheSceneUI<UI_TestStart>();
