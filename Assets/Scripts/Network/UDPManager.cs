@@ -1,6 +1,7 @@
 using GameProtocol;
 using Google.Protobuf;
 using System;
+using System.Collections.Concurrent;
 using System.Collections.Generic;
 using System.Net;
 using System.Net.Sockets;
@@ -15,9 +16,12 @@ public class UDPManager {
     private Thread _receiveThread;
     private volatile bool _isRunning;
 
-    // 수신 전용 사전 할당 버퍼 — ReceiveFrom 호출마다 new byte[] 생성을 방지
+    // 수신 전용 사전 할당 버퍼 — Receive 호출마다 new byte[] 생성을 방지
     private readonly byte[] _recvBuf = new byte[1500];
-    private EndPoint _senderEP = new IPEndPoint(IPAddress.Any, 0);
+
+    // 송신 큐 — 메인 스레드에서 삽입, 워커 스레드에서 소진
+    private readonly ConcurrentQueue<(byte[] data, int length)> _sendQueue
+        = new ConcurrentQueue<(byte[], int)>();
 
     public PacketHandler Handler { get; private set; } = new PacketHandler();
 
@@ -40,10 +44,10 @@ public class UDPManager {
 
             _isRunning = true;
 
-            // 전용 수신 스레드 생성 및 실행
-            _receiveThread = new Thread(ReceiveLoopSync);
+            // 전용 워커 스레드 생성 및 실행 (수신 + 큐 송신 담당)
+            _receiveThread = new Thread(NetworkLoopSync);
             _receiveThread.IsBackground = true;
-            _receiveThread.Name = "UDP_Receive_Thread";
+            _receiveThread.Name = "UDP_Network_Thread";
             _receiveThread.Start();
         }
         catch (Exception e) {
@@ -51,43 +55,57 @@ public class UDPManager {
         }
     }
 
-    // Worker thread에서 실행되는 수신 루프 함수.
-    private void ReceiveLoopSync() {
+    // 워커 스레드: Poll(1ms) 기반으로 수신 처리 + 송신 큐 소진을 반복
+    private void NetworkLoopSync() {
         while (_isRunning) {
             try {
-                int len = _socket.ReceiveFrom(_recvBuf, ref _senderEP);
-
-                Handler.ProcessReceivedPacket(_recvBuf, len);
+                // 최대 1ms 대기 후 수신 데이터 유무 확인 (블로킹 없이 루프 유지)
+                if (_socket.Poll(1000, SelectMode.SelectRead)) {
+                    int len = _socket.Receive(_recvBuf);
+                    Handler.ProcessReceivedPacket(_recvBuf, len);
+                }
+                DrainSendQueue();
             }
             catch (SocketException e) {
-                // Disconnect()에서 _socket.Close()를 호출하면, 대기 중이던 ReceiveFrom()이 강제로 깨어나며 SocketException을 던집니다.
                 if (_isRunning) {
-                    Managers.ExecuteAtMainThread(() => Util.LogError($"Disconnect: {e.Message}"));
+                    Managers.ExecuteAtMainThread(() => Util.LogError($"[UDP] 소켓 에러: {e.Message}"));
                 }
                 break;
             }
+            catch (ObjectDisposedException) {
+                // Disconnect() 후 Poll이 소켓 해제 상태에서 호출된 경우 — 정상 종료
+                break;
+            }
             catch (ThreadAbortException) {
-                Managers.ExecuteAtMainThread(() => Util.LogWarning($"[UDP 수신 루프] 스레드가 강제 종료되었습니다."));
+                Managers.ExecuteAtMainThread(() => Util.LogWarning("[UDP] 워커 스레드가 강제 종료되었습니다."));
                 break;
             }
             catch (Exception e) {
-                Managers.ExecuteAtMainThread(() => Util.LogError($"[UDP 수신 루프 에러] {e.Message}"));
+                Managers.ExecuteAtMainThread(() => Util.LogError($"[UDP 루프 에러] {e.Message}"));
             }
         }
-        Managers.ExecuteAtMainThread(() => { Util.Log("[UDP] 전용 수신 스레드 안전하게 종료됨"); });
+        Managers.ExecuteAtMainThread(() => { Util.Log("[UDP] 워커 스레드 안전하게 종료됨"); });
     }
 
-
-    public void SendPacket(byte[] data, int length) {
-        Socket socket = _socket; // 로컬 변수에 캡처
+    // 워커 스레드 전용 — 큐에 쌓인 송신 요청을 모두 처리
+    private void DrainSendQueue() {
+        Socket socket = _socket;
         if (socket == null) return;
-        try {
-            socket.Send(data, 0, length, SocketFlags.None);
+        while (_sendQueue.TryDequeue(out var item)) {
+            try {
+                socket.Send(item.data, 0, item.length, SocketFlags.None);
+            }
+            catch (ObjectDisposedException) { break; } // Disconnect와 동시 처리 방어
+            catch (Exception e) {
+                Managers.ExecuteAtMainThread(() => { Util.LogError($"[UDP 전송 에러] {e.Message}"); });
+            }
         }
-        catch (ObjectDisposedException) { } // Disconnect와 동시 호출 방어
-        catch (Exception e) {
-            Managers.ExecuteAtMainThread(() => { Util.LogError($"[UDP 전송 에러] {e.Message}"); });
-        }
+    }
+
+    // 메인 스레드 호출 — 송신 큐에 삽입만 하고 즉시 반환
+    public void SendPacket(byte[] data, int length) {
+        if (_socket == null) return;
+        _sendQueue.Enqueue((data, length));
     }
 
     public void SendReliable(ushort packetId, IMessage proto) {
@@ -100,6 +118,7 @@ public class UDPManager {
         SendPacket(data, length);
     }
 
+    // 메인 스레드 — 재전송 대상을 큐에 삽입 (실제 송신은 워커 스레드)
     public void OnUpdate() {
         if (_socket == null) return;
         float nowMs = Time.realtimeSinceStartup * 1000f;
@@ -113,17 +132,16 @@ public class UDPManager {
     }
 
     public void Disconnect() {
-        _isRunning = false; // 루프 종료 플래그
-
-        if (_socket != null) {
-            // 기존 thread가 SocketException을 던지며 깨어남.
-            _socket.Close();
-            _socket = null;
-        }
+        _isRunning = false; // 루프 종료 플래그 — Poll 루프가 최대 1ms 안에 자연 종료
 
         if (_receiveThread != null && _receiveThread.IsAlive) {
             _receiveThread.Join(TimeSpan.FromSeconds(2));
             _receiveThread = null;
+        }
+
+        if (_socket != null) {
+            _socket.Close();
+            _socket = null;
         }
     }
 

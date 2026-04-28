@@ -44,11 +44,12 @@ This file provides guidance to Claude Code (claude.ai/code) when working with co
 구매 흐름: `TestLobbyScene.TryPurchase()` → 빈 슬롯 탐색(창고 우선) → 스냅샷 조립 → `PostPurchaseCall()` → `OnPurchaseComplete()`
 
 ### UDP (`UDPManager`)
-- 전용 백그라운드 수신 스레드(`UDP_Receive_Thread`) 사용
-- `UdpClient.Connect()`로 목적지 고정. `Disconnect()` 시 `_udpClient.Close()` → 수신 루프의 `SocketException`으로 안전하게 종료
+- 전용 백그라운드 워커 스레드(`UDP_Network_Thread`) — 수신 + 송신 큐 소진 담당
+- `Socket.Connect()`로 목적지 고정. `Poll(1ms)` 기반 루프로 수신 확인, 데이터 없어도 최대 1ms마다 송신 큐(`ConcurrentQueue`) 소진
+- `Disconnect()` 시 `_isRunning = false` → 스레드 Join(최대 2초, Poll 루프 자연 종료) → `_socket.Close()` 순서
 - 수신 데이터는 모두 `Managers.ExecuteAtMainThread`를 통해 메인 스레드에서 처리
-- 송신: `SendReliable(packetId, IMessage)` / `SendUnreliable(packetId, IMessage)` — 채널에 따라 선택
-- `OnUpdate()`가 매 프레임 `PacketHandler.CollectRetransmits()`를 호출해 RTO(100ms) 초과 패킷을 재전송. 재전송 10회 초과 시 `Disconnect()`
+- 송신: `SendReliable(packetId, IMessage)` / `SendUnreliable(packetId, IMessage)` — 큐에 삽입, 워커 스레드가 실제 전송
+- `OnUpdate()`가 매 프레임 `PacketHandler.CollectRetransmits()`를 호출해 RTO 초과 패킷을 큐에 재삽입. 재전송 10회 초과 시 `Disconnect()`
 
 ### 패킷 형식 (`PacketHandler`)
 - **헤더** (`UDPHeader`, 31바이트, `LayoutKind.Sequential Pack=1`):

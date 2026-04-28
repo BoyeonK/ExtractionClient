@@ -14,11 +14,11 @@
 - [x] (2026-04-25 #2) 버전 확인 실패 시 LobbyReconfirmUI 알림 팝업 — `GetVersionCall` 실패 시 `OnConnectedFailed` 즉시 실행 후 `ActiveOnlyConfirm` 알림 표시
 
 ### 네트워크
-- [x] (2026-04-24 #10) 매칭 상태 폴링 — `HTTPManager.StartMatchPolling()` 구현, `IsMatching`을 source of truth로 루프 제어, 성공 시 메인 스레드 콜백 실행
-- [x] (2026-04-24 #11) Matching 상태 중 옵션·로그아웃 버튼 외 모든 UI 접근 차단 — `EnterMatchingState()`에서 전체 비활성화, 각 Show 메서드에 Lobby 상태 가드 존재, ESC 무동작
 - [x] (2026-04-28 #0) RUDP 전환 — 헤더 31B, reliable/unreliable 채널 분리, ACK bitfield 재전송 로직, 고정 RTO 100ms
 - [x] (2026-04-28 #1) `_pendingReliable` 최적화 — Dictionary → 32슬롯 링 버퍼, byte[1400] 사전 할당, `BuildPacketInto(Span<byte>)` 직접 쓰기, `CollectRetransmits` 반환 List 재사용
 - [x] (2026-04-28 #2) 적응형 RTO 적용 — 고정 100ms → `max(100ms, SRTT + 4×RTTVAR)` RFC 6298 EWMA, `timestampEcho` 기반 RTT 샘플링, `UpdateRtt()` 메인 스레드 전용
+- [x] (2026-04-28 #3) `UdpClient` → `Socket` 전환 — 수신 버퍼 사전 할당(`_recvBuf[1500]`), per-packet GC 할당 제거, `ProcessReceivedPacket(byte[], int)` 시그니처 변경
+- [x] (2026-04-28 #4) 송신 큐 + `Poll(1ms)` 루프 도입 — `ConcurrentQueue` 기반 송신 큐, 워커 스레드가 수신·송신 모두 담당, `Disconnect()` 순서 Join→Close로 변경
 
 ### 기타
 - [x] (2026-04-26 #0) TestLobbyScene을 LobbyScene으로 변경
