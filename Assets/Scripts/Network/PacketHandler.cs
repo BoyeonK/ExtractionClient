@@ -185,10 +185,10 @@ public class PacketHandler {
     // 수신 패킷 처리
     // ==========================================
 
-    public void ProcessReceivedPacket(byte[] receivedBytes) {
-        if (receivedBytes.Length < UDPHeader.Size) return;
+    public void ProcessReceivedPacket(byte[] buf, int length) {
+        if (length < UDPHeader.Size) return;
 
-        ReadOnlySpan<byte> packetSpan = receivedBytes;
+        ReadOnlySpan<byte> packetSpan = buf.AsSpan(0, length);
         UDPHeader header = MemoryMarshal.Read<UDPHeader>(packetSpan.Slice(0, UDPHeader.Size));
         ReadOnlySpan<byte> payloadSpan = packetSpan.Slice(UDPHeader.Size);
 

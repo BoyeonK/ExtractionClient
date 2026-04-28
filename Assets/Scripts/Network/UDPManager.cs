@@ -9,11 +9,16 @@ using System.Threading;
 using UnityEngine;
 
 public class UDPManager {
-    private UdpClient _udpClient;
+    private Socket _socket;
     private IPEndPoint _serverEndPoint;
 
     private Thread _receiveThread;
     private volatile bool _isRunning;
+
+    // 수신 전용 사전 할당 버퍼 — ReceiveFrom 호출마다 new byte[] 생성을 방지
+    private readonly byte[] _recvBuf = new byte[1500];
+    private EndPoint _senderEP = new IPEndPoint(IPAddress.Any, 0);
+
     public PacketHandler Handler { get; private set; } = new PacketHandler();
 
     public void RegisterEndPointAndStart(string ip, int port) {
@@ -25,13 +30,13 @@ public class UDPManager {
                 return;
             }
 
-            _udpClient = new UdpClient();
             _serverEndPoint = new IPEndPoint(ipAddr, port);
 
+            _socket = new Socket(AddressFamily.InterNetwork, SocketType.Dgram, ProtocolType.Udp);
             // Connect를 호출해 목적지 IP/Port 고정 (OS 커널 필터링)
-            _udpClient.Connect(_serverEndPoint);
+            _socket.Connect(_serverEndPoint);
 
-            var localEp = (IPEndPoint)_udpClient.Client.LocalEndPoint;
+            var localEp = (IPEndPoint)_socket.LocalEndPoint;
 
             _isRunning = true;
 
@@ -48,16 +53,14 @@ public class UDPManager {
 
     // Worker thread에서 실행되는 수신 루프 함수.
     private void ReceiveLoopSync() {
-        IPEndPoint sender = new IPEndPoint(IPAddress.Any, 0);
-
         while (_isRunning) {
             try {
-                byte[] receivedData = _udpClient.Receive(ref sender);
+                int len = _socket.ReceiveFrom(_recvBuf, ref _senderEP);
 
-                Handler.ProcessReceivedPacket(receivedData);
+                Handler.ProcessReceivedPacket(_recvBuf, len);
             }
             catch (SocketException e) {
-                // Disconnect()에서 _udpClient.Close()를 호출하면, 대기 중이던 Receive()가 강제로 깨어나며 SocketException을 던집니다.
+                // Disconnect()에서 _socket.Close()를 호출하면, 대기 중이던 ReceiveFrom()이 강제로 깨어나며 SocketException을 던집니다.
                 if (_isRunning) {
                     Managers.ExecuteAtMainThread(() => Util.LogError($"Disconnect: {e.Message}"));
                 }
@@ -76,10 +79,10 @@ public class UDPManager {
 
 
     public void SendPacket(byte[] data, int length) {
-        UdpClient client = _udpClient; // 로컬 변수에 캡처
-        if (client == null) return;
+        Socket socket = _socket; // 로컬 변수에 캡처
+        if (socket == null) return;
         try {
-            client.Send(data, length);
+            socket.Send(data, 0, length, SocketFlags.None);
         }
         catch (ObjectDisposedException) { } // Disconnect와 동시 호출 방어
         catch (Exception e) {
@@ -98,7 +101,7 @@ public class UDPManager {
     }
 
     public void OnUpdate() {
-        if (_udpClient == null) return;
+        if (_socket == null) return;
         float nowMs = Time.realtimeSinceStartup * 1000f;
         var retransmits = Handler.CollectRetransmits(nowMs, out bool shouldDisconnect);
         if (shouldDisconnect) {
@@ -112,10 +115,10 @@ public class UDPManager {
     public void Disconnect() {
         _isRunning = false; // 루프 종료 플래그
 
-        if (_udpClient != null) {
+        if (_socket != null) {
             // 기존 thread가 SocketException을 던지며 깨어남.
-            _udpClient.Close();
-            _udpClient = null;
+            _socket.Close();
+            _socket = null;
         }
 
         if (_receiveThread != null && _receiveThread.IsAlive) {
