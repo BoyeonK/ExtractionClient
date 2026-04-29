@@ -126,11 +126,10 @@ public class PacketHandler {
         MemoryMarshal.Write(dest.Slice(0, UDPHeader.Size), ref hdr);
 
         int payloadLen = 0;
-    
-        if (proto != null) {
-            payloadLen = proto.CalculateSize();
-            proto.WriteTo(dest.Slice(UDPHeader.Size, payloadLen)); 
-        }
+
+        payloadLen = proto.CalculateSize();
+        if (payloadLen > 0)
+            proto.WriteTo(dest.Slice(UDPHeader.Size, payloadLen));
 
         int totalSize = UDPHeader.Size + payloadLen;
 
@@ -138,19 +137,17 @@ public class PacketHandler {
         Span<byte> secKeyBytes = MemoryMarshal.AsBytes(secKeySpan);
         Span<byte> packetData = dest.Slice(0, totalSize);
 
-        // --- (사용하시는 xxHash 라이브러리 API에 맞게 수정) ---
-        // 아래는 C#에서 가장 유명한 K4os.Hash.xxHash 기준의 스트리밍 예시입니다.
-        ulong calculatedSignature;
-        using (var hashState = new XXH64())  { 
-            // (라이브러리에 따라 struct 기반일 수 있음)
-            hashState.Update(packetData);      // 패킷 전체(헤더+페이로드) 믹싱
-            hashState.Update(secKeyBytes);     // 보안 키 믹싱
-            calculatedSignature = hashState.Digest();
-        }
-        // -----------------------------------------------------
+        XXH64.State hashState = default;
+        XXH64.Reset(ref hashState, 0); // Seed: 0
 
-        // 5. 생성된 서명을 헤더 영역 맨 앞(signature 위치, 8바이트)에 직접 덮어쓰기!
-        // 구조체에서 signature가 메모리 오프셋 0번째에 위치하므로 완벽하게 맞아떨어집니다.
+        // 해시 믹서에 데이터 투입
+        XXH64.Update(ref hashState, packetData);
+        XXH64.Update(ref hashState, secKeyBytes);
+
+        // 최종 서명 추출
+        ulong calculatedSignature = XXH64.Digest(in hashState);
+
+        // 생성된 서명을 헤더 영역에 직접 덮어쓰기
         MemoryMarshal.Write(dest.Slice(0, 8), ref calculatedSignature);
 
         return totalSize;
