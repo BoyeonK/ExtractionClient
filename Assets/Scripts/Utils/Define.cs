@@ -5,6 +5,7 @@ public class Define {
         Undefined,
         Lobby,
         LoadingScene1,
+        TestIngame,
         MaxCount,
     }
 

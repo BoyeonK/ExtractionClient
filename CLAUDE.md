@@ -41,7 +41,7 @@ This file provides guidance to Claude Code (claude.ai/code) when working with co
 엔드포인트 전체 목록 및 요청/응답 스키마: `Assets/Scripts/Network/http-api-spec.yaml` (OpenAPI 3.0) 참고
 
 매칭 흐름: `StartMatchCall` → `CheckMatchStatusCall` 폴링 (WAITING → SUCCESS) → `TryConnectCall` → UDP 연결 시작
-구매 흐름: `TestLobbyScene.TryPurchase()` → 빈 슬롯 탐색(창고 우선) → 스냅샷 조립 → `PostPurchaseCall()` → `OnPurchaseComplete()`
+구매 흐름: `LobbyScene.TryPurchase()` → 빈 슬롯 탐색(창고 우선) → 스냅샷 조립 → `PostPurchaseCall()` → `OnPurchaseComplete()`
 
 ### UDP (`UDPManager`)
 - 전용 백그라운드 워커 스레드(`UDP_Network_Thread`) — 수신 + 송신 큐 소진 담당
@@ -82,15 +82,16 @@ UI_Base (abstract)
 - 정렬 순서: SceneUI는 0부터 증가, PopupUI는 20부터 증가, 긴급 팝업은 +1000
 - `UI_Base.BindComponent<T>(path)`: 경로로 자식 컴포넌트를 찾아 반환 (없으면 예외 발생)
 - **슬롯**: `ISlot` (일반) / `LSlot : ISlot` (로드아웃 전용, 타입 제약). 아이템 타입은 `ItemTypeHelper`로 item_id 범위 기반 판별. 로드아웃 인덱스는 `UI_Inventory.LOADOUT_START(=25)` 오프셋 사용. Weapon/Equipment는 `ISlot.CanMerge()`로 어느 슬롯에서도 수량 합산 불가
-- **인벤토리 데이터 소유**: `TestLobbyScene`이 `_inventorySlots`, `_loadoutSlots`, `_warehouseSlots` 배열 소유. UI는 뷰 역할만 — `SetItemAtSlot()`이 scene setter + Refresh 담당. `SyncSlot` 없음
-- **Shift+클릭 분할**: `TestLobbyScene.OnSlotClick()` — 수량을 절반으로 나눠 `FirstEmptySlot`에 배치. 인벤토리/창고 각각 독립 처리
+- **인벤토리 데이터 소유**: `LobbyScene`이 `_inventorySlots`, `_loadoutSlots`, `_warehouseSlots` 배열 소유. UI는 뷰 역할만 — `SetItemAtSlot()`이 scene setter + Refresh 담당. `SyncSlot` 없음
+- **Shift+클릭 분할**: `LobbyScene.OnSlotClick()` — 수량을 절반으로 나눠 `FirstEmptySlot`에 배치. 인벤토리/창고 각각 독립 처리
 
 ---
 
 ## 씬 구성
 
 - **`BaseScene`**: 모든 씬의 베이스. `Awake → Init()`에서 EventSystem 자동 생성
-- **`TestLobbyScene`**: 로비 씬 진입점 — `LobbyState` enum 기반 상태 머신 (BeforeConnect → BeforeAuth → Lobby → Matching). 모든 인증/매칭 흐름 및 ESC 키 동작을 담당
+- **`LobbyScene`**: 로비 씬 진입점 — `LobbyState` enum 기반 상태 머신 (BeforeConnect → BeforeAuth → Lobby → Matching). 모든 인증/매칭 흐름 및 ESC 키 동작을 담당
+- **`LoadingScene1`**: 매칭 성공 후 전환되는 로딩 씬 — `Managers.Scene.LoadSceneAsync()`로 GameScene 비동기 로딩, 90% 도달 시 `SendC2DRequestBlueprint()`, `staticObjectsLoadFlag = true`가 되면 `CompleteLoadSceneAsync()` 호출
 - 씬 전환: 반드시 `Managers.Scene` 사용
 
 ---
@@ -109,7 +110,7 @@ UI_Base (abstract)
 1. **Unity API는 반드시 메인 스레드**에서 호출 — 비동기/UDP 콜백에서는 `Managers.ExecuteAtMainThread` 사용
 2. **프리팹은 `Resources/Prefabs/` 하위에 위치** — `ResourceManager` 경로는 이 폴더 기준 상대경로
 3. **서버 URL은 `Gitignores.baseUrl`에서** — 하드코딩 절대 금지
-4. **새 UDP 패킷 타입 추가 시**: `ExternalProtocol.cs`에 `PktId` 항목 추가 → Protobuf 메시지 정의 → `PacketHandler` 생성자에 핸들러 등록 → `Handle_XXX` 메서드 구현
+4. **새 UDP 패킷 타입 추가 시**: `External_Protocol.proto`에 메시지 정의 + `PktId` 항목 추가 → `PacketHandler` 생성자에 핸들러 등록 → `Handle_XXX` 메서드 구현
 
 ---
 

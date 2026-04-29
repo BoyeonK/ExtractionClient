@@ -1,6 +1,6 @@
 # 프로젝트 진행 상황
 
-> 최종 수정: 2026-04-29
+> 최종 수정: 2026-04-30
 > 장르: 멀티플레이어 Extraction 게임 (알파 단계)
 > 엔진: Unity 6000.4.0f1 / URP 17.4.0
 
@@ -9,7 +9,6 @@
 ## 완료된 것들
 
 ### UI
-- [x] (2026-04-25 #2) 버전 확인 실패 시 LobbyReconfirmUI 알림 팝업 — `GetVersionCall` 실패 시 `OnConnectedFailed` 즉시 실행 후 `ActiveOnlyConfirm` 알림 표시
 
 ### 네트워크
 - [x] (2026-04-28 #0) RUDP 전환 — 헤더 31B, reliable/unreliable 채널 분리, ACK bitfield 재전송 로직, 고정 RTO 100ms
@@ -21,8 +20,9 @@
 - [x] (2026-04-29 #1) 수신 패킷 signature 검증 — `VerifySignature()` 추가, `ProcessReceivedPacket`에서 검증 실패 시 드롭
 
 ### 기타
-- [x] (2026-04-26 #0) TestLobbyScene을 LobbyScene으로 변경
 - [x] (2026-04-26 #1) `LobbySettingUI` 완성 — 탭 클릭·hover 색상 전환, Apply/Cancel → `LobbyReconfirmUI` 재확인, `Show()`/`Hide()`, `LobbyScene` wrapper(`ShowSettingUI`, `ActiveReconfirmConfirmOrCancel`), `UI_Header` OPTION 버튼 연결
+- [x] (2026-04-29 #2) .proto 파일로 전환 및 캐시 정리 — `External_Protocol.proto` / `External_Unity_Object.proto` 추가, 기존 `ExternalProtocol.cs` / `ExternalUnityObject.cs` 삭제
+- [x] (2026-04-30 #0) `LoadingScene1` 씬 전환 코드 완성 — 비동기 로딩 90% 도달 시 `C2DRequestBlueprint` 전송, `staticObjectsLoadFlag` 세팅 후 `CompleteLoadSceneAsync` 호출
 
 ### 버그 수정
 
@@ -32,13 +32,12 @@
 
 ### 매칭 성공시 씬 전환
 /connect요청을 통해서 ip와 port를 받았을 경우
-1. workerThread를 살려내고 루프 작동. (ping 작동)
+1. ~~workerThread를 살려내고 루프 작동. (ping 작동)~~ ← **완료**
     - workerThread내에서 ReliableFlag로 C2DHeartBeat전송, D2CHeartBeat로 응답 받음.
-2. Scene을 LoadingScene으로 변경하고, GameScene의 비동기 로딩 시작.
-3. 비동기 로딩 완료되었을 경우, GameScene의 현재 정적인 내용을 요구하는 패킷 전송.
-    - C2DRequestBluePrint 전송
-4. 3의 패킷의 응답을 받았을 경우, 해당 내용을 역직렬화해서 보관하고 Scene교체 진행.
-    - D2CResponseBlueprint, 여기서 Spawn위치 결정됨.
+2. ~~Scene을 LoadingScene으로 변경하고, GameScene의 비동기 로딩 시작.~~ ← **완료**
+3. ~~비동기 로딩 완료되었을 경우, C2DRequestBluePrint 전송~~ ← **완료**
+4. 3의 패킷의 응답을 받았을 경우, 해당 내용을 역직렬화해서 보관하고 Scene교체 진행. ← **다음**
+    - D2CResponseBlueprint, 여기서 Spawn위치 결정됨. `staticObjectsLoadFlag = true` 세팅
 5. 교체된 Scene의 Init() 함수에서 C2DRequestBluePrint에서 받아온 친구들 까지 포함해서 그려냄
 6. Init함수가 실행된 이후, 서버에 Scene 로딩 완료됬음을 알려줌과 동시에 동적인 정보를 다시 요청.
     - C2DRequestSpawnMe
@@ -47,5 +46,6 @@
 
 ## 다음 작업 우선순위 (제안)
 
-1. **매칭 성공 씬 전환** — `OnMatchingSuccess()` → LoadingScene 로드
-2. **설정 UI 콘텐츠 채우기** — General / Graphic / Audio 탭 실제 항목 구현
+1. **D2CResponseBlueprint 처리** — 역직렬화 후 보관, `staticObjectsLoadFlag = true` 세팅으로 GameScene 전환 완료
+2. **GameScene Init()** — Blueprint 데이터 기반 정적 오브젝트 렌더링
+3. **설정 UI 콘텐츠 채우기** — General / Graphic / Audio 탭 실제 항목 구현

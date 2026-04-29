@@ -566,6 +566,10 @@ public class HTTPManager {
 
                     Managers.ExecuteAtMainThread(() => {
                         Managers.Network.udpManager.SendChannelOpenPkt();
+                        BaseScene scene = Managers.Scene.CurrentScene;
+                        if (scene is LobbyScene lobbyScene) {
+                            Managers.Scene.LoadSceneWithLoadingScene(Define.Scene.TestIngame, Define.Scene.LoadingScene1);
+                        }
                     });
 
                     return true;
