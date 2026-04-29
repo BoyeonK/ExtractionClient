@@ -108,7 +108,7 @@ public class PacketHandler {
         uint nowMs = (uint)(Time.realtimeSinceStartup * 1000f);
 
         byte flags = reliable ? UDPFlags.FLAG_RELIABLE : (byte)0;
-        if (_hasReceivedReliable) flags |= UDPFlags.FLAG_HAS_ACK;
+        flags |= UDPFlags.FLAG_HAS_ACK;
 
         UDPHeader hdr = new UDPHeader {
             signature     = 0, 
@@ -208,8 +208,35 @@ public class PacketHandler {
     // 수신 패킷 처리
     // ==========================================
 
+    private bool VerifySignature(byte[] buf, int length) {
+        ulong originalSig = MemoryMarshal.Read<ulong>(buf.AsSpan(0, 8));
+
+        Span<byte> copy = stackalloc byte[length];
+        buf.AsSpan(0, length).CopyTo(copy);
+        ulong zero = 0;
+        MemoryMarshal.Write(copy.Slice(0, 8), ref zero);
+
+        Span<uint> secKeySpan = stackalloc uint[1] { _securityKey };
+        Span<byte> secKeyBytes = MemoryMarshal.AsBytes(secKeySpan);
+
+        XXH64.State hashState = default;
+        XXH64.Reset(ref hashState, 0);
+        XXH64.Update(ref hashState, copy);
+        XXH64.Update(ref hashState, secKeyBytes);
+        ulong expected = XXH64.Digest(in hashState);
+
+        return originalSig == expected;
+    }
+
     public void ProcessReceivedPacket(byte[] buf, int length) {
         if (length < UDPHeader.Size) return;
+
+        if (!VerifySignature(buf, length)) {
+            Managers.ExecuteAtMainThread(() => {
+                Util.LogWarning($"[PacketHandler] signature 검증 실패 — 패킷 드롭 (length: {length})");
+            });
+            return;
+        }
 
         ReadOnlySpan<byte> packetSpan = buf.AsSpan(0, length);
         UDPHeader header = MemoryMarshal.Read<UDPHeader>(packetSpan.Slice(0, UDPHeader.Size));

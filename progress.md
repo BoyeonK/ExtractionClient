@@ -1,6 +1,6 @@
 # 프로젝트 진행 상황
 
-> 최종 수정: 2026-04-28
+> 최종 수정: 2026-04-29
 > 장르: 멀티플레이어 Extraction 게임 (알파 단계)
 > 엔진: Unity 6000.4.0f1 / URP 17.4.0
 
@@ -9,8 +9,6 @@
 ## 완료된 것들
 
 ### UI
-- [x] (2026-04-25 #0) Lobby 화면에 더미 캐릭터 세워놓기 (애니메이션 적용)
-- [x] (2026-04-25 #1) 로그아웃 성공 시 LobbyReconfirmUI 확인 팝업 — `TryLogout` 성공 시 `ActiveOnlyConfirm` → 확인 클릭 후 `OnLogoutComplete` 실행
 - [x] (2026-04-25 #2) 버전 확인 실패 시 LobbyReconfirmUI 알림 팝업 — `GetVersionCall` 실패 시 `OnConnectedFailed` 즉시 실행 후 `ActiveOnlyConfirm` 알림 표시
 
 ### 네트워크
@@ -19,6 +17,8 @@
 - [x] (2026-04-28 #2) 적응형 RTO 적용 — 고정 100ms → `max(100ms, SRTT + 4×RTTVAR)` RFC 6298 EWMA, `timestampEcho` 기반 RTT 샘플링, `UpdateRtt()` 메인 스레드 전용
 - [x] (2026-04-28 #3) `UdpClient` → `Socket` 전환 — 수신 버퍼 사전 할당(`_recvBuf[1500]`), per-packet GC 할당 제거, `ProcessReceivedPacket(byte[], int)` 시그니처 변경
 - [x] (2026-04-28 #4) 송신 큐 + `Poll(1ms)` 루프 도입 — `ConcurrentQueue` 기반 송신 큐, 워커 스레드가 수신·송신 모두 담당, `Disconnect()` 순서 Join→Close로 변경
+- [x] (2026-04-29 #0) xxHash64 서명 도입 — `UDPHeader`에 `signature(8B)` 추가, `securityKey` 필드 제거, 헤더 35B, `BuildPacketInto`에서 `xxHash64(패킷 + securityKey)` 서명 생성
+- [x] (2026-04-29 #1) 수신 패킷 signature 검증 — `VerifySignature()` 추가, `ProcessReceivedPacket`에서 검증 실패 시 드롭
 
 ### 기타
 - [x] (2026-04-26 #0) TestLobbyScene을 LobbyScene으로 변경
