@@ -86,7 +86,7 @@ public class PacketHandler {
             _pendingSlots[i].data = new byte[MAX_PACKET_SIZE];
         _unreliableScratch = new byte[MAX_PACKET_SIZE];
 
-        _handlers.Add((ushort)PktId.D2CTestPkt, Handle_D2CTestPkt);
+        _handlers.Add((ushort)PktId.D2CResponseChannelOpen, Handle_D2CResponseChannelOpen);
     }
 
     // ==========================================
@@ -339,23 +339,23 @@ public class PacketHandler {
     // 핸들러 함수
     // ====================
 
-    private void Handle_D2CTestPkt(ReadOnlySpan<byte> payloadSpan) {
-        D2CTestPkt pkt = null;
+    private void Handle_D2CResponseChannelOpen(ReadOnlySpan<byte> payloadSpan) {
+        D2CResponseChannelOpen pkt = null;
 
         try {
-            pkt = D2CTestPkt.Parser.ParseFrom(payloadSpan);
+            pkt = D2CResponseChannelOpen.Parser.ParseFrom(payloadSpan);
         }
         catch (InvalidProtocolBufferException e) {
-            Managers.ExecuteAtMainThread(() => { Util.LogError($"D2CTestPkt 파싱 실패: {e.Message}"); });
+            Managers.ExecuteAtMainThread(() => { Util.LogError($"D2CResponseChannelOpen 파싱 실패: {e.Message}"); });
             return;
         }
         catch (Exception e) {
-            Managers.ExecuteAtMainThread(() => { Util.LogError($"D2CTestPkt 처리 중 알 수 없는 에러: {e.Message}"); });
+            Managers.ExecuteAtMainThread(() => { Util.LogError($"D2CResponseChannelOpen 처리 중 알 수 없는 에러: {e.Message}"); });
             return;
         }
 
         Managers.ExecuteAtMainThread(() => {
-            Util.Log($"[PacketHandler] D2CTestPkt 수신 - Message: {pkt.Echo}");
+            Util.Log($"[PacketHandler] D2CResponseChannelOpen 수신 - Message: {pkt.Echo}");
         });
     }
 }

@@ -565,7 +565,7 @@ public class HTTPManager {
                     }
 
                     Managers.ExecuteAtMainThread(() => {
-                        Managers.Network.udpManager.RequestSessionIdAndSecurityKey();
+                        Managers.Network.udpManager.SendChannelOpenPkt();
                     });
 
                     return true;

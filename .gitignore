@@ -63,5 +63,7 @@ GitIgnores.cs
 *.csr
 *.key
 
-# 프로토버프
+# 컴파일 완료된 프로토콜 버퍼 및 관련파일 무시, .proto파일은 git으로 관리
 Protobuf/
+ExternalProtocol.cs
+ExternalUnityObject.cs

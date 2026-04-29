@@ -148,11 +148,11 @@ public class UDPManager {
     // ====================
     // 게임 로직 함수
     // ====================
-    public void RequestSessionIdAndSecurityKey() {
-        C2DTestPkt testPkt = new C2DTestPkt {
+    public void SendChannelOpenPkt() {
+        C2DChannelOpen channelOpenPkt = new C2DChannelOpen {
             Echo = "Hello, UDP Server! Let me in!"
         };
-        SendReliable((ushort)GameProtocol.PktId.C2DTestPkt, testPkt);
+        SendReliable((ushort)GameProtocol.PktId.C2DChannelOpen, channelOpenPkt);
     }
 
     /*
