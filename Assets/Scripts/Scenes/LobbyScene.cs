@@ -41,6 +41,7 @@ public class LobbyScene : BaseScene {
     }
 
     protected override void Init() {
+        base.Init();
         SceneType = Define.Scene.Lobby;
         Managers.Scene.ResetLoadSceneOp();
 
@@ -667,6 +668,7 @@ public class LobbyScene : BaseScene {
         Managers.Input.RemoveKeyListener(Key.Tab, OnTabInput, InputManager.KeyState.Up);
         _cts.Cancel();
         _cts.Dispose();
-        EndDrag();
+        if (_dragGhost != null)
+            EndDrag();
     }
 }

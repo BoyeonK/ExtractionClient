@@ -44,6 +44,7 @@ public class DragGhost : MonoBehaviour {
     }
 
     public void EndDrag() {
+        if (this == null || gameObject == null) return;
         _dragGhostRectTrans.gameObject.SetActive(false);
         _img.sprite = null;
     }
