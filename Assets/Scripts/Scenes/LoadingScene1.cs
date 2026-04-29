@@ -11,7 +11,11 @@ public class LoadingScene1 : BaseScene {
     protected override void Init() {
         SceneType = Define.Scene.LoadingScene1;
         _ui = FindAnyObjectByType<LoadingUI1>();
+    }
 
+    // Init()은 Awake단에서 실행된다. Awake단에서는 Scene의 구분이 불명확하므로
+    // SceneManager를 다루는 작업은 Start단에서 하는 것을 권장한다.
+    void Start() {
         Managers.Scene.LoadSceneAsync();
     }
 
