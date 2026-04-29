@@ -76,11 +76,6 @@ public class SceneManagerEx {
         _progress = 0;
     }
 
-    public BaseScene GetCurrentSceneComponent() {
-        GameObject go = GameObject.Find("GameScene");
-        if (go == null) return null;
-        return go.GetComponent<BaseScene>();
-    }
     public void Clear() {
         CurrentScene.Clear();
     }

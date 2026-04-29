@@ -155,12 +155,8 @@ public class UDPManager {
         SendReliable((ushort)GameProtocol.PktId.C2DChannelOpen, channelOpenPkt);
     }
 
-    /*
     public void SendC2DRequestBlueprint() {
-        C2DRequestBlueprint pkt = new C2DRequestBlueprint {
-            RequestInfo = "Please send me the blueprint data for the next scene."
-        };
+        C2DRequestBlueprint pkt = new C2DRequestBlueprint { };
         SendReliable((ushort)GameProtocol.PktId.C2DRequestBlueprint, pkt);
     }
-    */
 }

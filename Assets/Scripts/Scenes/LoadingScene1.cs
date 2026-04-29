@@ -19,19 +19,21 @@ public class LoadingScene1 : BaseScene {
         const float epsilon = 0.01f;
         const float progressThreshold = 0.05f;
         if (sceneLoadFlag == false) {
-            if (Managers.Scene.GetLoadingProgressRate() - epsilon >= progress + progressThreshold) {
-                //progress를 progressThreshold의 배수로서 표현
+            float currentRate = Managers.Scene.GetLoadingProgressRate();
+
+            while (currentRate - epsilon >= progress + progressThreshold) {
+                progress += progressThreshold;
             }
 
             if (progress >= 0.9f - epsilon) {
                 sceneLoadFlag = true;
-                //C2DRequestBlueprint 전송
-                //Managers.Network.udpManager.SendC2DRequestBlueprint();
+                Managers.Network.udpManager.SendC2DRequestBlueprint();
             }
+
+            //로딩 UI 업데이트
         }
         else if (staticObjectsLoadFlag == true) {
-            // C2DRequestBlueprint에 대한 응답이 왔는지 확인
-            // 왔으면 다음 씬으로 이동
+            Managers.Scene.CompleteLoadSceneAsync();
         }
     }
 }
