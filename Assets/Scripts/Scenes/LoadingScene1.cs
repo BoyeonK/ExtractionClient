@@ -7,7 +7,6 @@ public class LoadingScene1 : BaseScene {
     bool sceneLoadFlag = false;
     bool staticObjectsLoadFlag = false;
     float progress = 0.0f;
-    float progressThreshold = 0.05f;
 
     protected override void Init() {
         SceneType = Define.Scene.LoadingScene1;
@@ -18,13 +17,17 @@ public class LoadingScene1 : BaseScene {
 
     void Update() {
         const float epsilon = 0.01f;
+        const float progressThreshold = 0.05f;
         if (sceneLoadFlag == false) {
-            // 1. 현재 진행상태가 progress + threshold보다 크거나 같으면 progress갱신.
-            // loadingbar를 progress에 맞게 갱신
+            if (Managers.Scene.GetLoadingProgressRate() - epsilon >= progress + progressThreshold) {
+                //progress를 progressThreshold의 배수로서 표현
+            }
 
-
-            // 2. Scene로드 완료됬는지 확인 (진행상태가 0.9f-epsilon보다 크거나 같으면 완료로 간주)
-            // 완료됬으면 sceneLoadFlag = true; 하고 C2DRequestBlueprint전송
+            if (progress >= 0.9f - epsilon) {
+                sceneLoadFlag = true;
+                //C2DRequestBlueprint 전송
+                //Managers.Network.udpManager.SendC2DRequestBlueprint();
+            }
         }
         else if (staticObjectsLoadFlag == true) {
             // C2DRequestBlueprint에 대한 응답이 왔는지 확인

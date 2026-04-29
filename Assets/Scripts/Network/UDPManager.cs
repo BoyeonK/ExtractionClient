@@ -154,4 +154,13 @@ public class UDPManager {
         };
         SendReliable((ushort)GameProtocol.PktId.C2DTestPkt, testPkt);
     }
+
+    /*
+    public void SendC2DRequestBlueprint() {
+        C2DRequestBlueprint pkt = new C2DRequestBlueprint {
+            RequestInfo = "Please send me the blueprint data for the next scene."
+        };
+        SendReliable((ushort)GameProtocol.PktId.C2DRequestBlueprint, pkt);
+    }
+    */
 }

@@ -4,23 +4,28 @@ using System;
 using System.Collections.Generic;
 using System.Runtime.InteropServices;
 using UnityEngine;
+using K4os.Hash.xxHash;
 
 public delegate void HandlerFunc(ReadOnlySpan<byte> payloadSpan);
 
 [StructLayout(LayoutKind.Sequential, Pack = 1)]
 public struct UDPHeader {
+    // ── 보안 서명 ────────────────────── 8B
+    public ulong signature;    // 해싱 전에는 반드시 0
+    // ── 기본 필드 ────────────────────── 11B
     public ushort packetId;       // 2B
     public ushort sessionId;      // 2B
     public uint   rSeqNum;        // 4B - reliable 채널 시퀀스 (FLAG_RELIABLE 패킷에만 유효)
     public ushort uSeqNum;        // 2B - unreliable 채널 시퀀스 (나머지 패킷에만 유효)
-    public uint   securityKey;    // 4B
     public byte   flags;          // 1B
+    // ── ACK 필드 ─────────────────────── 8B
     public uint   ackRSeqNum;     // 4B - 수신 확인한 가장 최신 reliable 시퀀스 번호
     public uint   ackBitfield;    // 4B - 이전 32개 reliable 패킷 수신 여부
+    // ── 타임스탬프 ───────────────────── 8B
     public uint   timestamp;      // 4B - 송신 시각 (ms)
     public uint   timestampEcho;  // 4B - 상대방 timestamp 반사 (RTT 계산용)
 
-    public const int Size = 31;
+    public const int Size = 35;
 }
 
 public static class UDPFlags {
@@ -106,14 +111,14 @@ public class PacketHandler {
         if (_hasReceivedReliable) flags |= UDPFlags.FLAG_HAS_ACK;
 
         UDPHeader hdr = new UDPHeader {
+            signature     = 0, 
             packetId      = packetId,
-            sessionId     = _sessionId,
-            rSeqNum       = reliable ? _rSeqNum : 0,
+            sessionId     = (ushort)_sessionId,
+            rSeqNum       = reliable ? _rSeqNum : 0u,
             uSeqNum       = reliable ? (ushort)0 : _uSeqNum,
-            securityKey   = _securityKey,
             flags         = flags,
-            ackRSeqNum    = _hasReceivedReliable ? _recvAckRSeqNum  : 0,
-            ackBitfield   = _hasReceivedReliable ? _recvAckBitfield : 0,
+            ackRSeqNum    = _hasReceivedReliable ? _recvAckRSeqNum  : 0u,
+            ackBitfield   = _hasReceivedReliable ? _recvAckBitfield : 0u,
             timestamp     = nowMs,
             timestampEcho = _timestampEcho,
         };
@@ -127,7 +132,28 @@ public class PacketHandler {
             proto.WriteTo(dest.Slice(UDPHeader.Size, payloadLen)); 
         }
 
-        return UDPHeader.Size + payloadLen;
+        int totalSize = UDPHeader.Size + payloadLen;
+
+        Span<uint> secKeySpan = stackalloc uint[1] { _securityKey };
+        Span<byte> secKeyBytes = MemoryMarshal.AsBytes(secKeySpan);
+        Span<byte> packetData = dest.Slice(0, totalSize);
+
+        // --- (사용하시는 xxHash 라이브러리 API에 맞게 수정) ---
+        // 아래는 C#에서 가장 유명한 K4os.Hash.xxHash 기준의 스트리밍 예시입니다.
+        ulong calculatedSignature;
+        using (var hashState = new XXH64())  { 
+            // (라이브러리에 따라 struct 기반일 수 있음)
+            hashState.Update(packetData);      // 패킷 전체(헤더+페이로드) 믹싱
+            hashState.Update(secKeyBytes);     // 보안 키 믹싱
+            calculatedSignature = hashState.Digest();
+        }
+        // -----------------------------------------------------
+
+        // 5. 생성된 서명을 헤더 영역 맨 앞(signature 위치, 8바이트)에 직접 덮어쓰기!
+        // 구조체에서 signature가 메모리 오프셋 0번째에 위치하므로 완벽하게 맞아떨어집니다.
+        MemoryMarshal.Write(dest.Slice(0, 8), ref calculatedSignature);
+
+        return totalSize;
     }
 
     public (byte[] data, int length) MakeReliablePacket(ushort packetId, IMessage proto) {
