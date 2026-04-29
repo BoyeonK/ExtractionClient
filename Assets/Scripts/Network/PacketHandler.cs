@@ -209,21 +209,24 @@ public class PacketHandler {
     // ==========================================
 
     private bool VerifySignature(byte[] buf, int length) {
-        ulong originalSig = MemoryMarshal.Read<ulong>(buf.AsSpan(0, 8));
+        Span<byte> packetSpan = buf.AsSpan(0, length);
+        Span<byte> sigSpan = packetSpan.Slice(0, 8);
 
-        Span<byte> copy = stackalloc byte[length];
-        buf.AsSpan(0, length).CopyTo(copy);
+        ulong originalSig = MemoryMarshal.Read<ulong>(sigSpan);
+
         ulong zero = 0;
-        MemoryMarshal.Write(copy.Slice(0, 8), ref zero);
+        MemoryMarshal.Write(sigSpan, ref zero);
 
         Span<uint> secKeySpan = stackalloc uint[1] { _securityKey };
         Span<byte> secKeyBytes = MemoryMarshal.AsBytes(secKeySpan);
 
         XXH64.State hashState = default;
         XXH64.Reset(ref hashState, 0);
-        XXH64.Update(ref hashState, copy);
+        XXH64.Update(ref hashState, packetSpan); 
         XXH64.Update(ref hashState, secKeyBytes);
-        ulong expected = XXH64.Digest(in hashState);
+        ulong expected = XXH64.Digest(hashState);
+
+        MemoryMarshal.Write(sigSpan, ref originalSig);
 
         return originalSig == expected;
     }
