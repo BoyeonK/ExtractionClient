@@ -11,7 +11,6 @@
 ### UI
 
 ### 네트워크
-- [x] (2026-04-28 #1) `_pendingReliable` 최적화 — Dictionary → 32슬롯 링 버퍼, byte[1400] 사전 할당, `BuildPacketInto(Span<byte>)` 직접 쓰기, `CollectRetransmits` 반환 List 재사용
 - [x] (2026-04-28 #2) 적응형 RTO 적용 — 고정 100ms → `max(100ms, SRTT + 4×RTTVAR)` RFC 6298 EWMA, `timestampEcho` 기반 RTT 샘플링, `UpdateRtt()` 메인 스레드 전용
 - [x] (2026-04-28 #3) `UdpClient` → `Socket` 전환 — 수신 버퍼 사전 할당(`_recvBuf[1500]`), per-packet GC 할당 제거, `ProcessReceivedPacket(byte[], int)` 시그니처 변경
 - [x] (2026-04-28 #4) 송신 큐 + `Poll(1ms)` 루프 도입 — `ConcurrentQueue` 기반 송신 큐, 워커 스레드가 수신·송신 모두 담당, `Disconnect()` 순서 Join→Close로 변경
@@ -25,6 +24,7 @@
 
 ### 버그 수정
 - [x] (2026-04-30 #2) DragGhost null 참조 버그 수정 — LobbyScene 탈출 시 DragGhost가 null 참조되던 문제 해결
+- [x] (2026-04-30 #3) allowSceneActivation 버그 수정 — 비동기 씬 전환 플래그가 변경되지 않던 문제 해결
 
 ---
 

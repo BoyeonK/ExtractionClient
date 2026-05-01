@@ -130,3 +130,4 @@ UI_Base (abstract)
 - Asset/LowPolyAssetBundle 폴더를 절대 읽지 말 것. 참조가 필요하면 나에게 먼저 물어볼 것
 - .gitignore 파일은 읽기만 가능, 절대 수정하지 말 것
 - Asset/Scripts/Utils/Gitignores.cs는 절대 읽거나, 수정하거나, 문서화하지 말 것
+- 스크립트 작업 시 탐색·수정 범위는 `Assets/Scripts/` 이내로 제한할 것. 다른 폴더(씬, 프리팹, 에셋 등)를 읽어야 할 필요가 생기면 먼저 나에게 물어볼 것
