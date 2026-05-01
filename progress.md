@@ -1,6 +1,6 @@
 # 프로젝트 진행 상황
 
-> 최종 수정: 2026-04-30
+> 최종 수정: 2026-05-02
 > 장르: 멀티플레이어 Extraction 게임 (알파 단계)
 > 엔진: Unity 6000.4.0f1 / URP 17.4.0
 
@@ -11,16 +11,16 @@
 ### UI
 
 ### 네트워크
-- [x] (2026-04-28 #2) 적응형 RTO 적용 — 고정 100ms → `max(100ms, SRTT + 4×RTTVAR)` RFC 6298 EWMA, `timestampEcho` 기반 RTT 샘플링, `UpdateRtt()` 메인 스레드 전용
-- [x] (2026-04-28 #3) `UdpClient` → `Socket` 전환 — 수신 버퍼 사전 할당(`_recvBuf[1500]`), per-packet GC 할당 제거, `ProcessReceivedPacket(byte[], int)` 시그니처 변경
 - [x] (2026-04-28 #4) 송신 큐 + `Poll(1ms)` 루프 도입 — `ConcurrentQueue` 기반 송신 큐, 워커 스레드가 수신·송신 모두 담당, `Disconnect()` 순서 Join→Close로 변경
 - [x] (2026-04-29 #0) xxHash64 서명 도입 — `UDPHeader`에 `signature(8B)` 추가, `securityKey` 필드 제거, 헤더 35B, `BuildPacketInto`에서 `xxHash64(패킷 + securityKey)` 서명 생성
 - [x] (2026-04-29 #1) 수신 패킷 signature 검증 — `VerifySignature()` 추가, `ProcessReceivedPacket`에서 검증 실패 시 드롭
+- [x] (2026-05-02 #0) Blueprint 응답 핸들러 추가 — `Handle_D2CResponseBlueprintSpawnPoint` / `Handle_D2CResponseBlueprintStaticObjects` 구현, LoadingScene 씬 체크 후 `Managers.Scene.NextSceneContext`에 저장 + 로그
 
 ### 기타
 - [x] (2026-04-29 #2) .proto 파일로 전환 및 캐시 정리 — `External_Protocol.proto` / `External_Unity_Object.proto` 추가, 기존 `ExternalProtocol.cs` / `ExternalUnityObject.cs` 삭제
 - [x] (2026-04-30 #0) `LoadingScene1` 씬 전환 코드 완성 — 비동기 로딩 90% 도달 시 `C2DRequestBlueprint` 전송, `staticObjectsLoadFlag` 세팅 후 `CompleteLoadSceneAsync` 호출
 - [x] (2026-04-30 #1) TestIngame 전환 코드 작성 및 작동 확인 — D2CResponseBlueprint 수신 후 TestIngame 씬으로 전환하는 흐름 구현 및 검증
+- [x] (2026-05-02 #1) `GameSceneContext` + `SceneManagerEx.NextSceneContext` 추가 — 씬 전환 페이로드 보관 구조 도입, `ResetLoadSceneOp()`에서 초기화
 
 ### 버그 수정
 - [x] (2026-04-30 #2) DragGhost null 참조 버그 수정 — LobbyScene 탈출 시 DragGhost가 null 참조되던 문제 해결
@@ -37,7 +37,7 @@
 2. ~~Scene을 LoadingScene으로 변경하고, GameScene의 비동기 로딩 시작.~~ ← **완료**
 3. ~~비동기 로딩 완료되었을 경우, C2DRequestBluePrint 전송~~ ← **완료**
 4. ~~3의 패킷의 응답을 받았을 경우, 해당 내용을 역직렬화해서 보관하고 Scene교체 진행.~~ ← **완료**
-    - D2CResponseBlueprint, 여기서 Spawn위치 결정됨. `staticObjectsLoadFlag = true` 세팅
+    - `D2CResponseBlueprintSpawnPoint` / `D2CResponseBlueprintStaticObjects` 핸들러 구현, `SceneManagerEx.NextSceneContext`(`GameSceneContext`)에 누적 저장
 5. 교체된 Scene의 Init() 함수에서 C2DRequestBluePrint에서 받아온 친구들 까지 포함해서 그려냄 ← **다음**
 6. Init함수가 실행된 이후, 서버에 Scene 로딩 완료됬음을 알려줌과 동시에 동적인 정보를 다시 요청.
     - C2DRequestSpawnMe

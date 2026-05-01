@@ -377,9 +377,11 @@ public class PacketHandler {
         }
 
         Managers.ExecuteAtMainThread(() => {
-            if (Object.FindAnyObjectByType<LoadingScene>() == null) return;
-            Managers.Scene.NextSceneContext.SpawnPoint = pkt;
-            Util.Log($"[PacketHandler] D2CResponseBlueprintSpawnPoint 수신 - SpawnPoint: {pkt.SpawnPoint}");
+            BaseScene scene = Managers.Scene.CurrentScene;
+            if (scene is LoadingScene loadingSceneScene) {
+                Managers.Scene.NextSceneContext.SpawnPoint = pkt;
+                Util.Log($"[PacketHandler] D2CResponseBlueprintSpawnPoint 수신 - SpawnPoint: {pkt.SpawnPoint}");
+            }
         });
     }
 
@@ -399,9 +401,11 @@ public class PacketHandler {
         }
 
         Managers.ExecuteAtMainThread(() => {
-            if (Object.FindAnyObjectByType<LoadingScene>() == null) return;
-            Managers.Scene.NextSceneContext.StaticObjectPackets.Add(pkt);
-            Util.Log($"[PacketHandler] D2CResponseBlueprintStaticObjects 수신 - index: {pkt.Index}, isLast: {pkt.IsLast}, count: {pkt.IngameObjects.Count}");
+            BaseScene scene = Managers.Scene.CurrentScene;
+            if (scene is LoadingScene loadingSceneScene) {
+                Managers.Scene.NextSceneContext.StaticObjectPackets.Add(pkt);
+                Util.Log($"[PacketHandler] D2CResponseBlueprintStaticObjects 수신 - index: {pkt.Index}, isLast: {pkt.IsLast}, count: {pkt.IngameObjects.Count }");
+            }
         });
     }
 }
