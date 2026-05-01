@@ -353,7 +353,7 @@ PrefabInstance:
       objectReference: {fileID: 0}
     - target: {fileID: 7317715123519672930, guid: f95312a4bcddc134ab52f620c99b801e, type: 3}
       propertyPath: m_Name
-      value: LoadingScene1
+      value: LoadingScene
       objectReference: {fileID: 0}
     m_RemovedComponents: []
     m_RemovedGameObjects: []

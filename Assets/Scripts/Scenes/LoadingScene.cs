@@ -1,7 +1,7 @@
 using UnityEngine;
 using UnityEngine.InputSystem;
 
-public class LoadingScene1 : BaseScene {
+public class LoadingScene : BaseScene {
     LoadingUI1 _ui;
 
     bool sceneLoadFlag = false;
