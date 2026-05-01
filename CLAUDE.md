@@ -11,6 +11,16 @@ This file provides guidance to Claude Code (claude.ai/code) when working with co
 
 ---
 
+## 모듈별 상세 문서
+
+각 폴더의 CLAUDE.md에서 해당 모듈의 상세 규칙을 확인할 것:
+- 네트워크 (HTTP/UDP/패킷): `Assets/Scripts/Network/CLAUDE.md`
+- UI 시스템: `Assets/Scripts/UI/CLAUDE.md`
+- 씬 구성: `Assets/Scripts/Scenes/CLAUDE.md`
+- 입력 시스템: `Assets/Scripts/Managers/CLAUDE.md`
+
+---
+
 ## 매니저 시스템 (`Managers.cs`)
 
 싱글톤 허브. `@Managers` GameObject에 부착되며 `DontDestroyOnLoad`. 모든 서브 매니저는 정적 프로퍼티로 접근:
@@ -30,87 +40,12 @@ This file provides guidance to Claude Code (claude.ai/code) when working with co
 
 ---
 
-## 네트워크 구조
-
-### HTTP (`HTTPManager`)
-- 정적 `HttpClient`, 타임아웃 5초, 베이스 URL은 `Gitignores.baseUrl`에서 가져옴
-- 인증이 필요한 요청은 `x-session-id` 헤더 포함
-- `Gitignores.cs`는 git에서 제외된 파일 — 서버 URL 등 민감 설정 관리. **베이스 URL 하드코딩 금지**
-- 주요 프로퍼티: `AuthState`, `SessionId`, `Uid`, `Inventory`, `Money`, `ShopItems`
-
-엔드포인트 전체 목록 및 요청/응답 스키마: `Assets/Scripts/Network/http-api-spec.yaml` (OpenAPI 3.0) 참고
-
-매칭 흐름: `StartMatchCall` → `CheckMatchStatusCall` 폴링 (WAITING → SUCCESS) → `TryConnectCall` → UDP 연결 시작
-구매 흐름: `LobbyScene.TryPurchase()` → 빈 슬롯 탐색(창고 우선) → 스냅샷 조립 → `PostPurchaseCall()` → `OnPurchaseComplete()`
-
-### UDP (`UDPManager`)
-- 전용 백그라운드 워커 스레드(`UDP_Network_Thread`) — 수신 + 송신 큐 소진 담당
-- `Socket.Connect()`로 목적지 고정. `Poll(1ms)` 기반 루프로 수신 확인, 데이터 없어도 최대 1ms마다 송신 큐(`ConcurrentQueue`) 소진
-- `Disconnect()` 시 `_isRunning = false` → 스레드 Join(최대 2초, Poll 루프 자연 종료) → `_socket.Close()` 순서
-- 수신 데이터는 모두 `Managers.ExecuteAtMainThread`를 통해 메인 스레드에서 처리
-- 송신: `SendReliable(packetId, IMessage)` / `SendUnreliable(packetId, IMessage)` — 큐에 삽입, 워커 스레드가 실제 전송
-- `OnUpdate()`가 매 프레임 `PacketHandler.CollectRetransmits()`를 호출해 RTO 초과 패킷을 큐에 재삽입. 재전송 10회 초과 시 `Disconnect()`
-
-### 패킷 형식 (`PacketHandler`)
-- **헤더** (`UDPHeader`, 35바이트, `LayoutKind.Sequential Pack=1`):
-  `signature(8) | packetId(2) | sessionId(2) | rSeqNum(4) | uSeqNum(2) | flags(1) | ackRSeqNum(4) | ackBitfield(4) | timestamp(4) | timestampEcho(4)`
-- **서명/검증**: 송신 시 `signature=0`으로 조립 후 `xxHash64(패킷 전체 + securityKey)`를 `signature` 필드에 기록. 수신 시 동일 방식으로 재계산해 검증 실패 패킷 드롭. `securityKey`는 헤더 필드가 아닌 `PacketHandler` 내부 상태로 관리
-- **플래그** (`UDPFlags`): `FLAG_HAS_ACK=0x01` (ack 필드 유효) / `FLAG_RELIABLE=0x02` (재전송 대상) / `FLAG_FRAGMENTED=0x04` (예약)
-- Reliable 채널: `rSeqNum` 사용, pending 큐에 등록, ACK 수신 시 제거
-- Unreliable 채널: `uSeqNum` 사용, 재전송 없음
-- ACK 전송: 모든 송신 패킷 헤더에 piggybacked (`FLAG_HAS_ACK` + `ackRSeqNum` + `ackBitfield`)
-- 직렬화: Google.Protobuf (`GameProtocol` 네임스페이스, `ExternalProtocol.cs`에 정의)
-- 핸들러 등록: `PacketHandler` 생성자에서 `_handlers.Add((ushort)PktId.XXX, Handle_XXX)`
-- Zero-Allocation 패킷 조립: `MemoryMarshal.Write/Read` + `Span<byte>` 사용
-
----
-
-## UI 시스템
-
-```
-UI_Base (abstract)
-├── UI_Scene    → Managers.UI.ShowSceneUI<T>() 로 표시
-│   ├── UI_TestStart, UI_Auth, UI_Login, UI_Register
-│   ├── UI_Header, UI_Inventory, UI_Warehouse, UI_Shop
-└── UI_Popup    → Managers.UI.ShowPopupUI<T>() 로 표시
-    ├── UI_OnlyConfirm, UI_ConfirmOrCancel
-```
-
-- 프리팹 경로: `Resources/Prefabs/UI/Scene/` 또는 `Resources/Prefabs/UI/Popup/`
-- 모든 UI는 `@UI_Root` 하위에 배치됨 (`DontDestroyOnLoad`)
-- **UI는 Destroy 금지 — SetActive 사용**. UIManager가 인스턴스를 캐시하므로 `DisableUI` / `EnableUI` 활용
-- 정렬 순서: SceneUI는 0부터 증가, PopupUI는 20부터 증가, 긴급 팝업은 +1000
-- `UI_Base.BindComponent<T>(path)`: 경로로 자식 컴포넌트를 찾아 반환 (없으면 예외 발생)
-- **슬롯**: `ISlot` (일반) / `LSlot : ISlot` (로드아웃 전용, 타입 제약). 아이템 타입은 `ItemTypeHelper`로 item_id 범위 기반 판별. 로드아웃 인덱스는 `UI_Inventory.LOADOUT_START(=25)` 오프셋 사용. Weapon/Equipment는 `ISlot.CanMerge()`로 어느 슬롯에서도 수량 합산 불가
-- **인벤토리 데이터 소유**: `LobbyScene`이 `_inventorySlots`, `_loadoutSlots`, `_warehouseSlots` 배열 소유. UI는 뷰 역할만 — `SetItemAtSlot()`이 scene setter + Refresh 담당. `SyncSlot` 없음
-- **Shift+클릭 분할**: `LobbyScene.OnSlotClick()` — 수량을 절반으로 나눠 `FirstEmptySlot`에 배치. 인벤토리/창고 각각 독립 처리
-
----
-
-## 씬 구성
-
-- **`BaseScene`**: 모든 씬의 베이스. `Awake → Init()`에서 EventSystem 자동 생성
-- **`LobbyScene`**: 로비 씬 진입점 — `LobbyState` enum 기반 상태 머신 (BeforeConnect → BeforeAuth → Lobby → Matching). 모든 인증/매칭 흐름 및 ESC 키 동작을 담당
-- **`LoadingScene1`**: 매칭 성공 후 전환되는 로딩 씬 — `Managers.Scene.LoadSceneAsync()`로 GameScene 비동기 로딩, 90% 도달 시 `SendC2DRequestBlueprint()`, `staticObjectsLoadFlag = true`가 되면 `CompleteLoadSceneAsync()` 호출
-- 씬 전환: 반드시 `Managers.Scene` 사용
-
----
-
-## 입력 시스템
-
-- `com.unity.inputsystem` 1.19.0 패키지 사용 (구형 `Input` 클래스 사용 금지)
-- 등록: `Managers.Input.AddKeyListener(Key, Action, KeyState)`
-- `OnDestroy`에서 반드시 `RemoveKeyListener`로 해제
-- `KeyState`: `Down` / `Up`
-
----
-
 ## 핵심 규칙 / 컨벤션
 
 1. **Unity API는 반드시 메인 스레드**에서 호출 — 비동기/UDP 콜백에서는 `Managers.ExecuteAtMainThread` 사용
 2. **프리팹은 `Resources/Prefabs/` 하위에 위치** — `ResourceManager` 경로는 이 폴더 기준 상대경로
 3. **서버 URL은 `Gitignores.baseUrl`에서** — 하드코딩 절대 금지
-4. **새 UDP 패킷 타입 추가 시**: `External_Protocol.proto`에 메시지 정의 + `PktId` 항목 추가 → `PacketHandler` 생성자에 핸들러 등록 → `Handle_XXX` 메서드 구현
+4. **새 UDP 패킷 타입 추가 시**: `Assets/Scripts/Network/CLAUDE.md`의 절차를 따를 것
 
 ---
 

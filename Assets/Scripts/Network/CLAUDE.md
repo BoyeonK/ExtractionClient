@@ -1,0 +1,39 @@
+# 네트워크 구조
+
+## HTTP (`HTTPManager`)
+- 정적 `HttpClient`, 타임아웃 5초, 베이스 URL은 `Gitignores.baseUrl`에서 가져옴
+- 인증이 필요한 요청은 `x-session-id` 헤더 포함
+- `Gitignores.cs`는 git에서 제외된 파일 — 서버 URL 등 민감 설정 관리. **베이스 URL 하드코딩 금지**
+- 주요 프로퍼티: `AuthState`, `SessionId`, `Uid`, `Inventory`, `Money`, `ShopItems`
+
+엔드포인트 전체 목록 및 요청/응답 스키마: `Assets/Scripts/Network/http-api-spec.yaml` (OpenAPI 3.0) 참고
+
+매칭 흐름: `StartMatchCall` → `CheckMatchStatusCall` 폴링 (WAITING → SUCCESS) → `TryConnectCall` → UDP 연결 시작
+구매 흐름: `LobbyScene.TryPurchase()` → 빈 슬롯 탐색(창고 우선) → 스냅샷 조립 → `PostPurchaseCall()` → `OnPurchaseComplete()`
+
+## UDP (`UDPManager`)
+- 전용 백그라운드 워커 스레드(`UDP_Network_Thread`) — 수신 + 송신 큐 소진 담당
+- `Socket.Connect()`로 목적지 고정. `Poll(1ms)` 기반 루프로 수신 확인, 데이터 없어도 최대 1ms마다 송신 큐(`ConcurrentQueue`) 소진
+- `Disconnect()` 시 `_isRunning = false` → 스레드 Join(최대 2초, Poll 루프 자연 종료) → `_socket.Close()` 순서
+- 수신 데이터는 모두 `Managers.ExecuteAtMainThread`를 통해 메인 스레드에서 처리
+- 송신: `SendReliable(packetId, IMessage)` / `SendUnreliable(packetId, IMessage)` — 큐에 삽입, 워커 스레드가 실제 전송
+- `OnUpdate()`가 매 프레임 `PacketHandler.CollectRetransmits()`를 호출해 RTO 초과 패킷을 큐에 재삽입. 재전송 10회 초과 시 `Disconnect()`
+
+## 패킷 형식 (`PacketHandler`)
+- **헤더** (`UDPHeader`, 35바이트, `LayoutKind.Sequential Pack=1`):
+  `signature(8) | packetId(2) | sessionId(2) | rSeqNum(4) | uSeqNum(2) | flags(1) | ackRSeqNum(4) | ackBitfield(4) | timestamp(4) | timestampEcho(4)`
+- **서명/검증**: 송신 시 `signature=0`으로 조립 후 `xxHash64(패킷 전체 + securityKey)`를 `signature` 필드에 기록. 수신 시 동일 방식으로 재계산해 검증 실패 패킷 드롭. `securityKey`는 헤더 필드가 아닌 `PacketHandler` 내부 상태로 관리
+- **플래그** (`UDPFlags`): `FLAG_HAS_ACK=0x01` (ack 필드 유효) / `FLAG_RELIABLE=0x02` (재전송 대상) / `FLAG_FRAGMENTED=0x04` (예약)
+- Reliable 채널: `rSeqNum` 사용, pending 큐에 등록, ACK 수신 시 제거
+- Unreliable 채널: `uSeqNum` 사용, 재전송 없음
+- ACK 전송: 모든 송신 패킷 헤더에 piggybacked (`FLAG_HAS_ACK` + `ackRSeqNum` + `ackBitfield`)
+- 직렬화: Google.Protobuf (`GameProtocol` 네임스페이스)
+  - **`External_Protocol.proto`**: `PktId` enum 및 모든 C2D/D2C 메시지 타입 정의. 새 패킷 추가 시 이 파일에 먼저 메시지를 정의한다
+  - **`External_Unity_Object.proto`**: 공유 오브젝트 타입 정의 (`UnityGameObject`, `GameObjectMovementInfo`, `Vector3`). `External_Protocol.proto`가 이 파일을 import
+- 핸들러 등록: `PacketHandler` 생성자에서 `_handlers.Add((ushort)PktId.XXX, Handle_XXX)`
+- Zero-Allocation 패킷 조립: `MemoryMarshal.Write/Read` + `Span<byte>` 사용
+
+### 새 UDP 패킷 타입 추가 절차
+1. `External_Protocol.proto`에 메시지 정의 + `PktId` 항목 추가
+2. `PacketHandler` 생성자에 핸들러 등록
+3. `Handle_XXX` 메서드 구현
