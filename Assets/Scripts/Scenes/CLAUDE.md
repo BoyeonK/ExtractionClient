@@ -20,4 +20,5 @@
 - **쓰기**: `PacketHandler` Blueprint 핸들러에서 Protobuf → Unity 타입 변환 후 `SetSpawnPoint()` / `AddStaticObjects()` 호출. Protobuf 타입은 핸들러 밖으로 노출하지 않는다
 - **완료 판단**: `IsComplete()` — SpawnPoint 수신 + IsLast 패킷 존재 + 0~lastIndex 전부 수신
 - **읽기**: `GameScene.Init()`에서 `Managers.Scene.NextSceneContext`로 접근해 오브젝트 생성
-- **초기화**: `SceneManagerEx.ResetLoadSceneOp()` 호출 시 새 인스턴스로 교체
+- **스폰 완료 후**: `OnStaticObjectsSpawned()` 호출 — SpawnPoint·StaticObjects·인덱스 추적 상태 전체 해제
+- **전체 초기화**: `SceneManagerEx.ResetLoadSceneOp()` 호출 시 새 인스턴스로 교체

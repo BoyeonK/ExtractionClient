@@ -11,10 +11,10 @@
 ### UI
 
 ### 네트워크
-- [x] (2026-04-29 #1) 수신 패킷 signature 검증 — `VerifySignature()` 추가, `ProcessReceivedPacket`에서 검증 실패 시 드롭
 - [x] (2026-05-02 #0) Blueprint 응답 핸들러 추가 — `Handle_D2CResponseBlueprintSpawnPoint` / `Handle_D2CResponseBlueprintStaticObjects` 구현, LoadingScene 씬 체크 후 `Managers.Scene.NextSceneContext`에 저장 + 로그
 - [x] (2026-05-02 #2) `GameSceneContext` Protobuf → Unity 타입 리팩터 — `StaticObjectData` 도입, `IsComplete()` 캡슐화, 핸들러에서 파싱 후 저장, `TryCompleteBlueprint` 간소화
 - [x] (2026-05-02 #3) Network CLAUDE.md에 Protobuf 타입 격리 규칙 추가
+- [x] (2026-05-02 #4) `GameSceneContext.OnStaticObjectsSpawned()` 추가 — 정적 오브젝트 스폰 완료 후 SpawnPoint·StaticObjects·인덱스 추적 상태 전체 초기화
 
 ### 기타
 - [x] (2026-04-29 #2) .proto 파일로 전환 및 캐시 정리 — `External_Protocol.proto` / `External_Unity_Object.proto` 추가, 기존 `ExternalProtocol.cs` / `ExternalUnityObject.cs` 삭제

@@ -20,11 +20,13 @@ public class GameSceneContext {
     private HashSet<uint> _receivedStaticIndices = new HashSet<uint>();
 
     public void SetSpawnPoint(Vector3 position) {
+        if (SpawnPointReceived) return;
         SpawnPoint = position;
         SpawnPointReceived = true;
     }
 
     public void AddStaticObjects(uint index, bool isLast, List<StaticObjectData> objects) {
+        if (_receivedStaticIndices.Contains(index)) return;
         StaticObjects.AddRange(objects);
         _receivedStaticIndices.Add(index);
         if (isLast)
@@ -38,6 +40,14 @@ public class GameSceneContext {
             if (!_receivedStaticIndices.Contains(i)) return false;
         }
         return true;
+    }
+
+    public void OnStaticObjectsSpawned() {
+        SpawnPoint = Vector3.zero;
+        SpawnPointReceived = false;
+        StaticObjects.Clear();
+        _receivedStaticIndices.Clear();
+        _staticLastIndex = -1;
     }
 }
 
