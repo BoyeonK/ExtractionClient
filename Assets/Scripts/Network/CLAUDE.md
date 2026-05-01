@@ -33,7 +33,12 @@
 - 핸들러 등록: `PacketHandler` 생성자에서 `_handlers.Add((ushort)PktId.XXX, Handle_XXX)`
 - Zero-Allocation 패킷 조립: `MemoryMarshal.Write/Read` + `Span<byte>` 사용
 
+### 핸들러 함수 실행 컨텍스트 (중요)
+- `Handle_XXX` 함수는 **UDP 워커 스레드**(`UDP_Network_Thread`)에서 직접 호출된다
+- 핸들러 내부에서 `GameObject`, `Transform`, `UnityEngine.*` 등 **Unity 전용 API를 직접 호출하면 안 된다**
+- Unity API가 필요한 작업은 반드시 `Managers.ExecuteAtMainThread(() => { ... })`로 감싸서 메인 스레드에 위임해야 한다
+
 ### 새 UDP 패킷 타입 추가 절차
 1. `External_Protocol.proto`에 메시지 정의 + `PktId` 항목 추가
 2. `PacketHandler` 생성자에 핸들러 등록
-3. `Handle_XXX` 메서드 구현
+3. `Handle_XXX` 메서드 구현 — Unity API 호출이 필요하면 `Managers.ExecuteAtMainThread`로 감쌀 것 (핸들러는 워커 스레드에서 실행됨)
