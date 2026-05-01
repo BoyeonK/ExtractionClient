@@ -26,21 +26,16 @@ public class LoadingScene : BaseScene {
     }
 
     void Update() {
-        const float epsilon = 0.01f;
-        const float progressThreshold = 0.05f;
         if (sceneLoadFlag == false) {
             float currentRate = Managers.Scene.GetLoadingProgressRate();
 
-            while (currentRate - epsilon >= progress + progressThreshold) {
-                progress += progressThreshold;
-            }
+            progress = Mathf.MoveTowards(progress, currentRate, Time.deltaTime);
 
-            if (progress >= 0.9f - epsilon) {
+            if (currentRate >= 0.9f) {
                 sceneLoadFlag = true;
+                Util.Log("blueprint 요청 전송");
                 Managers.Network.udpManager.SendC2DRequestBlueprint();
             }
-
-            //로딩 UI 업데이트
         }
         else if (staticObjectsLoadFlag == true) {
             Managers.Scene.CompleteLoadSceneAsync();
