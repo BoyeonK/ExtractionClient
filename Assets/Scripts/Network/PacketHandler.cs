@@ -87,6 +87,8 @@ public class PacketHandler {
         _unreliableScratch = new byte[MAX_PACKET_SIZE];
 
         _handlers.Add((ushort)PktId.D2CResponseChannelOpen, Handle_D2CResponseChannelOpen);
+        _handlers.Add((ushort)PktId.D2CResponseBlueprintSpawnPoint, Handle_D2CResponseBlueprintSpawnPoint);
+        _handlers.Add((ushort)PktId.D2CResponseBlueprintStaticObjects, Handle_D2CResponseBlueprintStaticObjects);
     }
 
     // ==========================================
@@ -356,6 +358,50 @@ public class PacketHandler {
 
         Managers.ExecuteAtMainThread(() => {
             Util.Log($"[PacketHandler] D2CResponseChannelOpen 수신 - Message: {pkt.Echo}");
+        });
+    }
+
+    private void Handle_D2CResponseBlueprintSpawnPoint(ReadOnlySpan<byte> payloadSpan) {
+        D2CResponseBlueprintSpawnPoint pkt = null;
+
+        try {
+            pkt = D2CResponseBlueprintSpawnPoint.Parser.ParseFrom(payloadSpan);
+        }
+        catch (InvalidProtocolBufferException e) {
+            Managers.ExecuteAtMainThread(() => { Util.LogError($"D2CResponseBlueprintSpawnPoint 파싱 실패: {e.Message}"); });
+            return;
+        }
+        catch (Exception e) {
+            Managers.ExecuteAtMainThread(() => { Util.LogError($"D2CResponseBlueprintSpawnPoint 처리 중 알 수 없는 에러: {e.Message}"); });
+            return;
+        }
+
+        Managers.ExecuteAtMainThread(() => {
+            if (Object.FindAnyObjectByType<LoadingScene>() == null) return;
+            Managers.Scene.NextSceneContext.SpawnPoint = pkt;
+            Util.Log($"[PacketHandler] D2CResponseBlueprintSpawnPoint 수신 - SpawnPoint: {pkt.SpawnPoint}");
+        });
+    }
+
+    private void Handle_D2CResponseBlueprintStaticObjects(ReadOnlySpan<byte> payloadSpan) {
+        D2CResponseBlueprintStaticObjects pkt = null;
+
+        try {
+            pkt = D2CResponseBlueprintStaticObjects.Parser.ParseFrom(payloadSpan);
+        }
+        catch (InvalidProtocolBufferException e) {
+            Managers.ExecuteAtMainThread(() => { Util.LogError($"D2CResponseBlueprintStaticObjects 파싱 실패: {e.Message}"); });
+            return;
+        }
+        catch (Exception e) {
+            Managers.ExecuteAtMainThread(() => { Util.LogError($"D2CResponseBlueprintStaticObjects 처리 중 알 수 없는 에러: {e.Message}"); });
+            return;
+        }
+
+        Managers.ExecuteAtMainThread(() => {
+            if (Object.FindAnyObjectByType<LoadingScene>() == null) return;
+            Managers.Scene.NextSceneContext.StaticObjectPackets.Add(pkt);
+            Util.Log($"[PacketHandler] D2CResponseBlueprintStaticObjects 수신 - index: {pkt.Index}, isLast: {pkt.IsLast}, count: {pkt.IngameObjects.Count}");
         });
     }
 }

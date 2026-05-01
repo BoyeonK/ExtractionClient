@@ -1,12 +1,18 @@
 using System;
 using System.Collections.Generic;
 using System.Linq;
+using GameProtocol;
 using UnityEngine;
 using UnityEngine.InputSystem;
 using UnityEngine.SceneManagement;
 
-//ÀÌ °´Ã¼°¡ »ç¿ëÇÏ´Â ¸ðµç ÇÔ¼ö´Â, À¯´ÏÆ¼ÀÇ ¸Þ¼­µå¸¦ »ç¿ëÇØ¾ß ÇÏ¹Ç·Î ¸ÞÀÎ½º·¹µå¿¡¼­ ½ÇÇà¸¸À» ÀüÁ¦·Î ¸¸µé¾îÁ³À½.
-//µ¿±âÈ­ ±â¹ýÀ» »ç¿ëÇÏÁö ¾ÊÀ» ¿¹Á¤.
+//ï¿½ï¿½ ï¿½ï¿½Ã¼ï¿½ï¿½ ï¿½ï¿½ï¿½ï¿½Ï´ï¿½ ï¿½ï¿½ï¿½ ï¿½Ô¼ï¿½ï¿½ï¿½, ï¿½ï¿½ï¿½ï¿½Æ¼ï¿½ï¿½ ï¿½Þ¼ï¿½ï¿½å¸¦ ï¿½ï¿½ï¿½ï¿½Ø¾ï¿½ ï¿½Ï¹Ç·ï¿½ ï¿½ï¿½ï¿½Î½ï¿½ï¿½ï¿½ï¿½å¿¡ï¿½ï¿½ ï¿½ï¿½ï¿½à¸¸ï¿½ï¿½ ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½.
+//ï¿½ï¿½ï¿½ï¿½È­ ï¿½ï¿½ï¿½ï¿½ï¿½ ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ ï¿½ï¿½ï¿½ï¿½ ï¿½ï¿½ï¿½ï¿½.
+public class GameSceneContext {
+    public D2CResponseBlueprintSpawnPoint SpawnPoint;
+    public List<D2CResponseBlueprintStaticObjects> StaticObjectPackets = new();
+}
+
 public class SceneManagerEx {
     private enum LoadingState {
         None,
@@ -14,6 +20,8 @@ public class SceneManagerEx {
         Ready
     }
     
+    public GameSceneContext NextSceneContext { get; private set; } = new GameSceneContext();
+
     private LoadingState _loadingState = LoadingState.None;
     private Define.Scene _nextScene = Define.Scene.Undefined;
     //private bool _sceneActiveImmidiately = false;
@@ -68,12 +76,13 @@ public class SceneManagerEx {
         _asyncLoadSceneOp.allowSceneActivation = true;
     }
 
-    //LoadingSceneÀÌ ¾Æ´Ñ SceneÀÇ ÃÊ±âÈ­ °úÁ¤¿¡¼­ È£ÃâÇØ¾ßÇÔ.
+    //LoadingSceneï¿½ï¿½ ï¿½Æ´ï¿½ Sceneï¿½ï¿½ ï¿½Ê±ï¿½È­ ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ È£ï¿½ï¿½ï¿½Ø¾ï¿½ï¿½ï¿½.
     public void ResetLoadSceneOp() {
         _asyncLoadSceneOp = null;
         _loadingState = LoadingState.None;
         _nextScene = Define.Scene.Undefined;
         _progress = 0;
+        NextSceneContext = new GameSceneContext();
     }
 
     public void Clear() {
