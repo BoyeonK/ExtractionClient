@@ -11,10 +11,10 @@
 ### UI
 
 ### 네트워크
-- [x] (2026-04-28 #4) 송신 큐 + `Poll(1ms)` 루프 도입 — `ConcurrentQueue` 기반 송신 큐, 워커 스레드가 수신·송신 모두 담당, `Disconnect()` 순서 Join→Close로 변경
-- [x] (2026-04-29 #0) xxHash64 서명 도입 — `UDPHeader`에 `signature(8B)` 추가, `securityKey` 필드 제거, 헤더 35B, `BuildPacketInto`에서 `xxHash64(패킷 + securityKey)` 서명 생성
 - [x] (2026-04-29 #1) 수신 패킷 signature 검증 — `VerifySignature()` 추가, `ProcessReceivedPacket`에서 검증 실패 시 드롭
 - [x] (2026-05-02 #0) Blueprint 응답 핸들러 추가 — `Handle_D2CResponseBlueprintSpawnPoint` / `Handle_D2CResponseBlueprintStaticObjects` 구현, LoadingScene 씬 체크 후 `Managers.Scene.NextSceneContext`에 저장 + 로그
+- [x] (2026-05-02 #2) `GameSceneContext` Protobuf → Unity 타입 리팩터 — `StaticObjectData` 도입, `IsComplete()` 캡슐화, 핸들러에서 파싱 후 저장, `TryCompleteBlueprint` 간소화
+- [x] (2026-05-02 #3) Network CLAUDE.md에 Protobuf 타입 격리 규칙 추가
 
 ### 기타
 - [x] (2026-04-29 #2) .proto 파일로 전환 및 캐시 정리 — `External_Protocol.proto` / `External_Unity_Object.proto` 추가, 기존 `ExternalProtocol.cs` / `ExternalUnityObject.cs` 삭제

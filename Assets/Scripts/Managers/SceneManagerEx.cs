@@ -1,16 +1,44 @@
-using System;
 using System.Collections.Generic;
-using System.Linq;
-using GameProtocol;
 using UnityEngine;
 using UnityEngine.InputSystem;
 using UnityEngine.SceneManagement;
 
-//�� ��ü�� ����ϴ� ��� �Լ���, ����Ƽ�� �޼��带 ����ؾ� �ϹǷ� ���ν����忡�� ���ุ�� ������ ���������.
-//����ȭ ����� ������� ���� ����.
+public class StaticObjectData {
+    public uint ObjectId;
+    public uint ObjectType;
+    public Vector3 Position;
+    public Vector3 Front;
+}
+
 public class GameSceneContext {
-    public D2CResponseBlueprintSpawnPoint SpawnPoint;
-    public List<D2CResponseBlueprintStaticObjects> StaticObjectPackets = new();
+    public bool SpawnPointReceived { get; private set; } = false;
+    public Vector3 SpawnPoint { get; private set; }
+
+    public List<StaticObjectData> StaticObjects { get; } = new List<StaticObjectData>();
+
+    private int _staticLastIndex = -1;
+    private HashSet<uint> _receivedStaticIndices = new HashSet<uint>();
+
+    public void SetSpawnPoint(Vector3 position) {
+        SpawnPoint = position;
+        SpawnPointReceived = true;
+    }
+
+    public void AddStaticObjects(uint index, bool isLast, List<StaticObjectData> objects) {
+        StaticObjects.AddRange(objects);
+        _receivedStaticIndices.Add(index);
+        if (isLast)
+            _staticLastIndex = (int)index;
+    }
+
+    public bool IsComplete() {
+        if (!SpawnPointReceived) return false;
+        if (_staticLastIndex < 0) return false;
+        for (uint i = 0; i <= (uint)_staticLastIndex; i++) {
+            if (!_receivedStaticIndices.Contains(i)) return false;
+        }
+        return true;
+    }
 }
 
 public class SceneManagerEx {
@@ -76,7 +104,7 @@ public class SceneManagerEx {
         _asyncLoadSceneOp.allowSceneActivation = true;
     }
 
-    //LoadingScene�� �ƴ� Scene�� �ʱ�ȭ �������� ȣ���ؾ���.
+    //LoadingScene이 아닌 Scene의 초기화 완료에서 호출해야한다.
     public void ResetLoadSceneOp() {
         _asyncLoadSceneOp = null;
         _loadingState = LoadingState.None;

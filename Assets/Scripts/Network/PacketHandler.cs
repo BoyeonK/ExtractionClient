@@ -378,9 +378,12 @@ public class PacketHandler {
 
         Managers.ExecuteAtMainThread(() => {
             BaseScene scene = Managers.Scene.CurrentScene;
-            if (scene is LoadingScene loadingSceneScene) {
-                Managers.Scene.NextSceneContext.SpawnPoint = pkt;
+            if (scene is LoadingScene loadingScene) {
+                GameProtocol.Vector3 p = pkt.SpawnPoint;
+                Managers.Scene.NextSceneContext.SetSpawnPoint(
+                    new UnityEngine.Vector3(p.X, p.Y, p.Z));
                 Util.Log($"[PacketHandler] D2CResponseBlueprintSpawnPoint 수신 - SpawnPoint: {pkt.SpawnPoint}");
+                loadingScene.TryCompleteBlueprint();
             }
         });
     }
@@ -402,9 +405,25 @@ public class PacketHandler {
 
         Managers.ExecuteAtMainThread(() => {
             BaseScene scene = Managers.Scene.CurrentScene;
-            if (scene is LoadingScene loadingSceneScene) {
-                Managers.Scene.NextSceneContext.StaticObjectPackets.Add(pkt);
-                Util.Log($"[PacketHandler] D2CResponseBlueprintStaticObjects 수신 - index: {pkt.Index}, isLast: {pkt.IsLast}, count: {pkt.IngameObjects.Count }");
+            if (scene is LoadingScene loadingScene) {
+                var objects = new List<StaticObjectData>(pkt.IngameObjects.Count);
+                foreach (var obj in pkt.IngameObjects) {
+                    objects.Add(new StaticObjectData {
+                        ObjectId   = obj.ObjectId,
+                        ObjectType = obj.ObjectType,
+                        Position   = new UnityEngine.Vector3(
+                            obj.Position?.X ?? 0f,
+                            obj.Position?.Y ?? 0f,
+                            obj.Position?.Z ?? 0f),
+                        Front      = new UnityEngine.Vector3(
+                            obj.Front?.X ?? 0f,
+                            obj.Front?.Y ?? 0f,
+                            obj.Front?.Z ?? 0f),
+                    });
+                }
+                Managers.Scene.NextSceneContext.AddStaticObjects(pkt.Index, pkt.IsLast, objects);
+                Util.Log($"[PacketHandler] D2CResponseBlueprintStaticObjects 수신 - index: {pkt.Index}, isLast: {pkt.IsLast}, count: {pkt.IngameObjects.Count}");
+                loadingScene.TryCompleteBlueprint();
             }
         });
     }

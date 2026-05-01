@@ -11,9 +11,13 @@
 
 | 필드 | 타입 | 설명 |
 |------|------|------|
-| `SpawnPoint` | `D2CResponseBlueprintSpawnPoint` | 플레이어 스폰 위치 |
-| `StaticObjectPackets` | `List<D2CResponseBlueprintStaticObjects>` | 정적 오브젝트 패킷 누적 목록 |
+| `SpawnPoint` | `UnityEngine.Vector3` | 플레이어 스폰 위치 |
+| `SpawnPointReceived` | `bool` | SpawnPoint 수신 여부 |
+| `StaticObjects` | `List<StaticObjectData>` | 정적 오브젝트 목록 (Protobuf 파싱 완료) |
 
-- **쓰기**: `PacketHandler`의 Blueprint 응답 핸들러에서 `LoadingScene` 존재 확인 후 저장
+`StaticObjectData`: `ObjectId(uint)`, `ObjectType(uint)`, `Position(Vector3)`, `Front(Vector3)`
+
+- **쓰기**: `PacketHandler` Blueprint 핸들러에서 Protobuf → Unity 타입 변환 후 `SetSpawnPoint()` / `AddStaticObjects()` 호출. Protobuf 타입은 핸들러 밖으로 노출하지 않는다
+- **완료 판단**: `IsComplete()` — SpawnPoint 수신 + IsLast 패킷 존재 + 0~lastIndex 전부 수신
 - **읽기**: `GameScene.Init()`에서 `Managers.Scene.NextSceneContext`로 접근해 오브젝트 생성
 - **초기화**: `SceneManagerEx.ResetLoadSceneOp()` 호출 시 새 인스턴스로 교체

@@ -38,7 +38,14 @@
 - 핸들러 내부에서 `GameObject`, `Transform`, `UnityEngine.*` 등 **Unity 전용 API를 직접 호출하면 안 된다**
 - Unity API가 필요한 작업은 반드시 `Managers.ExecuteAtMainThread(() => { ... })`로 감싸서 메인 스레드에 위임해야 한다
 
+### Protobuf 타입 격리 규칙
+- **Protobuf 타입(`GameProtocol.*`)은 `Handle_XXX` 함수 밖으로 노출하지 않는다**
+- 핸들러 내부에서 Unity/C# 기본 타입으로 변환 후 전달할 것
+  - `GameProtocol.Vector3` → `UnityEngine.Vector3`
+  - Protobuf 메시지 → 전용 데이터 클래스 (예: `StaticObjectData`)
+
 ### 새 UDP 패킷 타입 추가 절차
 1. `External_Protocol.proto`에 메시지 정의 + `PktId` 항목 추가
 2. `PacketHandler` 생성자에 핸들러 등록
 3. `Handle_XXX` 메서드 구현 — Unity API 호출이 필요하면 `Managers.ExecuteAtMainThread`로 감쌀 것 (핸들러는 워커 스레드에서 실행됨)
+4. 전달할 데이터는 핸들러 내부에서 Unity/C# 기본 타입으로 변환 후 전달 (Protobuf 타입 격리 규칙 준수)

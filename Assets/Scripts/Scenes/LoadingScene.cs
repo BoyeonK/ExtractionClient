@@ -8,6 +8,12 @@ public class LoadingScene : BaseScene {
     bool staticObjectsLoadFlag = false;
     float progress = 0.0f;
 
+    // SpawnPoint가 수신되었고, StaticObjects가 0~lastIndex 모두 수신된 경우 씬 전환 준비 완료
+    public void TryCompleteBlueprint() {
+        if (Managers.Scene.NextSceneContext.IsComplete())
+            staticObjectsLoadFlag = true;
+    }
+
     protected override void Init() {
         SceneType = Define.Scene.LoadingScene1;
         _ui = FindAnyObjectByType<LoadingUI1>();
