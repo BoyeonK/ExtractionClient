@@ -15,9 +15,9 @@
 - [x] (2026-05-02 #2) `GameSceneContext` Protobuf → Unity 타입 리팩터 — `StaticObjectData` 도입, `IsComplete()` 캡슐화, 핸들러에서 파싱 후 저장, `TryCompleteBlueprint` 간소화
 - [x] (2026-05-02 #3) Network CLAUDE.md에 Protobuf 타입 격리 규칙 추가
 - [x] (2026-05-02 #4) `GameSceneContext.OnStaticObjectsSpawned()` 추가 — 정적 오브젝트 스폰 완료 후 SpawnPoint·StaticObjects·인덱스 추적 상태 전체 초기화
+- [x] (2026-05-02 #5) Heartbeat 구현 — `UDPManager.OnUpdate()`에서 1초 간격으로 `C2DHeartBeat`(Unreliable) 전송, `Handle_D2CHeartBeat` 핸들러 등록
 
 ### 기타
-- [x] (2026-04-29 #2) .proto 파일로 전환 및 캐시 정리 — `External_Protocol.proto` / `External_Unity_Object.proto` 추가, 기존 `ExternalProtocol.cs` / `ExternalUnityObject.cs` 삭제
 - [x] (2026-04-30 #0) `LoadingScene1` 씬 전환 코드 완성 — 비동기 로딩 90% 도달 시 `C2DRequestBlueprint` 전송, `staticObjectsLoadFlag` 세팅 후 `CompleteLoadSceneAsync` 호출
 - [x] (2026-04-30 #1) TestIngame 전환 코드 작성 및 작동 확인 — D2CResponseBlueprint 수신 후 TestIngame 씬으로 전환하는 흐름 구현 및 검증
 - [x] (2026-05-02 #1) `GameSceneContext` + `SceneManagerEx.NextSceneContext` 추가 — 씬 전환 페이로드 보관 구조 도입, `ResetLoadSceneOp()`에서 초기화

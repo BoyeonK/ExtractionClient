@@ -15,7 +15,7 @@ public class LoadingScene : BaseScene {
     }
 
     protected override void Init() {
-        SceneType = Define.Scene.LoadingScene1;
+        SceneType = Define.Scene.LoadingScene;
         _ui = FindAnyObjectByType<LoadingUI1>();
     }
 

@@ -4,7 +4,7 @@ public class Define {
     public enum Scene {
         Undefined,
         Lobby,
-        LoadingScene1,
+        LoadingScene,
         TestIngame,
         MaxCount,
     }

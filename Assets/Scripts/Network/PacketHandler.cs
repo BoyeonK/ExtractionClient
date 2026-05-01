@@ -52,7 +52,7 @@ public class PacketHandler {
     private uint _timestampEcho = 0;
 
     // ── Reliable 재전송 링 버퍼 ────────────────────────
-    private const float MIN_RTO_MS     = 100f;   // RTO 하한 (ms)
+    private const float MIN_RTO_MS     = 300f;   // RTO 하한 (ms)
     private const int   MAX_RETRY      = 10;     // 최대 재전송 횟수
     private const int   WINDOW_SIZE    = 32;     // ACK bitfield 32비트와 일치
     private const int   MAX_PACKET_SIZE = 1400;  // 이더넷 MTU 기준 안전 최대치
@@ -87,6 +87,7 @@ public class PacketHandler {
         _unreliableScratch = new byte[MAX_PACKET_SIZE];
 
         _handlers.Add((ushort)PktId.D2CResponseChannelOpen, Handle_D2CResponseChannelOpen);
+        _handlers.Add((ushort)PktId.D2CHeartBeat, Handle_D2CHeartBeat);
         _handlers.Add((ushort)PktId.D2CResponseBlueprintSpawnPoint, Handle_D2CResponseBlueprintSpawnPoint);
         _handlers.Add((ushort)PktId.D2CResponseBlueprintStaticObjects, Handle_D2CResponseBlueprintStaticObjects);
     }
@@ -359,6 +360,10 @@ public class PacketHandler {
         Managers.ExecuteAtMainThread(() => {
             Util.Log($"[PacketHandler] D2CResponseChannelOpen 수신 - Message: {pkt.Echo}");
         });
+    }
+
+    private void Handle_D2CHeartBeat(ReadOnlySpan<byte> payloadSpan) {
+        // 서버가 heartbeat에 응답함 — 연결 살아있음 확인. 별도 처리 없음.
     }
 
     private void Handle_D2CResponseBlueprintSpawnPoint(ReadOnlySpan<byte> payloadSpan) {

@@ -118,6 +118,9 @@ public class UDPManager {
         SendPacket(data, length);
     }
 
+    private const float HEARTBEAT_INTERVAL_SEC = 1f;
+    private float _lastHeartbeatSec = 0f;
+
     // 메인 스레드 — 재전송 대상을 큐에 삽입 (실제 송신은 워커 스레드)
     public void OnUpdate() {
         if (_socket == null) return;
@@ -129,6 +132,12 @@ public class UDPManager {
             return;
         }
         foreach (var (data, length) in retransmits) SendPacket(data, length);
+
+        float nowSec = Time.realtimeSinceStartup;
+        if (nowSec - _lastHeartbeatSec >= HEARTBEAT_INTERVAL_SEC) {
+            _lastHeartbeatSec = nowSec;
+            SendC2DHeartBeat();
+        }
     }
 
     public void Disconnect() {
@@ -158,5 +167,10 @@ public class UDPManager {
     public void SendC2DRequestBlueprint() {
         C2DRequestBlueprint pkt = new C2DRequestBlueprint { };
         SendReliable((ushort)GameProtocol.PktId.C2DRequestBlueprint, pkt);
+    }
+
+    public void SendC2DHeartBeat() {
+        C2DHeartBeat pkt = new C2DHeartBeat { };
+        SendUnreliable((ushort)GameProtocol.PktId.C2DHeartBeat, pkt);
     }
 }
