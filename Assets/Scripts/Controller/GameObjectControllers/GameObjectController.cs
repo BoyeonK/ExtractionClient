@@ -13,6 +13,10 @@ public class GameObjectController : MonoBehaviour {
 		transform.position = position;
 	}
 
+	public void SetFrontVector(Vector3 front) {
+		transform.forward = front;
+	}
+
 	void Start() {
 		Init();
 	}
