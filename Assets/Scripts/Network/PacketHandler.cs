@@ -432,7 +432,7 @@ public class PacketHandler {
             return;
         }
 
-        var objects = new List<StaticObjectData>(pkt.IngameObjects.Count);
+        var objects = new List<ObjectData>(pkt.IngameObjects.Count);
         foreach (var obj in pkt.IngameObjects) {
             TransformInfo tf = obj.Transform;
             GameProtocol.Vector3 pos = tf?.Position;
@@ -448,7 +448,7 @@ public class PacketHandler {
                 }
             }
 
-            objects.Add(new StaticObjectData {
+            objects.Add(new ObjectData {
                 ObjectId   = obj.ObjectId,
                 ObjectType = obj.ObjectType,
                 Position   = new UnityEngine.Vector3(pos?.X ?? 0f, pos?.Y ?? 0f, pos?.Z ?? 0f),

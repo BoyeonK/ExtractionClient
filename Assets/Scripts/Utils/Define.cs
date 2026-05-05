@@ -1,6 +1,7 @@
+using System.Collections.Generic;
 using UnityEngine;
 
-public class Define {
+public static class Define {
     public enum Scene {
         Undefined,
         Lobby,
@@ -31,6 +32,12 @@ public class Define {
         TestItemBox,
         MaxCount,
     }
+
+    public static readonly Dictionary<int, string> ObjectPaths = new Dictionary<int, string>() {
+        { (int)ObjectType.Undefined, null },
+        { (int)ObjectType.Player, "Prefabs/GameObject/TestItemBox" },
+        { (int)ObjectType.TestItemBox, "Prefabs/GameObject/TestItemBox" },
+    };
 
     public enum Map {
         TestMap,

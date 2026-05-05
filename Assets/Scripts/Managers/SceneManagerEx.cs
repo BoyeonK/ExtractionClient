@@ -3,7 +3,7 @@ using UnityEngine;
 using UnityEngine.InputSystem;
 using UnityEngine.SceneManagement;
 
-public struct StaticObjectData {
+public struct ObjectData {
     public uint ObjectId;
     public int ObjectType;
     public UnityEngine.Vector3 Position;
@@ -11,12 +11,12 @@ public struct StaticObjectData {
 }
 
 public class GameSceneContext {
-    public List<StaticObjectData> StaticObjects { get; } = new List<StaticObjectData>();
+    public List<ObjectData> StaticObjects { get; } = new List<ObjectData>();
 
     private int _staticLastIndex = -1;
     private HashSet<uint> _receivedStaticIndices = new HashSet<uint>();
 
-    public void AddStaticObjects(uint index, bool isLast, List<StaticObjectData> objects) {
+    public void AddStaticObjects(uint index, bool isLast, List<ObjectData> objects) {
         if (_receivedStaticIndices.Contains(index)) return;
         StaticObjects.AddRange(objects);
         _receivedStaticIndices.Add(index);

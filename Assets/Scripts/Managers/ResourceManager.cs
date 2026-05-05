@@ -32,6 +32,18 @@ public class ResourceManager {
         return go;
     }
 
+    public GameObject InstantiateFromObjectDataStruct(ObjectData data) {
+        Define.ObjectPaths.TryGetValue((int)data.ObjectType, out string path);
+        GameObject go = Instantiate(path, null);
+        if (go == null) {
+            Debug.Log($"Failed to instantiate prefab : {path}");
+            return null;
+        }
+        GameObjectController controller = go.GetComponent<GameObjectController>();
+        controller.SetDataFromStruct(data);
+        return go;
+    }
+
     public void Destroy(GameObject go) {
         if (go == null)
             return;
