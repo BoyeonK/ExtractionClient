@@ -3,27 +3,18 @@ using UnityEngine;
 using UnityEngine.InputSystem;
 using UnityEngine.SceneManagement;
 
-public class StaticObjectData {
+public struct StaticObjectData {
     public uint ObjectId;
-    public uint ObjectType;
-    public Vector3 Position;
-    public Vector3 Front;
+    public int ObjectType;
+    public UnityEngine.Vector3 Position;
+    public UnityEngine.Quaternion Rotation;
 }
 
 public class GameSceneContext {
-    public bool SpawnPointReceived { get; private set; } = false;
-    public Vector3 SpawnPoint { get; private set; }
-
     public List<StaticObjectData> StaticObjects { get; } = new List<StaticObjectData>();
 
     private int _staticLastIndex = -1;
     private HashSet<uint> _receivedStaticIndices = new HashSet<uint>();
-
-    public void SetSpawnPoint(Vector3 position) {
-        if (SpawnPointReceived) return;
-        SpawnPoint = position;
-        SpawnPointReceived = true;
-    }
 
     public void AddStaticObjects(uint index, bool isLast, List<StaticObjectData> objects) {
         if (_receivedStaticIndices.Contains(index)) return;
@@ -34,7 +25,6 @@ public class GameSceneContext {
     }
 
     public bool IsComplete() {
-        if (!SpawnPointReceived) return false;
         if (_staticLastIndex < 0) return false;
         for (uint i = 0; i <= (uint)_staticLastIndex; i++) {
             if (!_receivedStaticIndices.Contains(i)) return false;
@@ -43,8 +33,6 @@ public class GameSceneContext {
     }
 
     public void OnStaticObjectsSpawned() {
-        SpawnPoint = Vector3.zero;
-        SpawnPointReceived = false;
         StaticObjects.Clear();
         _receivedStaticIndices.Clear();
         _staticLastIndex = -1;

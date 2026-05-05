@@ -88,7 +88,6 @@ public class PacketHandler {
 
         _handlers.Add((ushort)PktId.D2CResponseChannelOpen, Handle_D2CResponseChannelOpen);
         _handlers.Add((ushort)PktId.D2CHeartBeat, Handle_D2CHeartBeat);
-        _handlers.Add((ushort)PktId.D2CResponseBlueprintSpawnPoint, Handle_D2CResponseBlueprintSpawnPoint);
         _handlers.Add((ushort)PktId.D2CResponseBlueprintStaticObjects, Handle_D2CResponseBlueprintStaticObjects);
     }
 
@@ -338,6 +337,29 @@ public class PacketHandler {
         }
     }
 
+    // worker thread 전용: 
+    public Quaternion DecompressQuaternion(uint compressedQuat) {
+        uint maxIndex = (compressedQuat >> 30) & 0x03;
+        float a = UnpackFloat((compressedQuat >> 20) & 0x3FF);
+        float b = UnpackFloat((compressedQuat >> 10) & 0x3FF);
+        float c = UnpackFloat(compressedQuat & 0x3FF);
+
+        float d = Mathf.Sqrt(Mathf.Max(1.0f - (a * a + b * b + c * c), 0.0f));
+
+        float x = 0f, y = 0f, z = 0f, w = 0f;
+        if (maxIndex == 0) { x = d; y = a; z = b; w = c; }
+        else if (maxIndex == 1) { x = a; y = d; z = b; w = c; }
+        else if (maxIndex == 2) { x = a; y = b; z = d; w = c; }
+        else { x = a; y = b; z = c; w = d; }
+
+        return new Quaternion(x, y, z, w);
+    }
+
+    private float UnpackFloat(uint val) {
+        float mapped = (val / 511.5f) - 1.0f;
+        return mapped * 0.70710678f;
+    }
+
     // ====================
     // 핸들러 함수
     // ====================
@@ -366,6 +388,7 @@ public class PacketHandler {
         // 서버가 heartbeat에 응답함 — 연결 살아있음 확인. 별도 처리 없음.
     }
 
+    /*
     private void Handle_D2CResponseBlueprintSpawnPoint(ReadOnlySpan<byte> payloadSpan) {
         D2CResponseBlueprintSpawnPoint pkt = null;
 
@@ -392,6 +415,7 @@ public class PacketHandler {
             }
         });
     }
+    */
 
     private void Handle_D2CResponseBlueprintStaticObjects(ReadOnlySpan<byte> payloadSpan) {
         D2CResponseBlueprintStaticObjects pkt = null;
@@ -408,24 +432,33 @@ public class PacketHandler {
             return;
         }
 
+        var objects = new List<StaticObjectData>(pkt.IngameObjects.Count);
+        foreach (var obj in pkt.IngameObjects) {
+            TransformInfo tf = obj.Transform;
+            GameProtocol.Vector3 pos = tf?.Position;
+            
+            Quaternion finalRotation = Quaternion.identity;
+
+            if (tf != null) {
+                if (tf.RotationCase == TransformInfo.RotationOneofCase.CompressedQuat) {
+                    finalRotation = DecompressQuaternion(tf.CompressedQuat);
+                } 
+                else if (tf.RotationCase == TransformInfo.RotationOneofCase.YawAngle) {
+                    finalRotation = Quaternion.Euler(0f, tf.YawAngle, 0f);
+                }
+            }
+
+            objects.Add(new StaticObjectData {
+                ObjectId   = obj.ObjectId,
+                ObjectType = obj.ObjectType,
+                Position   = new UnityEngine.Vector3(pos?.X ?? 0f, pos?.Y ?? 0f, pos?.Z ?? 0f),
+                Rotation   = finalRotation
+            });
+        }
+
         Managers.ExecuteAtMainThread(() => {
             BaseScene scene = Managers.Scene.CurrentScene;
             if (scene is LoadingScene loadingScene) {
-                var objects = new List<StaticObjectData>(pkt.IngameObjects.Count);
-                foreach (var obj in pkt.IngameObjects) {
-                    objects.Add(new StaticObjectData {
-                        ObjectId   = obj.ObjectId,
-                        ObjectType = obj.ObjectType,
-                        Position   = new UnityEngine.Vector3(
-                            obj.Position?.X ?? 0f,
-                            obj.Position?.Y ?? 0f,
-                            obj.Position?.Z ?? 0f),
-                        Front      = new UnityEngine.Vector3(
-                            obj.Front?.X ?? 0f,
-                            obj.Front?.Y ?? 0f,
-                            obj.Front?.Z ?? 0f),
-                    });
-                }
                 Managers.Scene.NextSceneContext.AddStaticObjects(pkt.Index, pkt.IsLast, objects);
                 Util.Log($"[PacketHandler] D2CResponseBlueprintStaticObjects 수신 - index: {pkt.Index}, isLast: {pkt.IsLast}, count: {pkt.IngameObjects.Count}");
                 loadingScene.TryCompleteBlueprint();
