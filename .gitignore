@@ -67,3 +67,7 @@ GitIgnores.cs
 Protobuf/
 ExternalProtocol.cs
 ExternalUnityObject.cs
+
+# 임시 ignore파일
+Weapons/
+HB1Final/

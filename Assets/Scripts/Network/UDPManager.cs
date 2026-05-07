@@ -173,4 +173,9 @@ public class UDPManager {
         C2DHeartBeat pkt = new C2DHeartBeat { };
         SendUnreliable((ushort)GameProtocol.PktId.C2DHeartBeat, pkt);
     }
+
+    public void SendC2DRequestSpawnMe() { 
+        C2DRequestSpawnMe pkt = new C2DRequestSpawnMe { };
+        SendReliable((ushort)GameProtocol.PktId.C2DRequestSpawnMe, pkt);
+    }
 }

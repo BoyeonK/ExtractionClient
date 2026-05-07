@@ -35,8 +35,8 @@ public static class Define {
 
     public static readonly Dictionary<int, string> ObjectPaths = new Dictionary<int, string>() {
         { (int)ObjectType.Undefined, null },
-        { (int)ObjectType.Player, "Prefabs/GameObject/TestItemBox" },
-        { (int)ObjectType.TestItemBox, "Prefabs/GameObject/TestItemBox" },
+        { (int)ObjectType.Player, "GameObject/TestItemBox" },
+        { (int)ObjectType.TestItemBox, "GameObject/TestItemBox" },
     };
 
     public enum Map {
