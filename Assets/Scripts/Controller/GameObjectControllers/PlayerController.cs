@@ -40,7 +40,7 @@ public class PlayerController : GameObjectController {
         _aimTarget = transform.Find("Aim");
         _camera = _viewPoint.GetComponentInChildren<Camera>();
 
-        string type = "HB0Player";
+        string type = "HB1Player";
         GameObject modelGo = Managers.Resource.Instantiate($"GameObject/PlayerObject_ingredient/{type}", this.transform);
         _rigBuilder = Util.BindComponent<RigBuilder>($"{type}", this.gameObject);
         _constraint = Util.BindComponent<MultiAimConstraint>($"{type}/WeaponRig/SpineAim", this.gameObject);
