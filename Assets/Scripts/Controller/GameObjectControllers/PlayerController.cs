@@ -1,27 +1,34 @@
 using UnityEngine;
+using UnityEngine.Animations.Rigging;
 using UnityEngine.InputSystem;
 
 [RequireComponent(typeof(CharacterController))]
 public class PlayerController : GameObjectController {
     CharacterController _controller;
-    public Transform _aimTarget;
-    public Camera _camera;
-
+    
+    // 카메라 및 Raycast
+    Camera _camera;
     GameObject _viewPoint;
     Vector3 _raycastDir = new Vector3(0.05f, 0.15f, -0.4f);
-    
-    public float walkSpeed = 1f;
-    public float runSpeed = 4f;
-    public float jumpHeight = 0.6f;
-    public float gravity = -9.81f;
+    Transform _aimTarget;
 
-    public float mouseSensitivity = 1f;
+    // 사옹할 모델 및 애니메이션 및 Rig
+    RigBuilder _rigBuilder;
+    MultiAimConstraint _constraint;
+    Animator _anim;
+    
+    // Character Controller 설정값
+    float walkSpeed = 1f;
+    float runSpeed = 3.5f;
+    float jumpHeight = 0.6f;
+    float gravity = -9.81f;
+
+    float mouseSensitivity = 1f;
     float xRotation = 0f;
 
     bool _w = false, _a = false, _s = false, _d = false, _shift = false, _jump = false;
     Vector3 _velocity;
 
-    Animator _anim;
 
     public override void Init() {
         Cursor.lockState = CursorLockMode.Locked;
@@ -30,11 +37,23 @@ public class PlayerController : GameObjectController {
         Transform camTransform = transform.Find("ViewPoint");
         if (camTransform != null) _viewPoint = camTransform.gameObject;
 
-        // Aim
-        _aimTarget = GameObject.Find("Aim").transform;
+        _aimTarget = transform.Find("Aim");
         _camera = _viewPoint.GetComponentInChildren<Camera>();
 
-        _anim = Util.BindComponent<Animator>("HB1MixamoTPose", this.gameObject);
+        string type = "HB0Player";
+        GameObject modelGo = Managers.Resource.Instantiate($"GameObject/PlayerObject_ingredient/{type}", this.transform);
+        _rigBuilder = Util.BindComponent<RigBuilder>($"{type}", this.gameObject);
+        _constraint = Util.BindComponent<MultiAimConstraint>($"{type}/WeaponRig/SpineAim", this.gameObject);
+        
+        WeightedTransformArray sourceObjects = new WeightedTransformArray();
+        sourceObjects.Add(new WeightedTransform(_aimTarget, 1f));
+        _constraint.data.sourceObjects = sourceObjects;
+
+        if (_rigBuilder != null) {
+            _rigBuilder.Build();
+        }
+
+        _anim = Util.BindComponent<Animator>(type, this.gameObject);
 
         Managers.Input.AddKeyListener(Key.W, WDown, InputManager.KeyState.Down);
         Managers.Input.AddKeyListener(Key.A, ADown, InputManager.KeyState.Down);
@@ -122,8 +141,8 @@ public class PlayerController : GameObjectController {
         _anim.SetFloat("MoveX", animDir.x * speedMult, 0.1f, Time.deltaTime);
         _anim.SetFloat("MoveY", animDir.y * speedMult, 0.1f, Time.deltaTime);
 
-        float shootSpeed = isMoving ? 1f : 0f;
-        _anim.SetFloat("ShootSpeed", shootSpeed, 0.1f, Time.deltaTime);
+        float moveSpeed = isMoving ? 1f : 0f;
+        _anim.SetFloat("MovingSpeed", moveSpeed, 0.1f, Time.deltaTime);
     }
 
     private void ProcessAim() {
