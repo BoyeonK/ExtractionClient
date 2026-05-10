@@ -1,6 +1,6 @@
 # 프로젝트 진행 상황
 
-> 최종 수정: 2026-05-07
+> 최종 수정: 2026-05-10
 > 장르: 멀티플레이어 Extraction 게임 (알파 단계)
 > 엔진: Unity 6000.4.0f1 / URP 17.4.0
 
@@ -16,9 +16,9 @@
 - [x] (2026-05-02 #4) `GameSceneContext.OnStaticObjectsSpawned()` 추가 — 정적 오브젝트 스폰 완료 후 SpawnPoint·StaticObjects·인덱스 추적 상태 전체 초기화
 - [x] (2026-05-02 #5) Heartbeat 구현 — `UDPManager.OnUpdate()`에서 1초 간격으로 `C2DHeartBeat`(Unreliable) 전송, `Handle_D2CHeartBeat` 핸들러 등록
 - [x] (2026-05-06 #0) 프로토콜 변경사항 적용 — `External_Protocol.proto` / `External_Unity_Object.proto` 수정, `Define.cs` 업데이트
+- [x] (2026-05-10 #0) 매치메이킹 `/start` 요청에 `characterType` 추가 — `GameReadyRequest` 스펙 반영, `MatchStartRequest`·`StartMatchCall`·`TryMatchMake` 수정, `_selectedCharacterType`을 `LobbyScene`으로 이동 및 `SetCharacterType()` 추가
 
 ### 기타
-- [x] (2026-05-02 #1) `GameSceneContext` + `SceneManagerEx.NextSceneContext` 추가 — 씬 전환 페이로드 보관 구조 도입, `ResetLoadSceneOp()`에서 초기화
 - [x] (2026-05-06 #1) 압축된 Quaternion값 복원 로직 — `PacketHandler.cs`에 Quaternion 역직렬화·복원 구현
 - [x] (2026-05-06 #2) `ObjectData` struct 기반 gameObject 생성 메서드 정의 — `ResourceManager`에 생성 메서드 추가, `TestIngame.cs` → `TestIngameScene.cs` 리네임, `TestIngameScene` 프리팹 추가
 - [x] (2026-05-04 #0) StaticObject 로딩·동기화 테스트 환경 구성 — `TestItemBoxController` 추가, TestIngame 씬에 오브젝트 배치

@@ -15,6 +15,7 @@ public class AuthRequest {
 [Serializable]
 public class MatchStartRequest {
     public int mapId;
+    public int characterType;
     public string loadoutType;
     public InventoryItem[] inventory;
 }

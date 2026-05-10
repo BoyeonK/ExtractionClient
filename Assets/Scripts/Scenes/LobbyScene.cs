@@ -30,6 +30,7 @@ public class LobbyScene : BaseScene {
     private CancellationTokenSource _cts = new CancellationTokenSource();
 
     LobbyState _lobbyState = LobbyState.BeforeConnect;
+    int _selectedCharacterType = 0;
 
     HTTPManager.LoginState _loginState => Managers.Network.httpManager.AuthState;
 
@@ -465,12 +466,14 @@ public class LobbyScene : BaseScene {
         return list.ToArray();
     }
 
+    public void SetCharacterType(int characterType) => _selectedCharacterType = characterType;
+
     public async void TryMatchMake(int mapId, string loadoutType) {
         if (_lobbyState != LobbyState.Lobby) return;
 
         InventoryItem[] snapshot = loadoutType == "CUSTOM" ? BuildInventorySnapshot() : null;
         bool isSuccess = await Managers.Network.httpManager.StartMatchCall(
-            mapId, loadoutType, snapshot, _cts.Token);
+            mapId, _selectedCharacterType, loadoutType, snapshot, _cts.Token);
         if (isSuccess) {
             _lobbyState = LobbyState.Matching;
             EnterMatchingState();

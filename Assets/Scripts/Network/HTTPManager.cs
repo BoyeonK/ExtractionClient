@@ -368,7 +368,7 @@ public class HTTPManager {
 
     // ---------- Match Calls (Start Match, Check Status, Cancel Match, Connect) ----------
 
-    public async Task<bool> StartMatchCall(int mapId, string loadoutType, InventoryItem[] inventory, CancellationToken cancelToken = default) {
+    public async Task<bool> StartMatchCall(int mapId, int characterType, string loadoutType, InventoryItem[] inventory, CancellationToken cancelToken = default) {
         if (_isRequesting) return false;
         if (IsMatching) return false;
         if (AuthState == LoginState.None) {
@@ -388,6 +388,7 @@ public class HTTPManager {
             // JSON으로 보낼 데이터 조립
             MatchStartRequest reqData = new MatchStartRequest {
                 mapId = mapId,
+                characterType = characterType,
                 loadoutType = loadoutType,
                 inventory = inventory
             };
