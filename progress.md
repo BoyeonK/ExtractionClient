@@ -9,10 +9,9 @@
 ## 완료된 것들
 
 ### UI
+- [x] (2026-05-12 #1) LobbyScene 캐릭터 선택 UI 추가 — HB0/HB1/HB2 `SelectedCharacterAnim` 컨트롤러 및 `HBxSelected` 프리팹 생성, LobbyScene에 캐릭터 선택 기능 연결
 
 ### 네트워크
-- [x] (2026-05-02 #3) Network CLAUDE.md에 Protobuf 타입 격리 규칙 추가
-- [x] (2026-05-02 #4) `GameSceneContext.OnStaticObjectsSpawned()` 추가 — 정적 오브젝트 스폰 완료 후 SpawnPoint·StaticObjects·인덱스 추적 상태 전체 초기화
 - [x] (2026-05-02 #5) Heartbeat 구현 — `UDPManager.OnUpdate()`에서 1초 간격으로 `C2DHeartBeat`(Unreliable) 전송, `Handle_D2CHeartBeat` 핸들러 등록
 - [x] (2026-05-06 #0) 프로토콜 변경사항 적용 — `External_Protocol.proto` / `External_Unity_Object.proto` 수정, `Define.cs` 업데이트
 - [x] (2026-05-10 #0) 매치메이킹 `/start` 요청에 `characterType` 추가 — `GameReadyRequest` 스펙 반영, `MatchStartRequest`·`StartMatchCall`·`TryMatchMake` 수정, `_selectedCharacterType`을 `LobbyScene`으로 이동 및 `SetCharacterType()` 추가
@@ -23,6 +22,7 @@
 - [x] (2026-05-06 #2) `ObjectData` struct 기반 gameObject 생성 메서드 정의 — `ResourceManager`에 생성 메서드 추가, `TestIngame.cs` → `TestIngameScene.cs` 리네임, `TestIngameScene` 프리팹 추가
 - [x] (2026-05-04 #0) StaticObject 로딩·동기화 테스트 환경 구성 — `TestItemBoxController` 추가, TestIngame 씬에 오브젝트 배치
 - [x] (2026-05-07 #0) `PlayerObject` 모든 Animation 등록 및 적용 — 애니메이션 클립 연결 및 상태 머신 설정 완료
+- [x] (2026-05-12 #2) `IngameScene` 기본 클래스 정의 — `BaseScene` 상속, `Init()`에서 정적 오브젝트 일괄 스폰, `RequestSpawnMe()` 제공. `TestIngameScene`이 이를 상속하도록 리팩토링
 
 ### 버그 수정
 
@@ -38,14 +38,14 @@
 3. ~~비동기 로딩 완료되었을 경우, C2DRequestBluePrint 전송~~ ← **완료**
 4. ~~3의 패킷의 응답을 받았을 경우, 해당 내용을 역직렬화해서 보관하고 Scene교체 진행.~~ ← **완료**
     - `D2CResponseBlueprintSpawnPoint` / `D2CResponseBlueprintStaticObjects` 핸들러 구현, `SceneManagerEx.NextSceneContext`(`GameSceneContext`)에 누적 저장
-5. 교체된 Scene의 Init() 함수에서 C2DRequestBluePrint에서 받아온 친구들 까지 포함해서 그려냄 ← **진행 중** (ObjectData 기반 생성 메서드 정의 완료, PlayerObject 애니메이션 완료, 실제 Init() 연결 필요)
+5. 교체된 Scene의 Init() 함수에서 C2DRequestBluePrint에서 받아온 친구들 까지 포함해서 그려냄 ← **진행 중** (`IngameScene.Init()`에서 정적 오브젝트 스폰 연결 완료, 실제 맵 씬에서 `IngameScene` 상속 후 `RequestSpawnMe()` 호출 필요)
 6. Init함수가 실행된 이후, 서버에 Scene 로딩 완료됬음을 알려줌과 동시에 동적인 정보를 다시 요청.
-    - C2DRequestSpawnMe
+    - C2DRequestSpawnMe (`RequestSpawnMe()` 메서드 정의 완료, 호출 시점 연결 필요)
 
 ---
 
 ## 다음 작업 우선순위 (제안)
 
-1. **GameScene Init() 완성** — ObjectData 생성 메서드를 Init()에 연결, Blueprint 데이터 기반 정적 오브젝트 실제 렌더링
-2. **C2DRequestSpawnMe 전송** — Init() 완료 후 서버에 로딩 완료 알림 및 동적 정보 요청
+1. **실제 맵 씬에서 IngameScene 상속 완성** — `IngameScene`을 상속하는 맵별 씬 컴포넌트 구현, Init() override에서 `operationFlag = true` 설정 및 `RequestSpawnMe()` 호출 연결
+2. **C2DRequestSpawnMe 응답 처리** — 서버에서 동적 오브젝트(플레이어 등) 스폰 데이터 수신 및 처리
 3. **설정 UI 콘텐츠 채우기** — General / Graphic / Audio 탭 실제 항목 구현
