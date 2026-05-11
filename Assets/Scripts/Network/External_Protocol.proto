@@ -49,8 +49,11 @@ message C2DRequestSpawnMe {
 
 message D2CResponseSpawnMeSpawnSpot {
     Vector3 spawn_point = 1;
+    int32 character_type = 2;
 }
 
 message D2CResponseSpawnMeDynamicObjects {
-    repeated UnityGameObject ingame_objects = 1;
+    uint32 index = 1;
+    bool is_last = 2;
+    repeated UnityGameObject ingame_objects = 3;
 }

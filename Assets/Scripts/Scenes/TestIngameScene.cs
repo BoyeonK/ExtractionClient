@@ -1,24 +1,16 @@
 using UnityEngine;
 
-public class TestIngameScene : BaseScene {
-    bool operationFlag = false;
-
+public class TestIngameScene : IngameScene {
     protected override void Init() {
-        base.Init();
         SceneType = Define.Scene.TestIngame;
-
-        foreach (ObjectData data in Managers.Scene.NextSceneContext.StaticObjects)
-            Managers.Resource.InstantiateFromObjectDataStruct(data);
-        
-        Managers.Scene.ResetLoadSceneOp();
+        base.Init();
     }
 
     void Start() {
-        Managers.Network.udpManager.SendC2DRequestSpawnMe();
+        RequestSpawnMe();
     }
 
     void Update() {
-        if (operationFlag == false)
-            return;
+        OnUpdate();
     }
 }
