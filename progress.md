@@ -1,6 +1,6 @@
 # 프로젝트 진행 상황
 
-> 최종 수정: 2026-05-10
+> 최종 수정: 2026-05-12
 > 장르: 멀티플레이어 Extraction 게임 (알파 단계)
 > 엔진: Unity 6000.4.0f1 / URP 17.4.0
 
@@ -11,12 +11,12 @@
 ### UI
 
 ### 네트워크
-- [x] (2026-05-02 #2) `GameSceneContext` Protobuf → Unity 타입 리팩터 — `StaticObjectData` 도입, `IsComplete()` 캡슐화, 핸들러에서 파싱 후 저장, `TryCompleteBlueprint` 간소화
 - [x] (2026-05-02 #3) Network CLAUDE.md에 Protobuf 타입 격리 규칙 추가
 - [x] (2026-05-02 #4) `GameSceneContext.OnStaticObjectsSpawned()` 추가 — 정적 오브젝트 스폰 완료 후 SpawnPoint·StaticObjects·인덱스 추적 상태 전체 초기화
 - [x] (2026-05-02 #5) Heartbeat 구현 — `UDPManager.OnUpdate()`에서 1초 간격으로 `C2DHeartBeat`(Unreliable) 전송, `Handle_D2CHeartBeat` 핸들러 등록
 - [x] (2026-05-06 #0) 프로토콜 변경사항 적용 — `External_Protocol.proto` / `External_Unity_Object.proto` 수정, `Define.cs` 업데이트
 - [x] (2026-05-10 #0) 매치메이킹 `/start` 요청에 `characterType` 추가 — `GameReadyRequest` 스펙 반영, `MatchStartRequest`·`StartMatchCall`·`TryMatchMake` 수정, `_selectedCharacterType`을 `LobbyScene`으로 이동 및 `SetCharacterType()` 추가
+- [x] (2026-05-12 #0) 매치 상태 응답 `mapId` 필드 추가 — `MatchStatusData`에 `mapId` 추가, `HTTPManager`에 `MapId` 프로퍼티 추가 및 SUCCESS 분기에서 저장
 
 ### 기타
 - [x] (2026-05-06 #1) 압축된 Quaternion값 복원 로직 — `PacketHandler.cs`에 Quaternion 역직렬화·복원 구현
