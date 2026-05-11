@@ -87,6 +87,7 @@ public class MatchStartResponse : BaseResponse {
 public class MatchStatusData {
     public string status;
     public string roomToken;
+    public int mapId;
 }
 
 [Serializable]

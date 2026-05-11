@@ -31,6 +31,7 @@ public class HTTPManager {
     public InventoryItem[] Inventory { get; private set; } = null;
     public ShopItem[] ShopItems { get; private set; } = null;
     public int Money { get; private set; } = 0;
+    public int MapId { get; private set; } = 0;
     private string _token = null;
 
     public string version = "alphaTest";
@@ -507,8 +508,9 @@ public class HTTPManager {
                     }
                     else if (resData.data.status == "SUCCESS") {
                         _token = resData.data.roomToken;
+                        MapId = resData.data.mapId;
                         Managers.ExecuteAtMainThread(() => {
-                            Util.Log($"Token: {resData.data.roomToken}");
+                            Util.Log($"Token: {resData.data.roomToken}, MapId: {resData.data.mapId}");
                         });
 
                         bool connectSuccess = await TryConnectCall(cancelToken);
