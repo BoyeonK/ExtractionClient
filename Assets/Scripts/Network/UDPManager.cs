@@ -13,8 +13,8 @@ public class UDPManager {
     private Socket _socket;
     private IPEndPoint _serverEndPoint;
 
-    private Thread _receiveThread;
-    private volatile bool _isRunning;
+    private Thread _UDPWorkerThread;
+    private volatile bool _isUDPWorkerThreadRunning;
 
     // 수신 전용 사전 할당 버퍼 — Receive 호출마다 new byte[] 생성을 방지
     private readonly byte[] _recvBuf = new byte[1500];
@@ -42,13 +42,13 @@ public class UDPManager {
 
             var localEp = (IPEndPoint)_socket.LocalEndPoint;
 
-            _isRunning = true;
+            _isUDPWorkerThreadRunning = true;
 
             // 전용 워커 스레드 생성 및 실행 (수신 + 큐 송신 담당)
-            _receiveThread = new Thread(NetworkLoopSync);
-            _receiveThread.IsBackground = true;
-            _receiveThread.Name = "UDP_Network_Thread";
-            _receiveThread.Start();
+            _UDPWorkerThread = new Thread(NetworkLoopSync);
+            _UDPWorkerThread.IsBackground = true;
+            _UDPWorkerThread.Name = "UDP_Network_Thread";
+            _UDPWorkerThread.Start();
         }
         catch (Exception e) {
             Managers.ExecuteAtMainThread(() => { Util.LogError($"RegisterServerEndPoint : {e.Message}"); });
@@ -57,7 +57,7 @@ public class UDPManager {
 
     // 워커 스레드: Poll(1ms) 기반으로 수신 처리 + 송신 큐 소진을 반복
     private void NetworkLoopSync() {
-        while (_isRunning) {
+        while (_isUDPWorkerThreadRunning) {
             try {
                 // 최대 1ms 대기 후 수신 데이터 유무 확인 (블로킹 없이 루프 유지)
                 if (_socket.Poll(1000, SelectMode.SelectRead)) {
@@ -67,7 +67,7 @@ public class UDPManager {
                 DrainSendQueue();
             }
             catch (SocketException e) {
-                if (_isRunning) {
+                if (_isUDPWorkerThreadRunning) {
                     Managers.ExecuteAtMainThread(() => Util.LogError($"[UDP] 소켓 에러: {e.Message}"));
                 }
                 break;
@@ -141,17 +141,19 @@ public class UDPManager {
     }
 
     public void Disconnect() {
-        _isRunning = false; // 루프 종료 플래그 — Poll 루프가 최대 1ms 안에 자연 종료
+        _isUDPWorkerThreadRunning = false; // 루프 종료 플래그 — Poll 루프가 최대 1ms 안에 자연 종료
 
-        if (_receiveThread != null && _receiveThread.IsAlive) {
-            _receiveThread.Join(TimeSpan.FromSeconds(2));
-            _receiveThread = null;
+        if (_UDPWorkerThread != null && _UDPWorkerThread.IsAlive) {
+            _UDPWorkerThread.Join(TimeSpan.FromSeconds(2));
+            _UDPWorkerThread = null;
         }
 
         if (_socket != null) {
             _socket.Close();
             _socket = null;
         }
+
+        Handler.Reset();
     }
 
     // ====================

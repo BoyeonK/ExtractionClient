@@ -1,10 +1,12 @@
 using GameProtocol;
 using Google.Protobuf;
+using K4os.Hash.xxHash;
 using System;
 using System.Collections.Generic;
 using System.Runtime.InteropServices;
 using UnityEngine;
-using K4os.Hash.xxHash;
+using UnityEngine.UIElements;
+using static UnityEditor.PlayerSettings;
 
 public delegate void HandlerFunc(ReadOnlySpan<byte> payloadSpan);
 
@@ -89,6 +91,8 @@ public class PacketHandler {
         _handlers.Add((ushort)PktId.D2CResponseChannelOpen, Handle_D2CResponseChannelOpen);
         _handlers.Add((ushort)PktId.D2CHeartBeat, Handle_D2CHeartBeat);
         _handlers.Add((ushort)PktId.D2CResponseBlueprintStaticObjects, Handle_D2CResponseBlueprintStaticObjects);
+        _handlers.Add((ushort)PktId.D2CResponseSpawnMeSpawnSpot, Handle_D2CResponseSpawnMeSpawnSpot);
+        _handlers.Add((ushort)PktId.D2CResponseSpawnMeDynamicObjects, Handle_D2CResponseSpawnMeDynamicObjects);
     }
 
     // ==========================================
@@ -100,6 +104,23 @@ public class PacketHandler {
         _securityKey = securityKey;
         _rSeqNum     = 1;
         _uSeqNum     = 1;
+    }
+
+    public void Reset() {
+        _sessionId           = 0;
+        _securityKey         = 0;
+        _rSeqNum             = 0;
+        _uSeqNum             = 0;
+        _recvAckRSeqNum      = 0;
+        _recvAckBitfield     = 0;
+        _hasReceivedReliable = false;
+        _timestampEcho       = 0;
+        _srtt                = 0f;
+        _rttvar              = 0f;
+        _rttInitialized      = false;
+
+        for (int i = 0; i < WINDOW_SIZE; i++)
+            _pendingSlots[i].inUse = false;
     }
 
     // ==========================================
@@ -388,35 +409,6 @@ public class PacketHandler {
         // 서버가 heartbeat에 응답함 — 연결 살아있음 확인. 별도 처리 없음.
     }
 
-    /*
-    private void Handle_D2CResponseBlueprintSpawnPoint(ReadOnlySpan<byte> payloadSpan) {
-        D2CResponseBlueprintSpawnPoint pkt = null;
-
-        try {
-            pkt = D2CResponseBlueprintSpawnPoint.Parser.ParseFrom(payloadSpan);
-        }
-        catch (InvalidProtocolBufferException e) {
-            Managers.ExecuteAtMainThread(() => { Util.LogError($"D2CResponseBlueprintSpawnPoint 파싱 실패: {e.Message}"); });
-            return;
-        }
-        catch (Exception e) {
-            Managers.ExecuteAtMainThread(() => { Util.LogError($"D2CResponseBlueprintSpawnPoint 처리 중 알 수 없는 에러: {e.Message}"); });
-            return;
-        }
-
-        Managers.ExecuteAtMainThread(() => {
-            BaseScene scene = Managers.Scene.CurrentScene;
-            if (scene is LoadingScene loadingScene) {
-                GameProtocol.Vector3 p = pkt.SpawnPoint;
-                Managers.Scene.NextSceneContext.SetSpawnPoint(
-                    new UnityEngine.Vector3(p.X, p.Y, p.Z));
-                Util.Log($"[PacketHandler] D2CResponseBlueprintSpawnPoint 수신 - SpawnPoint: {pkt.SpawnPoint}");
-                loadingScene.TryCompleteBlueprint();
-            }
-        });
-    }
-    */
-
     private void Handle_D2CResponseBlueprintStaticObjects(ReadOnlySpan<byte> payloadSpan) {
         D2CResponseBlueprintStaticObjects pkt = null;
 
@@ -459,9 +451,86 @@ public class PacketHandler {
         Managers.ExecuteAtMainThread(() => {
             BaseScene scene = Managers.Scene.CurrentScene;
             if (scene is LoadingScene loadingScene) {
-                Managers.Scene.NextSceneContext.AddStaticObjects(pkt.Index, pkt.IsLast, objects);
+                Managers.Scene.NextSceneStaticContext.AddObjectDatas(pkt.Index, pkt.IsLast, objects);
                 Util.Log($"[PacketHandler] D2CResponseBlueprintStaticObjects 수신 - index: {pkt.Index}, isLast: {pkt.IsLast}, count: {pkt.IngameObjects.Count}");
                 loadingScene.TryCompleteBlueprint();
+            }
+        });
+    }
+
+    private void Handle_D2CResponseSpawnMeSpawnSpot(ReadOnlySpan<byte> payloadSpan) {
+        D2CResponseSpawnMeSpawnSpot pkt = null;
+
+        try {
+            pkt = D2CResponseSpawnMeSpawnSpot.Parser.ParseFrom(payloadSpan);
+        }
+        catch (InvalidProtocolBufferException e) {
+            Managers.ExecuteAtMainThread(() => { Util.LogError($"D2CResponseSpawnMeSpawnSpot 파싱 실패: {e.Message}"); });
+            return;
+        }
+        catch (Exception e) {
+            Managers.ExecuteAtMainThread(() => { Util.LogError($"D2CResponseSpawnMeSpawnSpot 처리 중 알 수 없는 에러: {e.Message}"); });
+            return;
+        }
+
+        Managers.ExecuteAtMainThread(() => {
+            BaseScene scene = Managers.Scene.CurrentScene;
+            if (scene is IngameScene ingameScene) {
+                UnityEngine.Vector3 spawnPoint = new() {
+                    x = pkt.SpawnPoint?.X ?? 0f,
+                    y = pkt.SpawnPoint?.Y ?? 0f,
+                    z = pkt.SpawnPoint?.Z ?? 0f
+                };
+                ingameScene.HandleSpawnSpot(spawnPoint, pkt.CharacterType);
+            }
+        });
+    }
+
+    private void Handle_D2CResponseSpawnMeDynamicObjects(ReadOnlySpan<byte> payloadSpan) {
+        D2CResponseSpawnMeDynamicObjects pkt = null;
+
+        try {
+            pkt = D2CResponseSpawnMeDynamicObjects.Parser.ParseFrom(payloadSpan);
+        }
+        catch (InvalidProtocolBufferException e) {
+            Managers.ExecuteAtMainThread(() => { Util.LogError($"D2CResponseSpawnMeDynamicObjects 파싱 실패: {e.Message}"); });
+            return;
+        }
+        catch (Exception e) {
+            Managers.ExecuteAtMainThread(() => { Util.LogError($"D2CResponseSpawnMeDynamicObjects 처리 중 알 수 없는 에러: {e.Message}"); });
+            return;
+        }
+
+        var objects = new List<ObjectData>(pkt.IngameObjects.Count);
+        foreach (var obj in pkt.IngameObjects) {
+            TransformInfo tf = obj.Transform;
+            GameProtocol.Vector3 pos = tf?.Position;
+            
+            Quaternion finalRotation = Quaternion.identity;
+
+            if (tf != null) {
+                if (tf.RotationCase == TransformInfo.RotationOneofCase.CompressedQuat) {
+                    finalRotation = DecompressQuaternion(tf.CompressedQuat);
+                } 
+                else if (tf.RotationCase == TransformInfo.RotationOneofCase.YawAngle) {
+                    finalRotation = Quaternion.Euler(0f, tf.YawAngle, 0f);
+                }
+            }
+
+            objects.Add(new ObjectData {
+                ObjectId   = obj.ObjectId,
+                ObjectType = obj.ObjectType,
+                Position   = new UnityEngine.Vector3(pos?.X ?? 0f, pos?.Y ?? 0f, pos?.Z ?? 0f),
+                Rotation   = finalRotation
+            });
+        }
+
+        Managers.ExecuteAtMainThread(() => {
+            BaseScene scene = Managers.Scene.CurrentScene;
+            if (scene is IngameScene ingameScene) {
+                Managers.Scene.SceneDynamicContext.AddObjectDatas(pkt.Index, pkt.IsLast, objects);
+                Util.Log($"[PacketHandler] D2CResponseSpawnMeDynamicObjects 수신 - index: {pkt.Index}, isLast: {pkt.IsLast}, count: {pkt.IngameObjects.Count}");
+                ingameScene.TryCompleteSpawnMe();
             }
         });
     }
