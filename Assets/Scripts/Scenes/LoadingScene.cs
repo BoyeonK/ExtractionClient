@@ -10,7 +10,7 @@ public class LoadingScene : BaseScene {
 
     // SpawnPoint가 수신되었고, StaticObjects가 0~lastIndex 모두 수신된 경우 씬 전환 준비 완료
     public void TryCompleteBlueprint() {
-        if (Managers.Scene.NextSceneContext.IsComplete())
+        if (Managers.Scene.NextSceneStaticContext.IsComplete())
             staticObjectsLoadFlag = true;
     }
 

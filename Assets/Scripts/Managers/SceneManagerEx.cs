@@ -11,31 +11,31 @@ public struct ObjectData {
 }
 
 public class GameSceneContext {
-    public List<ObjectData> StaticObjects { get; } = new List<ObjectData>();
+    public List<ObjectData> ObjectDatas { get; } = new List<ObjectData>();
 
-    private int _staticLastIndex = -1;
-    private HashSet<uint> _receivedStaticIndices = new HashSet<uint>();
+    private int _dataLastIndex = -1;
+    private HashSet<uint> _receivedDataIndices = new HashSet<uint>();
 
-    public void AddStaticObjects(uint index, bool isLast, List<ObjectData> objects) {
-        if (_receivedStaticIndices.Contains(index)) return;
-        StaticObjects.AddRange(objects);
-        _receivedStaticIndices.Add(index);
+    public void AddObjectDatas(uint index, bool isLast, List<ObjectData> objects) {
+        if (_receivedDataIndices.Contains(index)) return;
+        ObjectDatas.AddRange(objects);
+        _receivedDataIndices.Add(index);
         if (isLast)
-            _staticLastIndex = (int)index;
+            _dataLastIndex = (int)index;
     }
 
     public bool IsComplete() {
-        if (_staticLastIndex < 0) return false;
-        for (uint i = 0; i <= (uint)_staticLastIndex; i++) {
-            if (!_receivedStaticIndices.Contains(i)) return false;
+        if (_dataLastIndex < 0) return false;
+        for (uint i = 0; i <= (uint)_dataLastIndex; i++) {
+            if (!_receivedDataIndices.Contains(i)) return false;
         }
         return true;
     }
 
-    public void OnStaticObjectsSpawned() {
-        StaticObjects.Clear();
-        _receivedStaticIndices.Clear();
-        _staticLastIndex = -1;
+    public void Clear() {
+        ObjectDatas.Clear();
+        _receivedDataIndices.Clear();
+        _dataLastIndex = -1;
     }
 }
 
@@ -46,7 +46,8 @@ public class SceneManagerEx {
         Ready
     }
     
-    public GameSceneContext NextSceneContext { get; private set; } = new GameSceneContext();
+    public GameSceneContext NextSceneStaticContext { get; private set; } = new GameSceneContext();
+    public GameSceneContext SceneDynamicContext { get; private set; } = new GameSceneContext();
 
     private LoadingState _loadingState = LoadingState.None;
     private Define.Scene _nextScene = Define.Scene.Undefined;
@@ -108,7 +109,8 @@ public class SceneManagerEx {
         _loadingState = LoadingState.None;
         _nextScene = Define.Scene.Undefined;
         _progress = 0;
-        NextSceneContext = new GameSceneContext();
+        NextSceneStaticContext.Clear();
+        SceneDynamicContext.Clear();
     }
 
     public void Clear() {
