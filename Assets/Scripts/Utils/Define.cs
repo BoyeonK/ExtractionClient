@@ -27,7 +27,7 @@ public static class Define {
     }
 
     public enum ObjectType {
-        Undefined = -1,
+        Undefined = 0,
         Player,
         TestItemBox,
         MaxCount,
