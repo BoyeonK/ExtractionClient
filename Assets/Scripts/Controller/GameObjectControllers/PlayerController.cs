@@ -6,18 +6,18 @@ using UnityEngine.InputSystem;
 public class PlayerController : GameObjectController {
     CharacterController _controller;
     
-    // Ä«¸Ş¶ó ¹× Raycast
+    // ì¹´ë©”ë¼ ë° Raycast
     Camera _camera;
     GameObject _viewPoint;
     Vector3 _raycastDir = new Vector3(0.05f, 0.15f, -0.4f);
     Transform _aimTarget;
 
-    // »ç¿ËÇÒ ¸ğµ¨ ¹× ¾Ö´Ï¸ŞÀÌ¼Ç ¹× Rig
+    // ì‚¬ì˜¹í•  ëª¨ë¸ ë° ì• ë‹ˆë©”ì´ì…˜ ë° Rig
     RigBuilder _rigBuilder;
     MultiAimConstraint _constraint;
     Animator _anim;
     
-    // Character Controller ¼³Á¤°ª
+    // Character Controller ì„¤ì •ê°’
     float walkSpeed = 1f;
     float runSpeed = 3.5f;
     float jumpHeight = 0.6f;
@@ -29,31 +29,8 @@ public class PlayerController : GameObjectController {
     bool _w = false, _a = false, _s = false, _d = false, _shift = false, _jump = false;
     Vector3 _velocity;
 
-
     public override void Init() {
-        Cursor.lockState = CursorLockMode.Locked;
-
-        _controller = GetComponent<CharacterController>();
-        Transform camTransform = transform.Find("ViewPoint");
-        if (camTransform != null) _viewPoint = camTransform.gameObject;
-
-        _aimTarget = transform.Find("Aim");
-        _camera = _viewPoint.GetComponentInChildren<Camera>();
-
-        string type = "HB1Player";
-        GameObject modelGo = Managers.Resource.Instantiate($"GameObject/PlayerObject_ingredient/{type}", this.transform);
-        _rigBuilder = Util.BindComponent<RigBuilder>($"{type}", this.gameObject);
-        _constraint = Util.BindComponent<MultiAimConstraint>($"{type}/WeaponRig/SpineAim", this.gameObject);
-        
-        WeightedTransformArray sourceObjects = new WeightedTransformArray();
-        sourceObjects.Add(new WeightedTransform(_aimTarget, 1f));
-        _constraint.data.sourceObjects = sourceObjects;
-
-        if (_rigBuilder != null) {
-            _rigBuilder.Build();
-        }
-
-        _anim = Util.BindComponent<Animator>(type, this.gameObject);
+        base.Init();
 
         Managers.Input.AddKeyListener(Key.W, WDown, InputManager.KeyState.Down);
         Managers.Input.AddKeyListener(Key.A, ADown, InputManager.KeyState.Down);
@@ -69,6 +46,33 @@ public class PlayerController : GameObjectController {
         Managers.Input.AddKeyListener(Key.LeftShift, ShiftUp, InputManager.KeyState.Up);
     }
 
+    public void Setup(int characterType) {
+        _controller = GetComponent<CharacterController>();
+        Transform camTransform = transform.Find("ViewPoint");
+        if (camTransform != null) _viewPoint = camTransform.gameObject;
+
+        _aimTarget = transform.Find("Aim");
+        _camera = _viewPoint.GetComponentInChildren<Camera>();
+
+        string modelName = $"HB{characterType}Player";
+        Managers.Resource.Instantiate($"GameObject/PlayerObject_ingredient/{modelName}", this.transform);
+        _rigBuilder = Util.BindComponent<RigBuilder>($"{modelName}", this.gameObject);
+        _constraint = Util.BindComponent<MultiAimConstraint>($"{modelName}/WeaponRig/SpineAim", this.gameObject);
+
+        WeightedTransformArray sourceObjects = new WeightedTransformArray();
+        sourceObjects.Add(new WeightedTransform(_aimTarget, 1f));
+
+        var constraintData = _constraint.data;
+        constraintData.sourceObjects = sourceObjects;
+        _constraint.data = constraintData;
+
+        if (_rigBuilder != null) {
+            _rigBuilder.Build();
+        }
+
+        _anim = Util.BindComponent<Animator>(modelName, this.gameObject);
+    }
+
     void Update() {
         ProcessMovement();
         ProcessMouseLook();
@@ -79,7 +83,7 @@ public class PlayerController : GameObjectController {
     private void ProcessMouseLook() {
         if (_viewPoint == null) return;
 
-        // Mouse Delta´Â ¼ø¼ö ÇÈ¼¿ ÀÌµ¿·®
+        // Mouse DeltaëŠ” ìˆœìˆ˜ í”½ì…€ ì´ë™ëŸ‰
         float mouseX = 0f;
         float mouseY = 0f;
 
@@ -98,6 +102,7 @@ public class PlayerController : GameObjectController {
     }
 
     private void ProcessMovement() {
+        if (_controller == null) return;
         if (_controller.isGrounded && _velocity.y < 0) {
             _velocity.y = -2f;
         }
@@ -158,7 +163,7 @@ public class PlayerController : GameObjectController {
         }
     }
 
-    // ÀÔ·Â Äİ¹é
+    // ì…ë ¥ ì½œë°±
     private void WDown() { _w = true; }
     private void ADown() { _a = true; }
     private void SDown() { _s = true; }
