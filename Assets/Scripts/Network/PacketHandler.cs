@@ -93,6 +93,7 @@ public class PacketHandler {
         _handlers.Add((ushort)PktId.D2CResponseBlueprintStaticObjects, Handle_D2CResponseBlueprintStaticObjects);
         _handlers.Add((ushort)PktId.D2CResponseSpawnMeSpawnSpot, Handle_D2CResponseSpawnMeSpawnSpot);
         _handlers.Add((ushort)PktId.D2CResponseSpawnMeDynamicObjects, Handle_D2CResponseSpawnMeDynamicObjects);
+        _handlers.Add((ushort)PktId.D2CResponseSpawnByObjectId, Handle_D2CResponseSpawnByObjectId);
     }
 
     // ==========================================
@@ -532,6 +533,46 @@ public class PacketHandler {
                 Util.Log($"[PacketHandler] D2CResponseSpawnMeDynamicObjects 수신 - index: {pkt.Index}, isLast: {pkt.IsLast}, count: {pkt.IngameObjects.Count}");
                 ingameScene.TryCompleteSpawnMe();
             }
+        });
+    }
+
+    private void Handle_D2CResponseSpawnByObjectId(ReadOnlySpan<byte> payloadSpan) {
+        D2CResponseSpawnByObjectId pkt = null;
+
+        try {
+            pkt = D2CResponseSpawnByObjectId.Parser.ParseFrom(payloadSpan);
+        }
+        catch (InvalidProtocolBufferException e) {
+            Managers.ExecuteAtMainThread(() => { Util.LogError($"D2CResponseSpawnByObjectId 파싱 실패: {e.Message}"); });
+            return;
+        }
+        catch (Exception e) {
+            Managers.ExecuteAtMainThread(() => { Util.LogError($"D2CResponseSpawnByObjectId 처리 중 알 수 없는 에러: {e.Message}"); });
+            return;
+        }
+
+        UnityGameObject obj = pkt.GameObject;
+        TransformInfo tf = obj?.Transform;
+        GameProtocol.Vector3 pos = tf?.Position;
+
+        Quaternion rotation = Quaternion.identity;
+        if (tf != null) {
+            if (tf.RotationCase == TransformInfo.RotationOneofCase.CompressedQuat)
+                rotation = DecompressQuaternion(tf.CompressedQuat);
+            else if (tf.RotationCase == TransformInfo.RotationOneofCase.YawAngle)
+                rotation = Quaternion.Euler(0f, tf.YawAngle, 0f);
+        }
+
+        ObjectData data = new ObjectData {
+            ObjectId   = obj?.ObjectId ?? 0,
+            ObjectType = obj?.ObjectType ?? 0,
+            Position   = new UnityEngine.Vector3(pos?.X ?? 0f, pos?.Y ?? 0f, pos?.Z ?? 0f),
+            Rotation   = rotation
+        };
+
+        Managers.ExecuteAtMainThread(() => {
+            if (Managers.Scene.CurrentScene is not IngameScene) return;
+            Managers.Resource.InstantiateFromObjectDataStruct(data);
         });
     }
 }
