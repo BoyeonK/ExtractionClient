@@ -163,6 +163,21 @@ public class PlayerController : GameObjectController {
         }
     }
 
+    // 네트워크 상태 프로퍼티
+    public uint ObjectId => (uint)_objectId;
+    public float Yaw => transform.eulerAngles.y;
+    public float Pitch => xRotation;
+    public Vector3 Velocity => _controller != null ? _controller.velocity : Vector3.zero;
+    public uint MovementState {
+        get {
+            if (_controller == null) return 0;
+            if (!_controller.isGrounded) return 4; // JUMP/FALL
+            bool isMoving = _w || _s || _a || _d;
+            if (!isMoving) return 0;              // IDLE
+            return _shift ? 2u : 1u;              // RUN : WALK
+        }
+    }
+
     // 입력 콜백
     private void WDown() { _w = true; }
     private void ADown() { _a = true; }

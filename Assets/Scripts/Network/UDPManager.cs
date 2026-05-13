@@ -176,8 +176,29 @@ public class UDPManager {
         SendUnreliable((ushort)GameProtocol.PktId.C2DHeartBeat, pkt);
     }
 
-    public void SendC2DRequestSpawnMe() { 
+    public void SendC2DRequestSpawnMe() {
         C2DRequestSpawnMe pkt = new C2DRequestSpawnMe { };
         SendReliable((ushort)GameProtocol.PktId.C2DRequestSpawnMe, pkt);
+    }
+
+    public void SendC2DRequestSpawnByObjectId(int objectId) {
+        C2DRequestSpawnByObjectId pkt = new C2DRequestSpawnByObjectId { ObjectId = objectId };
+        SendReliable((ushort)GameProtocol.PktId.C2DRequestSpawnByObjectId, pkt);
+    }
+
+    public void SendC2DUpdatePlayerState(uint objectId, UnityEngine.Vector3 position, float yaw, float pitch, UnityEngine.Vector3 velocity, uint movementState) {
+        C2DUpdatePlayerState pkt = new C2DUpdatePlayerState {
+            MovementInfo = new GameObjectMovementInfo {
+                ObjectId = objectId,
+                Transform = new TransformInfo {
+                    Position = new GameProtocol.Vector3 { X = position.x, Y = position.y, Z = position.z },
+                    YawAngle = yaw
+                },
+                State = movementState
+            },
+            Pitch = pitch,
+            Velocity = new GameProtocol.Vector3 { X = velocity.x, Y = velocity.y, Z = velocity.z }
+        };
+        SendUnreliable((ushort)GameProtocol.PktId.C2DUpdatePlayerState, pkt);
     }
 }
