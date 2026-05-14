@@ -76,7 +76,8 @@ public class PacketHandler {
         public byte[] data;  // 생성자에서 new byte[MAX_PACKET_SIZE] 할당
     }
     private PendingSlot[] _pendingSlots;
-    private byte[]        _unreliableScratch;
+    private readonly byte[][] _unreliablePool = new byte[10][];
+    private int               _unreliablePoolIndex = 0;
     private List<(byte[] data, int length)> _retransmitCache = new List<(byte[], int)>(WINDOW_SIZE);
 
     // ── 핸들러 ─────────────────────────────────────────
@@ -86,7 +87,8 @@ public class PacketHandler {
         _pendingSlots = new PendingSlot[WINDOW_SIZE];
         for (int i = 0; i < WINDOW_SIZE; i++)
             _pendingSlots[i].data = new byte[MAX_PACKET_SIZE];
-        _unreliableScratch = new byte[MAX_PACKET_SIZE];
+        for (int i = 0; i < 10; i++)
+            _unreliablePool[i] = new byte[MAX_PACKET_SIZE];
 
         _handlers.Add((ushort)PktId.D2CResponseChannelOpen, Handle_D2CResponseChannelOpen);
         _handlers.Add((ushort)PktId.D2CHeartBeat, Handle_D2CHeartBeat);
@@ -197,9 +199,11 @@ public class PacketHandler {
     }
 
     public (byte[] data, int length) MakeUnreliablePacket(ushort packetId, IMessage proto) {
-        int len = BuildPacketInto(packetId, false, proto, _unreliableScratch);
+        byte[] buf = _unreliablePool[_unreliablePoolIndex % 10];
+        _unreliablePoolIndex++;
+        int len = BuildPacketInto(packetId, false, proto, buf);
         _uSeqNum++;
-        return (_unreliableScratch, len);
+        return (buf, len);
     }
 
     // ==========================================

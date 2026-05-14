@@ -9,11 +9,10 @@
 ## 완료된 것들
 
 ### UI
-- [x] (2026-05-12 #1) LobbyScene 캐릭터 선택 UI 추가 — HB0/HB1/HB2 `SelectedCharacterAnim` 컨트롤러 및 `HBxSelected` 프리팹 생성, LobbyScene에 캐릭터 선택 기능 연결
 
 ### 네트워크
-- [x] (2026-05-12 #0) 매치 상태 응답 `mapId` 필드 추가 — `MatchStatusData`에 `mapId` 추가, `HTTPManager`에 `MapId` 프로퍼티 추가 및 SUCCESS 분기에서 저장
 - [x] (2026-05-13 #0) Disconnect 시 PacketHandler 초기화 — `PacketHandler.Reset()` 추가, `UDPManager.Disconnect()`에서 호출해 세션 간 상태 격리 (`_pendingSlots`, ACK 상태, RTT, 시퀀스 번호 등 전체 클리어)
+- [x] (2026-05-14 #3) Unreliable 패킷 uSeqNum 중복 전송 버그 수정 — `_unreliableScratch` 단일 공유 버퍼를 10-슬롯 링 풀(`_unreliablePool`)로 교체. HeartBeat·PlayerState가 같은 프레임에 enqueue될 때 버퍼 덮어쓰기로 동일 uSeqNum이 두 번 전송되던 문제 해결
 
 ### 기타
 
