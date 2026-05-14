@@ -482,7 +482,7 @@ public class PacketHandler {
                     y = pkt.SpawnPoint?.Y ?? 0f,
                     z = pkt.SpawnPoint?.Z ?? 0f
                 };
-                ingameScene.HandleSpawnSpot(spawnPoint, pkt.CharacterType);
+                ingameScene.HandleSpawnSpot(spawnPoint, pkt.CharacterType, pkt.ObjectId);
             }
         });
     }

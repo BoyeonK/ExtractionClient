@@ -30,7 +30,7 @@
 
 1. `TestIngameScene.Start()` → `RequestSpawnMe()` → `C2DRequestSpawnMe` 전송
 2. 서버 응답:
-   - `D2CResponseSpawnMeSpawnSpot` → `HandleSpawnSpot(spawnPoint, characterType)` — `_spawnPoint`, `_characterType` 저장, `_isGetResponseSpawnMe = true`
+   - `D2CResponseSpawnMeSpawnSpot` → `HandleSpawnSpot(spawnPoint, characterType, objectId)` — `_spawnPoint`, `_characterType`, `_myObjectId` 저장, `_isGetResponseSpawnMe = true`
    - `D2CResponseSpawnMeDynamicObjects` (1개 이상) → `SceneDynamicContext.AddObjectDatas()` 누적
 3. 두 조건(`_isGetResponseSpawnMe && SceneDynamicContext.IsComplete()`) 충족 시 `SpawnMeAndStartGame()` 호출 (이중 호출은 `_operationFlag` guard로 방지)
-4. `SpawnMeAndStartGame()`: `_operationFlag = true` 설정 → `PlayerObject` 인스턴스화 후 `_spawnPoint`로 위치 지정 → `Setup(_characterType)` 호출(컴포넌트 바인딩·외형 설정 일괄 처리) → `SetCursorLock(true)` → `SceneDynamicContext.ObjectDatas` 순회해 동적 오브젝트 스폰 → `SceneDynamicContext.Clear()`
+4. `SpawnMeAndStartGame()`: `_operationFlag = true` 설정 → `PlayerObject` 인스턴스화 후 `_spawnPoint`로 위치 지정 → `Setup(_characterType)` 호출(컴포넌트 바인딩·외형 설정 일괄 처리) → `SetObjectId((int)_myObjectId)` 호출 → `SetCursorLock(true)` → `SceneDynamicContext.ObjectDatas` 순회해 동적 오브젝트 스폰 → `SceneDynamicContext.Clear()`

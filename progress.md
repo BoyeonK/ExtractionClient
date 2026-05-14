@@ -24,6 +24,7 @@
 - [x] (2026-05-13 #4) `PlayerController` 초기화 구조 리팩토링 — `Init(int)` 제거 후 `Setup(int characterType)` 도입(컴포넌트 바인딩·SetAppearance 편입), `_isInit` 제거, `ProcessMovement()` null guard 추가
 - [x] (2026-05-14 #0) `C2DRequestSpawnByObjectId` / `D2CResponseSpawnByObjectId` 패킷 구현 — `UDPManager.SendC2DRequestSpawnByObjectId(int objectId)` 추가, `PacketHandler.Handle_D2CResponseSpawnByObjectId` 구현 (worker thread에서 역직렬화·`ObjectData` 변환, main thread에서 `IngameScene` 확인 후 `InstantiateFromObjectDataStruct` 호출)
 - [x] (2026-05-14 #1) `C2DUpdatePlayerState` 패킷 구현 및 0.1초 주기 송신 — proto에 메시지 정의(`GameObjectMovementInfo` + `pitch` + `velocity`), `PlayerController`에 네트워크 상태 프로퍼티 추가(`ObjectId`/`Yaw`/`Pitch`/`Velocity`/`MovementState`), `UDPManager.SendC2DUpdatePlayerState()` 추가, `IngameScene`에서 0.1초 타이머로 Unreliable 송신
+- [x] (2026-05-14 #2) `D2CResponseSpawnMeSpawnSpot`에 objectId 추가 반영 — `HandleSpawnSpot`에 `uint objectId` 파라미터 추가, `_myObjectId` 필드 저장, `SpawnMeAndStartGame()`에서 `_playerController.SetObjectId((int)_myObjectId)` 호출
 
 ### 버그 수정
 

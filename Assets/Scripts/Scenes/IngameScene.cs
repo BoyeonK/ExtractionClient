@@ -10,6 +10,7 @@ public class IngameScene : BaseScene {
     private bool _isGetResponseSpawnMe = false;
     private Vector3 _spawnPoint;
     private int _characterType = -1;
+    private uint _myObjectId = 0;
 
     private GameObject _characterGo;
     private PlayerController _playerController;
@@ -28,9 +29,10 @@ public class IngameScene : BaseScene {
             SpawnMeAndStartGame();
     }
 
-    public void HandleSpawnSpot(Vector3 spawnPoint, int characterType) {
+    public void HandleSpawnSpot(Vector3 spawnPoint, int characterType, uint objectId) {
         _spawnPoint = spawnPoint;
         _characterType = characterType;
+        _myObjectId = objectId;
         _isGetResponseSpawnMe = true;
         TryCompleteSpawnMe();
     }
@@ -43,6 +45,7 @@ public class IngameScene : BaseScene {
         _characterGo.transform.position = _spawnPoint;
         _playerController = _characterGo.GetComponent<PlayerController>();
         _playerController.Setup(_characterType);
+        _playerController.SetObjectId((int)_myObjectId);
         SetCursorLock(true);
 
         foreach (ObjectData data in Managers.Scene.SceneDynamicContext.ObjectDatas)
