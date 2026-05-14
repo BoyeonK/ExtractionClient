@@ -96,6 +96,8 @@ public class PacketHandler {
         _handlers.Add((ushort)PktId.D2CResponseSpawnMeSpawnSpot, Handle_D2CResponseSpawnMeSpawnSpot);
         _handlers.Add((ushort)PktId.D2CResponseSpawnMeDynamicObjects, Handle_D2CResponseSpawnMeDynamicObjects);
         _handlers.Add((ushort)PktId.D2CResponseSpawnByObjectId, Handle_D2CResponseSpawnByObjectId);
+        _handlers.Add((ushort)PktId.D2CSpawnPlayerObject, Handle_D2CSpawnPlayerObject);
+        _handlers.Add((ushort)PktId.D2CSpawnPlayerObjects, Handle_D2CSpawnPlayerObjects);
     }
 
     // ==========================================
@@ -578,5 +580,41 @@ public class PacketHandler {
             if (Managers.Scene.CurrentScene is not IngameScene) return;
             Managers.Resource.InstantiateFromObjectDataStruct(data);
         });
+    }
+
+    private void Handle_D2CSpawnPlayerObject(ReadOnlySpan<byte> payloadSpan) {
+        D2CSpawnPlayerObject pkt = null;
+
+        try {
+            pkt = D2CSpawnPlayerObject.Parser.ParseFrom(payloadSpan);
+        }
+        catch (InvalidProtocolBufferException e) {
+            Managers.ExecuteAtMainThread(() => { Util.LogError($"D2CSpawnPlayerObject 파싱 실패: {e.Message}"); });
+            return;
+        }
+        catch (Exception e) {
+            Managers.ExecuteAtMainThread(() => { Util.LogError($"D2CSpawnPlayerObject 처리 중 알 수 없는 에러: {e.Message}"); });
+            return;
+        }
+
+        // TODO: 구현 필요
+    }
+
+    private void Handle_D2CSpawnPlayerObjects(ReadOnlySpan<byte> payloadSpan) {
+        D2CSpawnPlayerObjects pkt = null;
+
+        try {
+            pkt = D2CSpawnPlayerObjects.Parser.ParseFrom(payloadSpan);
+        }
+        catch (InvalidProtocolBufferException e) {
+            Managers.ExecuteAtMainThread(() => { Util.LogError($"D2CSpawnPlayerObjects 파싱 실패: {e.Message}"); });
+            return;
+        }
+        catch (Exception e) {
+            Managers.ExecuteAtMainThread(() => { Util.LogError($"D2CSpawnPlayerObjects 처리 중 알 수 없는 에러: {e.Message}"); });
+            return;
+        }
+
+        // TODO: 구현 필요
     }
 }

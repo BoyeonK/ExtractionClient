@@ -13,10 +13,10 @@
 ### 네트워크
 - [x] (2026-05-13 #0) Disconnect 시 PacketHandler 초기화 — `PacketHandler.Reset()` 추가, `UDPManager.Disconnect()`에서 호출해 세션 간 상태 격리 (`_pendingSlots`, ACK 상태, RTT, 시퀀스 번호 등 전체 클리어)
 - [x] (2026-05-14 #3) Unreliable 패킷 uSeqNum 중복 전송 버그 수정 — `_unreliableScratch` 단일 공유 버퍼를 10-슬롯 링 풀(`_unreliablePool`)로 교체. HeartBeat·PlayerState가 같은 프레임에 enqueue될 때 버퍼 덮어쓰기로 동일 uSeqNum이 두 번 전송되던 문제 해결
+- [x] (2026-05-14 #4) `C2DRequestSpawnPlayerObjects` / `D2CSpawnPlayerObject` / `D2CSpawnPlayerObjects` 빈 핸들러·송신 함수 추가 — proto 신규 패킷 3종에 대해 `PacketHandler` 생성자 핸들러 등록, `Handle_D2CSpawnPlayerObject` · `Handle_D2CSpawnPlayerObjects` 빈 구현 추가, `UDPManager.SendC2DRequestSpawnPlayerObjects()` 추가
 
 ### 기타
 
-- [x] (2026-05-12 #2) `IngameScene` 기본 클래스 정의 — `BaseScene` 상속, `Init()`에서 정적 오브젝트 일괄 스폰, `RequestSpawnMe()` 제공. `TestIngameScene`이 이를 상속하도록 리팩토링
 - [x] (2026-05-13 #1) SpawnMe 응답 흐름 버그 수정 및 초기 구현 — `TryCompleteSpawnMe()`에 `_operationFlag` guard 추가(이중 호출 방지), `ResetLoadSceneOp()`에서 `SceneDynamicContext.Clear()` 누락 수정, `GameSceneContext.OnObjectsSpawned()` → `Clear()` 리네임, `SpawnMeAndStartGame()`에 `_operationFlag = true` 및 `SceneDynamicContext.Clear()` 추가
 - [x] (2026-05-13 #2) `SpawnMeAndStartGame()` 구현 완성 — 플레이어 스폰 위치(`_spawnPoint`) 적용, `SetCursorLock(true)` `SpawnMeAndStartGame` 내부로 이동, `PlayerController.SetAppearance()`의 미사용 `modelGo` 변수 정리
 - [x] (2026-05-13 #3) `PlayerController` SpineAim 및 이중 초기화 버그 수정 — `MultiAimConstraintData` struct 복사-수정-재할당 패턴 적용(SpineAim 미적용 수정), `_isInit = true`를 `Init()` 끝으로 이동해 `Start()` 이후 `Init(int)`호출 시 키 리스너 이중 등록 방지
@@ -48,4 +48,5 @@
 ## 다음 작업 우선순위 (제안)
 
 1. **실제 맵 씬에서 IngameScene 상속 완성** — `IngameScene`을 상속하는 맵별 씬 컴포넌트 구현
-2. **설정 UI 콘텐츠 채우기** — General / Graphic / Audio 탭 실제 항목 구현
+2. **`Handle_D2CSpawnPlayerObject` / `Handle_D2CSpawnPlayerObjects` 로직 구현** — 다른 플레이어 오브젝트 스폰 처리 (현재 빈 핸들러 상태)
+3. **설정 UI 콘텐츠 채우기** — General / Graphic / Audio 탭 실제 항목 구현

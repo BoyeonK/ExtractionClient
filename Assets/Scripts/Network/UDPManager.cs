@@ -186,6 +186,11 @@ public class UDPManager {
         SendReliable((ushort)GameProtocol.PktId.C2DRequestSpawnByObjectId, pkt);
     }
 
+    public void SendC2DRequestSpawnPlayerObjects() {
+        C2DRequestSpawnPlayerObjects pkt = new C2DRequestSpawnPlayerObjects { };
+        SendReliable((ushort)GameProtocol.PktId.C2DRequestSpawnPlayerObjects, pkt);
+    }
+
     public void SendC2DUpdatePlayerState(uint objectId, UnityEngine.Vector3 position, float yaw, float pitch, UnityEngine.Vector3 velocity, uint movementState) {
         C2DUpdatePlayerState pkt = new C2DUpdatePlayerState {
             MovementInfo = new GameObjectMovementInfo {

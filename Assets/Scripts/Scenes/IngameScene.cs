@@ -26,7 +26,7 @@ public class IngameScene : BaseScene {
     public void TryCompleteSpawnMe() {
         if (_operationFlag) return;
         if (_isGetResponseSpawnMe && Managers.Scene.SceneDynamicContext.IsComplete())
-            SpawnMeAndStartGame();
+            SpawnMeAndRequestPlayerObjects();
     }
 
     public void HandleSpawnSpot(Vector3 spawnPoint, int characterType, uint objectId) {
@@ -37,10 +37,7 @@ public class IngameScene : BaseScene {
         TryCompleteSpawnMe();
     }
 
-    private void SpawnMeAndStartGame() {
-        // 충분한 컨텍스트가 모였으므로 플레이어 캐릭터와 동적 object들을 생성
-        _operationFlag = true;
-
+    private void SpawnMeAndRequestPlayerObjects() {
         _characterGo = Managers.Resource.Instantiate("GameObject/PlayerObject");
         _characterGo.transform.position = _spawnPoint;
         _playerController = _characterGo.GetComponent<PlayerController>();
@@ -52,6 +49,13 @@ public class IngameScene : BaseScene {
             Managers.Resource.InstantiateFromObjectDataStruct(data);
 
         Managers.Scene.SceneDynamicContext.Clear();
+        Managers.Network.udpManager.SendC2DRequestSpawnPlayerObjects();
+    }
+
+    // TODO : 서버에서 다른 플레이어들의 오브젝트 정보를 받아서 씬에 생성
+    // objectId를 확인하고, 내 objectId와 일치하면 무시. 일치하지 않으면 OppoPlayerObject생성.
+    public void SpawnPlayerObjects() {
+        
     }
 
     protected void RequestSpawnMe() {
