@@ -166,7 +166,8 @@ public class PlayerController : GameObjectController {
     // 네트워크 상태 프로퍼티
     public uint ObjectId => (uint)_objectId;
     public float Yaw => transform.eulerAngles.y;
-    public float Pitch => xRotation;
+    // xRotation은 3인칭 카메라의 피치를 나타내며, 네트워크에서는 -5도 보정하여 전송
+    public float Pitch => (xRotation - 5f);
     public Vector3 Velocity => _controller != null ? _controller.velocity : Vector3.zero;
     public uint MovementState {
         get {
