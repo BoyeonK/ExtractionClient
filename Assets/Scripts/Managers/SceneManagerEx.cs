@@ -10,6 +10,22 @@ public struct ObjectData {
     public UnityEngine.Quaternion Rotation;
 }
 
+public struct PlayerSpawnData {
+    public uint ObjectId;
+    public int CharacterType;
+    public UnityEngine.Vector3 Position;
+    public UnityEngine.Quaternion Rotation;
+}
+
+public struct PlayerStateData {
+    public uint ObjectId;
+    public UnityEngine.Vector3 Position;
+    public float Yaw;
+    public float Pitch;
+    public UnityEngine.Vector3 Velocity;
+    public uint MovementState;
+}
+
 public class GameSceneContext {
     public List<ObjectData> ObjectDatas { get; } = new List<ObjectData>();
 

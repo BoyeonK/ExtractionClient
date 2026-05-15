@@ -1,3 +1,4 @@
+using System.Collections.Generic;
 using UnityEngine;
 
 public class IngameScene : BaseScene {
@@ -14,6 +15,7 @@ public class IngameScene : BaseScene {
 
     private GameObject _characterGo;
     private PlayerController _playerController;
+    private Dictionary<uint, OppoPlayerController> _oppoPlayers = new Dictionary<uint, OppoPlayerController>();
 
     protected override void Init() {
         base.Init();
@@ -52,10 +54,33 @@ public class IngameScene : BaseScene {
         Managers.Network.udpManager.SendC2DRequestSpawnPlayerObjects();
     }
 
-    // TODO : 서버에서 다른 플레이어들의 오브젝트 정보를 받아서 씬에 생성
-    // objectId를 확인하고, 내 objectId와 일치하면 무시. 일치하지 않으면 OppoPlayerObject생성.
-    public void SpawnPlayerObjects() {
-        
+    public void SpawnPlayerObject(PlayerSpawnData data) {
+        if (data.ObjectId == _myObjectId) return;
+
+        GameObject go = Managers.Resource.Instantiate("GameObject/OppoPlayerObject");
+        OppoPlayerController controller = go.GetComponent<OppoPlayerController>();
+        controller.SetObjectId((int)data.ObjectId);
+        controller.SetPosition(data.Position);
+        controller.SetRotation(data.Rotation);
+        controller.Setup(data.CharacterType);
+        _oppoPlayers[data.ObjectId] = controller;
+    }
+
+    public void SpawnPlayerObjects(List<PlayerSpawnData> players) {
+        foreach (PlayerSpawnData data in players)
+            SpawnPlayerObject(data);
+    }
+
+    public void UpdatePlayerStates(List<PlayerStateData> playerStateDatas) {
+        foreach (PlayerStateData data in playerStateDatas) {
+            if (data.ObjectId == _myObjectId) continue;
+
+            if (_oppoPlayers.TryGetValue(data.ObjectId, out OppoPlayerController controller)) {
+                controller.ApplyState(data);
+            } else {
+                Managers.Network.udpManager.SendC2DRequestSpawnByObjectId((int)data.ObjectId);
+            }
+        }
     }
 
     protected void RequestSpawnMe() {

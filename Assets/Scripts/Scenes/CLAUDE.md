@@ -32,5 +32,16 @@
 2. 서버 응답:
    - `D2CResponseSpawnMeSpawnSpot` → `HandleSpawnSpot(spawnPoint, characterType, objectId)` — `_spawnPoint`, `_characterType`, `_myObjectId` 저장, `_isGetResponseSpawnMe = true`
    - `D2CResponseSpawnMeDynamicObjects` (1개 이상) → `SceneDynamicContext.AddObjectDatas()` 누적
-3. 두 조건(`_isGetResponseSpawnMe && SceneDynamicContext.IsComplete()`) 충족 시 `SpawnMeAndStartGame()` 호출 (이중 호출은 `_operationFlag` guard로 방지)
-4. `SpawnMeAndStartGame()`: `_operationFlag = true` 설정 → `PlayerObject` 인스턴스화 후 `_spawnPoint`로 위치 지정 → `Setup(_characterType)` 호출(컴포넌트 바인딩·외형 설정 일괄 처리) → `SetObjectId((int)_myObjectId)` 호출 → `SetCursorLock(true)` → `SceneDynamicContext.ObjectDatas` 순회해 동적 오브젝트 스폰 → `SceneDynamicContext.Clear()`
+3. 두 조건(`_isGetResponseSpawnMe && SceneDynamicContext.IsComplete()`) 충족 시 `SpawnMeAndRequestPlayerObjects()` 호출 (이중 호출은 `_operationFlag` guard로 방지)
+4. `SpawnMeAndRequestPlayerObjects()`: `PlayerObject` 인스턴스화 → `Setup` · `SetObjectId` → 동적 오브젝트 스폰 → `SendC2DRequestSpawnPlayerObjects()` 전송
+5. 서버 응답 `D2CSpawnPlayerObjects` → `PacketHandler`에서 `PlayerSpawnData` 리스트 변환 → 메인 스레드에서 `IngameScene.SpawnPlayerObjects()` 호출
+
+## 다른 플레이어 관리
+
+- **`_oppoPlayers`** (`Dictionary<uint, OppoPlayerController>`): objectId → OppoPlayerController 매핑
+- **`SpawnPlayerObject(PlayerSpawnData)`**: 단일 OppoPlayer 스폰 (`_myObjectId` 필터링, 프리팹 `GameObject/OppoPlayerObject` 인스턴스화 → `Setup(characterType)` → Dictionary 등록)
+- **`SpawnPlayerObjects(List<PlayerSpawnData>)`**: 복수 플레이어 일괄 스폰 (내부에서 `SpawnPlayerObject()` 순회 호출)
+- **`UpdatePlayerStates(List<PlayerStateData>)`**: 수신한 플레이어 상태 일괄 적용 (`_myObjectId` skip, `_oppoPlayers`에서 찾아 `ApplyState()` 호출, 미등록 objectId는 `C2DRequestSpawnByObjectId` 전송)
+- **`PlayerSpawnData`** 구조체 (`SceneManagerEx.cs`): `ObjectId`, `CharacterType`, `Position`, `Rotation` — Protobuf 타입 격리를 위해 핸들러에서 변환 후 전달
+- **`PlayerStateData`** 구조체 (`SceneManagerEx.cs`): `ObjectId`, `Position`, `Yaw`, `Pitch`, `Velocity`, `MovementState` — Protobuf 타입 격리를 위해 핸들러에서 변환 후 전달
+- **`OppoPlayerController.ApplyState(PlayerStateData)`**: 수신한 상태를 내부 필드(`_yaw`, `_pitch`, `_velocity`, `_movementState`)에 저장 및 `SetPosition()` 호출. 보간/애니메이션은 미구현

@@ -193,16 +193,18 @@ public class UDPManager {
 
     public void SendC2DUpdatePlayerState(uint objectId, UnityEngine.Vector3 position, float yaw, float pitch, UnityEngine.Vector3 velocity, uint movementState) {
         C2DUpdatePlayerState pkt = new C2DUpdatePlayerState {
-            MovementInfo = new GameObjectMovementInfo {
-                ObjectId = objectId,
-                Transform = new TransformInfo {
-                    Position = new GameProtocol.Vector3 { X = position.x, Y = position.y, Z = position.z },
-                    YawAngle = yaw
+            State = new PlayerState {
+                MovementInfo = new GameObjectMovementInfo {
+                    ObjectId = objectId,
+                    Transform = new TransformInfo {
+                        Position = new GameProtocol.Vector3 { X = position.x, Y = position.y, Z = position.z },
+                        YawAngle = yaw
+                    },
+                    State = movementState
                 },
-                State = movementState
-            },
-            Pitch = pitch,
-            Velocity = new GameProtocol.Vector3 { X = velocity.x, Y = velocity.y, Z = velocity.z }
+                Pitch = pitch,
+                Velocity = new GameProtocol.Vector3 { X = velocity.x, Y = velocity.y, Z = velocity.z }
+            }
         };
         SendUnreliable((ushort)GameProtocol.PktId.C2DUpdatePlayerState, pkt);
     }

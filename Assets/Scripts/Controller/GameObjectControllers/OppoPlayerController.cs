@@ -2,7 +2,6 @@ using UnityEngine;
 using UnityEngine.Animations.Rigging;
 using UnityEngine.InputSystem;
 
-[RequireComponent(typeof(CharacterController))]
 public class OppoPlayerController : GameObjectController {
     CharacterController _controller;
     
@@ -12,6 +11,9 @@ public class OppoPlayerController : GameObjectController {
     Animator _anim;
     
     Vector3 _velocity;
+    float _yaw;
+    float _pitch;
+    uint _movementState;
 
     public override void Init() {
         base.Init();
@@ -44,6 +46,14 @@ public class OppoPlayerController : GameObjectController {
 
         _anim = Util.BindComponent<Animator>(modelName, this.gameObject);
         */
+    }
+
+    public void ApplyState(PlayerStateData data) {
+        SetPosition(data.Position);
+        _yaw = data.Yaw;
+        _pitch = data.Pitch;
+        _velocity = data.Velocity;
+        _movementState = data.MovementState;
     }
 
     void Update() {

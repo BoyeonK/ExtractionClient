@@ -98,6 +98,7 @@ public class PacketHandler {
         _handlers.Add((ushort)PktId.D2CResponseSpawnByObjectId, Handle_D2CResponseSpawnByObjectId);
         _handlers.Add((ushort)PktId.D2CSpawnPlayerObject, Handle_D2CSpawnPlayerObject);
         _handlers.Add((ushort)PktId.D2CSpawnPlayerObjects, Handle_D2CSpawnPlayerObjects);
+        _handlers.Add((ushort)PktId.D2CUpdatePlayerStates, Handle_D2CUpdatePlayerStates);
     }
 
     // ==========================================
@@ -597,7 +598,29 @@ public class PacketHandler {
             return;
         }
 
-        // TODO: 구현 필요
+        UnityGameObject obj = pkt.GameObject;
+        TransformInfo tf = obj?.Transform;
+        GameProtocol.Vector3 pos = tf?.Position;
+
+        Quaternion rotation = Quaternion.identity;
+        if (tf != null) {
+            if (tf.RotationCase == TransformInfo.RotationOneofCase.CompressedQuat)
+                rotation = DecompressQuaternion(tf.CompressedQuat);
+            else if (tf.RotationCase == TransformInfo.RotationOneofCase.YawAngle)
+                rotation = Quaternion.Euler(0f, tf.YawAngle, 0f);
+        }
+
+        PlayerSpawnData data = new PlayerSpawnData {
+            ObjectId      = obj?.ObjectId ?? 0,
+            CharacterType = pkt.CharacterType,
+            Position      = new UnityEngine.Vector3(pos?.X ?? 0f, pos?.Y ?? 0f, pos?.Z ?? 0f),
+            Rotation      = rotation
+        };
+
+        Managers.ExecuteAtMainThread(() => {
+            if (Managers.Scene.CurrentScene is not IngameScene ingameScene) return;
+            ingameScene.SpawnPlayerObject(data);
+        });
     }
 
     private void Handle_D2CSpawnPlayerObjects(ReadOnlySpan<byte> payloadSpan) {
@@ -615,6 +638,71 @@ public class PacketHandler {
             return;
         }
 
-        // TODO: 구현 필요
+        List<PlayerSpawnData> playerSpawnDatas = new List<PlayerSpawnData>();
+
+        foreach (D2CSpawnPlayerObject player in pkt.Players) {
+            UnityGameObject obj = player.GameObject;
+            TransformInfo tf = obj?.Transform;
+            GameProtocol.Vector3 pos = tf?.Position;
+
+            Quaternion rotation = Quaternion.identity;
+            if (tf != null) {
+                if (tf.RotationCase == TransformInfo.RotationOneofCase.CompressedQuat)
+                    rotation = DecompressQuaternion(tf.CompressedQuat);
+                else if (tf.RotationCase == TransformInfo.RotationOneofCase.YawAngle)
+                    rotation = Quaternion.Euler(0f, tf.YawAngle, 0f);
+            }
+
+            playerSpawnDatas.Add(new PlayerSpawnData {
+                ObjectId      = obj?.ObjectId ?? 0,
+                CharacterType = player.CharacterType,
+                Position      = new UnityEngine.Vector3(pos?.X ?? 0f, pos?.Y ?? 0f, pos?.Z ?? 0f),
+                Rotation      = rotation
+            });
+        }
+
+        Managers.ExecuteAtMainThread(() => {
+            if (Managers.Scene.CurrentScene is not IngameScene ingameScene) return;
+            ingameScene.SpawnPlayerObjects(playerSpawnDatas);
+        });
+    }
+
+    private void Handle_D2CUpdatePlayerStates(ReadOnlySpan<byte> payloadSpan) {
+        D2CUpdatePlayerStates pkt = null;
+
+        try {
+            pkt = D2CUpdatePlayerStates.Parser.ParseFrom(payloadSpan);
+        }
+        catch (InvalidProtocolBufferException e) {
+            Managers.ExecuteAtMainThread(() => { Util.LogError($"D2CUpdatePlayerStates 파싱 실패: {e.Message}"); });
+            return;
+        }
+        catch (Exception e) {
+            Managers.ExecuteAtMainThread(() => { Util.LogError($"D2CUpdatePlayerStates 처리 중 알 수 없는 에러: {e.Message}"); });
+            return;
+        }
+
+        List<PlayerStateData> playerStateDatas = new List<PlayerStateData>();
+
+        foreach (PlayerState playerState in pkt.PlayerStates) {
+            GameObjectMovementInfo movementInfo = playerState.MovementInfo;
+            TransformInfo tf = movementInfo?.Transform;
+            GameProtocol.Vector3 pos = tf?.Position;
+            GameProtocol.Vector3 vel = playerState.Velocity;
+
+            playerStateDatas.Add(new PlayerStateData {
+                ObjectId      = movementInfo?.ObjectId ?? 0,
+                Position      = new UnityEngine.Vector3(pos?.X ?? 0f, pos?.Y ?? 0f, pos?.Z ?? 0f),
+                Yaw           = tf?.YawAngle ?? 0f,
+                Pitch         = playerState.Pitch,
+                Velocity      = new UnityEngine.Vector3(vel?.X ?? 0f, vel?.Y ?? 0f, vel?.Z ?? 0f),
+                MovementState = movementInfo?.State ?? 0
+            });
+        }
+
+        Managers.ExecuteAtMainThread(() => {
+            if (Managers.Scene.CurrentScene is not IngameScene ingameScene) return;
+            ingameScene.UpdatePlayerStates(playerStateDatas);
+        });
     }
 }
