@@ -599,8 +599,14 @@ public class PacketHandler {
         }
 
         UnityGameObject obj = pkt.GameObject;
-        TransformInfo tf = obj?.Transform;
-        GameProtocol.Vector3 pos = tf?.Position;
+
+        if (obj == null || obj.Transform == null || obj.Transform.Position == null) {
+            Managers.ExecuteAtMainThread(() => Util.LogError("D2CSpawnPlayerObject: 필수 GameObject 또는 Transform 데이터가 누락되었습니다."));
+            return;
+        }
+
+        TransformInfo tf = obj.Transform;
+        GameProtocol.Vector3 pos = tf.Position;
 
         Quaternion rotation = Quaternion.identity;
         if (tf != null) {
@@ -611,9 +617,9 @@ public class PacketHandler {
         }
 
         PlayerSpawnData data = new PlayerSpawnData {
-            ObjectId      = obj?.ObjectId ?? 0,
+            ObjectId      = obj.ObjectId,
             CharacterType = pkt.CharacterType,
-            Position      = new UnityEngine.Vector3(pos?.X ?? 0f, pos?.Y ?? 0f, pos?.Z ?? 0f),
+            Position      = new UnityEngine.Vector3(pos.X, pos.Y, pos.Z),
             Rotation      = rotation
         };
 
@@ -642,8 +648,14 @@ public class PacketHandler {
 
         foreach (D2CSpawnPlayerObject player in pkt.Players) {
             UnityGameObject obj = player.GameObject;
-            TransformInfo tf = obj?.Transform;
-            GameProtocol.Vector3 pos = tf?.Position;
+
+            if (obj == null || obj.Transform == null || obj.Transform.Position == null) {
+                Managers.ExecuteAtMainThread(() => Util.LogError($"D2CSpawnPlayerObjects: 데이터 누락으로 특정 플레이어 스킵 (CharType: {player.CharacterType})"));
+                continue;
+            }
+
+            TransformInfo tf = obj.Transform;
+            GameProtocol.Vector3 pos = tf.Position;
 
             Quaternion rotation = Quaternion.identity;
             if (tf != null) {
@@ -654,9 +666,9 @@ public class PacketHandler {
             }
 
             playerSpawnDatas.Add(new PlayerSpawnData {
-                ObjectId      = obj?.ObjectId ?? 0,
+                ObjectId      = obj.ObjectId,
                 CharacterType = player.CharacterType,
-                Position      = new UnityEngine.Vector3(pos?.X ?? 0f, pos?.Y ?? 0f, pos?.Z ?? 0f),
+                Position      = new UnityEngine.Vector3(pos.X, pos.Y, pos.Z),
                 Rotation      = rotation
             });
         }
@@ -686,17 +698,24 @@ public class PacketHandler {
 
         foreach (PlayerState playerState in pkt.PlayerStates) {
             GameObjectMovementInfo movementInfo = playerState.MovementInfo;
-            TransformInfo tf = movementInfo?.Transform;
-            GameProtocol.Vector3 pos = tf?.Position;
+
+            if (movementInfo == null || movementInfo.Transform == null || movementInfo.Transform.Position == null) {
+                continue;
+            }
+
+            TransformInfo tf = movementInfo.Transform;
+            GameProtocol.Vector3 pos = tf.Position;
+            float yaw = tf.YawAngle;
             GameProtocol.Vector3 vel = playerState.Velocity;
+            UnityEngine.Vector3 unityVel = (vel != null) ? new UnityEngine.Vector3(vel.X, vel.Y, vel.Z) : UnityEngine.Vector3.zero;
 
             playerStateDatas.Add(new PlayerStateData {
-                ObjectId      = movementInfo?.ObjectId ?? 0,
-                Position      = new UnityEngine.Vector3(pos?.X ?? 0f, pos?.Y ?? 0f, pos?.Z ?? 0f),
-                Yaw           = tf?.YawAngle ?? 0f,
+                ObjectId      = movementInfo.ObjectId,
+                Position      = new UnityEngine.Vector3(pos.X, pos.Y, pos.Z),
+                Yaw           = yaw,
                 Pitch         = playerState.Pitch,
-                Velocity      = new UnityEngine.Vector3(vel?.X ?? 0f, vel?.Y ?? 0f, vel?.Z ?? 0f),
-                MovementState = movementInfo?.State ?? 0
+                Velocity      = unityVel,
+                MovementState = movementInfo.State
             });
         }
 
