@@ -33,15 +33,18 @@
    - `D2CResponseSpawnMeSpawnSpot` → `HandleSpawnSpot(spawnPoint, characterType, objectId)` — `_spawnPoint`, `_characterType`, `_myObjectId` 저장, `_isGetResponseSpawnMe = true`
    - `D2CResponseSpawnMeDynamicObjects` (1개 이상) → `SceneDynamicContext.AddObjectDatas()` 누적
 3. 두 조건(`_isGetResponseSpawnMe && SceneDynamicContext.IsComplete()`) 충족 시 `SpawnMeAndRequestPlayerObjects()` 호출 (이중 호출은 `_operationFlag` guard로 방지)
-4. `SpawnMeAndRequestPlayerObjects()`: `PlayerObject` 인스턴스화 → `Setup` · `SetObjectId` → 동적 오브젝트 스폰 → `SendC2DRequestSpawnPlayerObjects()` 전송
+4. `SpawnMeAndRequestPlayerObjects()`: `PlayerObject` 인스턴스화 → `Setup` · `SetObjectId` → `_operationFlag = true` → 동적 오브젝트 스폰 → `SendC2DRequestSpawnPlayerObjects()` 전송. `_operationFlag`가 true가 되면 `OnUpdate()`의 플레이어 상태 전송 루프(0.1초 주기)도 활성화됨
 5. 서버 응답 `D2CSpawnPlayerObjects` → `PacketHandler`에서 `PlayerSpawnData` 리스트 변환 → 메인 스레드에서 `IngameScene.SpawnPlayerObjects()` 호출
 
 ## 다른 플레이어 관리
 
 - **`_oppoPlayers`** (`Dictionary<uint, OppoPlayerController>`): objectId → OppoPlayerController 매핑
-- **`SpawnPlayerObject(PlayerSpawnData)`**: 단일 OppoPlayer 스폰 (`_myObjectId` 필터링, 프리팹 `GameObject/OppoPlayerObject` 인스턴스화 → `Setup(characterType)` → Dictionary 등록)
+- **`SpawnPlayerObject(PlayerSpawnData)`**: 단일 OppoPlayer 스폰 (`_myObjectId` 필터링 + 중복 ObjectId 방어, 프리팹 `GameObject/OppoPlayerObject` 인스턴스화 → `Setup(characterType)` → Dictionary 등록)
 - **`SpawnPlayerObjects(List<PlayerSpawnData>)`**: 복수 플레이어 일괄 스폰 (내부에서 `SpawnPlayerObject()` 순회 호출)
 - **`UpdatePlayerStates(List<PlayerStateData>)`**: 수신한 플레이어 상태 일괄 적용 (`_myObjectId` skip, `_oppoPlayers`에서 찾아 `ApplyState()` 호출, 미등록 objectId는 `C2DRequestSpawnByObjectId` 전송)
 - **`PlayerSpawnData`** 구조체 (`SceneManagerEx.cs`): `ObjectId`, `CharacterType`, `Position`, `Rotation` — Protobuf 타입 격리를 위해 핸들러에서 변환 후 전달
 - **`PlayerStateData`** 구조체 (`SceneManagerEx.cs`): `ObjectId`, `Position`, `Yaw`, `Pitch`, `Velocity`, `MovementState` — Protobuf 타입 격리를 위해 핸들러에서 변환 후 전달
-- **`OppoPlayerController.ApplyState(PlayerStateData)`**: 수신한 상태를 내부 필드(`_yaw`, `_pitch`, `_velocity`, `_movementState`)에 저장 및 `SetPosition()` 호출. 보간/애니메이션은 미구현
+- **`OppoPlayerController.Setup(characterType)`**: `HB{characterType}OppoPlayer` 모델 인스턴스화, RigBuilder·MultiAimConstraint·Animator 바인딩. `PlayerController.Setup()`과 동일 패턴 (Camera/ViewPoint/CharacterController 제외)
+- **`OppoPlayerController.ApplyState(PlayerStateData)`**: 수신한 상태를 `_targetPosition`·`_yaw`·`_pitch`·`_velocity`·`_movementState`에 저장. 첫 수신 또는 대규모 이동(sqrMagnitude>100)시에만 즉시 텔레포트, 그 외에는 `ProcessMovement()`가 `Vector3.Lerp`+`LerpAngle`로 매 프레임 보간
+- **`OppoPlayerController.ProcessAnimation()`**: `_velocity`를 yaw 기준 로컬 좌표로 변환하여 Animator 파라미터(`MoveX`/`MoveY`/`MovingSpeed`) 구동. PlayerController와 동일 damping(0.1f) 적용
+- **`OppoPlayerController.ProcessAim()`**: yaw+pitch 각도에서 방향 벡터를 계산하여 `_aimTarget`을 가슴 높이(yOffset=0.58f) + 100m 전방에 배치 → MultiAimConstraint가 상체 회전 처리

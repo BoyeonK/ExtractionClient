@@ -45,6 +45,7 @@ public class IngameScene : BaseScene {
         _playerController = _characterGo.GetComponent<PlayerController>();
         _playerController.Setup(_characterType);
         _playerController.SetObjectId((int)_myObjectId);
+        _operationFlag = true;
         SetCursorLock(true);
 
         foreach (ObjectData data in Managers.Scene.SceneDynamicContext.ObjectDatas)
@@ -56,6 +57,7 @@ public class IngameScene : BaseScene {
 
     public void SpawnPlayerObject(PlayerSpawnData data) {
         if (data.ObjectId == _myObjectId) return;
+        if (_oppoPlayers.ContainsKey(data.ObjectId)) return;
 
         GameObject go = Managers.Resource.Instantiate("GameObject/OppoPlayerObject");
         OppoPlayerController controller = go.GetComponent<OppoPlayerController>();
