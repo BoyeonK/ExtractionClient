@@ -54,7 +54,9 @@ public class PacketHandler {
     private uint _timestampEcho = 0;
 
     // ── Reliable 재전송 링 버퍼 ────────────────────────
-    private const float MIN_RTO_MS     = 250f;   // RTO 하한 (ms)
+    private const float MIN_RTO_MS     = 50f;    // RTO 하한 (ms)
+    private const float MAX_RTO_MS     = 1000f;  // RTO 상한 (ms)
+    private const float MIN_RTT_MS     = 20f;    // RTT 하한 (ms)
     private const int   MAX_RETRY      = 7;      // 최대 재전송 횟수
     private const int   WINDOW_SIZE    = 32;     // ACK bitfield 32비트와 일치
     private const int   MAX_PACKET_SIZE = 1400;  // 이더넷 MTU 기준 안전 최대치
@@ -64,7 +66,7 @@ public class PacketHandler {
     private float _rttvar          = 0f;
     private bool  _rttInitialized  = false;
     private float CurrentRto => _rttInitialized
-        ? Mathf.Max(MIN_RTO_MS, _srtt + 4f * _rttvar)
+        ? Mathf.Clamp(_srtt + 4f * _rttvar, MIN_RTO_MS, MAX_RTO_MS)
         : MIN_RTO_MS;
 
     private struct PendingSlot {
@@ -352,7 +354,7 @@ public class PacketHandler {
         // 비정상적인 시간 역전 방어 (클라이언트 렉 등)
         if (nowMs < echoedTs) return; 
 
-        float rtt = (float)(nowMs - echoedTs);
+        float rtt = Mathf.Max(MIN_RTT_MS, (float)(nowMs - echoedTs));
 
         if (!_rttInitialized) {
             _srtt = rtt;

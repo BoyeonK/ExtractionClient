@@ -1,6 +1,6 @@
 # 프로젝트 진행 상황
 
-> 최종 수정: 2026-05-16
+> 최종 수정: 2026-05-17
 > 장르: 멀티플레이어 Extraction 게임 (알파 단계)
 > 엔진: Unity 6000.4.0f1 / URP 17.4.0
 
@@ -11,7 +11,6 @@
 ### UI
 
 ### 네트워크
-- [x] (2026-05-15 #0) `C2DUpdatePlayerState` 패킷 구조 수정 — proto 변경(`PlayerState` 타입 분리)에 맞춰 `UDPManager.SendC2DUpdatePlayerState()` 내 패킷 조립을 `State = new PlayerState { ... }` 래핑 구조로 교체
 - [x] (2026-05-15 #1) `Handle_D2CUpdatePlayerStates` 빈 핸들러 추가 — `PacketHandler` 생성자 핸들러 등록, 파싱 + 예외 처리만 갖춘 빈 구현
 - [x] (2026-05-15 #2) `Handle_D2CSpawnPlayerObjects` 구현 — `PlayerSpawnData` 구조체 추가, Protobuf→Unity 변환 후 메인 스레드에서 `IngameScene.SpawnPlayerObjects()` 호출, `_oppoPlayers` Dictionary로 OppoPlayerController 관리
 - [x] (2026-05-15 #3) `Handle_D2CSpawnPlayerObject` 구현 — 단일 플레이어 스폰 동일 패턴, `SpawnPlayerObject()` 메서드 추출 및 `SpawnPlayerObjects()`에서 재사용
@@ -23,6 +22,7 @@
 - [x] (2026-05-16 #0) `D2CSpawnPlayerObjects` 스폰 흐름 완성 — `OppoPlayerController.Setup()` 주석 해제(모델·RigBuilder·MultiAimConstraint·Animator 바인딩 활성화), `_operationFlag = true` 설정 추가(재진입 방지 + 상태 전송 루프 활성화), `SpawnPlayerObject()`에 중복 ObjectId 방어 추가
 - [x] (2026-05-16 #2) `_operationFlag` 플래그 분리 + `C2DNotifyLoadingComplete` 패킷 추가 — re-entrance guard를 `_spawnCompleted`로 분리, `_operationFlag`는 `SpawnPlayerObjects()` 완료 후 설정으로 이동(전체 초기화 완료 게이트), `C2DNotifyLoadingComplete` proto 정의 + `UDPManager.SendC2DNotifyLoadingComplete()` 추가, `_operationFlag = true` 시점에 서버로 Reliable 전송
 - [x] (2026-05-16 #3) HeartBeat 주기 및 Reliable 재전송 상수 튜닝 — 글로벌 환경(RTT ~50-200ms) 타겟으로 `HEARTBEAT_INTERVAL_SEC` 1→3초, `MIN_RTO_MS` 300→250ms, `MAX_RETRY` 10→7회 조정
+- [x] (2026-05-17 #0) RTO/RTT 상수 재조정 — `MIN_RTO_MS` 250→50ms, `MAX_RTO_MS` 1000ms 상한 추가(`Mathf.Clamp` 적용), `MIN_RTT_MS` 20ms RTT 하한 추가(로컬 환경 대비)
 
 ### 버그 수정
 
