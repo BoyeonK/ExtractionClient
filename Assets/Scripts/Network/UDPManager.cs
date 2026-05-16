@@ -118,7 +118,7 @@ public class UDPManager {
         SendPacket(data, length);
     }
 
-    private const float HEARTBEAT_INTERVAL_SEC = 1f;
+    private const float HEARTBEAT_INTERVAL_SEC = 3f;
     private float _lastHeartbeatSec = 0f;
 
     // 메인 스레드 — 재전송 대상을 큐에 삽입 (실제 송신은 워커 스레드)

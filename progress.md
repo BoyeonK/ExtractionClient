@@ -20,9 +20,9 @@
 
 ### 기타
 
-- [x] (2026-05-14 #2) `D2CResponseSpawnMeSpawnSpot`에 objectId 추가 반영 — `HandleSpawnSpot`에 `uint objectId` 파라미터 추가, `_myObjectId` 필드 저장, `SpawnMeAndStartGame()`에서 `_playerController.SetObjectId((int)_myObjectId)` 호출
 - [x] (2026-05-16 #0) `D2CSpawnPlayerObjects` 스폰 흐름 완성 — `OppoPlayerController.Setup()` 주석 해제(모델·RigBuilder·MultiAimConstraint·Animator 바인딩 활성화), `_operationFlag = true` 설정 추가(재진입 방지 + 상태 전송 루프 활성화), `SpawnPlayerObject()`에 중복 ObjectId 방어 추가
 - [x] (2026-05-16 #2) `_operationFlag` 플래그 분리 + `C2DNotifyLoadingComplete` 패킷 추가 — re-entrance guard를 `_spawnCompleted`로 분리, `_operationFlag`는 `SpawnPlayerObjects()` 완료 후 설정으로 이동(전체 초기화 완료 게이트), `C2DNotifyLoadingComplete` proto 정의 + `UDPManager.SendC2DNotifyLoadingComplete()` 추가, `_operationFlag = true` 시점에 서버로 Reliable 전송
+- [x] (2026-05-16 #3) HeartBeat 주기 및 Reliable 재전송 상수 튜닝 — 글로벌 환경(RTT ~50-200ms) 타겟으로 `HEARTBEAT_INTERVAL_SEC` 1→3초, `MIN_RTO_MS` 300→250ms, `MAX_RETRY` 10→7회 조정
 
 ### 버그 수정
 

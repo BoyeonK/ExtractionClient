@@ -17,7 +17,8 @@
 - `Disconnect()` 시 `_isRunning = false` → 스레드 Join(최대 2초, Poll 루프 자연 종료) → `_socket.Close()` → `Handler.Reset()` 순서
 - 수신 데이터는 모두 `Managers.ExecuteAtMainThread`를 통해 메인 스레드에서 처리
 - 송신: `SendReliable(packetId, IMessage)` / `SendUnreliable(packetId, IMessage)` — 큐에 삽입, 워커 스레드가 실제 전송
-- `OnUpdate()`가 매 프레임 `PacketHandler.CollectRetransmits()`를 호출해 RTO 초과 패킷을 큐에 재삽입. 재전송 10회 초과 시 `Disconnect()`. 1초마다 `C2DHeartBeat`(Unreliable) 자동 전송
+- `OnUpdate()`가 매 프레임 `PacketHandler.CollectRetransmits()`를 호출해 RTO 초과 패킷을 큐에 재삽입. 재전송 7회 초과 시 `Disconnect()`. 3초마다 `C2DHeartBeat`(Unreliable) 자동 전송
+- Reliable 재전송 상수: `MIN_RTO_MS=250ms` (RTO 하한), `MAX_RETRY=7` (최대 재전송). 글로벌 환경(RTT ~50-200ms) 타겟 기준 튜닝
 
 ## 패킷 형식 (`PacketHandler`)
 - **헤더** (`UDPHeader`, 35바이트, `LayoutKind.Sequential Pack=1`):

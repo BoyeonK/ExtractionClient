@@ -54,8 +54,8 @@ public class PacketHandler {
     private uint _timestampEcho = 0;
 
     // ── Reliable 재전송 링 버퍼 ────────────────────────
-    private const float MIN_RTO_MS     = 300f;   // RTO 하한 (ms)
-    private const int   MAX_RETRY      = 10;     // 최대 재전송 횟수
+    private const float MIN_RTO_MS     = 250f;   // RTO 하한 (ms)
+    private const int   MAX_RETRY      = 7;      // 최대 재전송 횟수
     private const int   WINDOW_SIZE    = 32;     // ACK bitfield 32비트와 일치
     private const int   MAX_PACKET_SIZE = 1400;  // 이더넷 MTU 기준 안전 최대치
 
