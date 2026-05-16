@@ -3,6 +3,7 @@ using UnityEngine;
 
 public class IngameScene : BaseScene {
     private bool _operationFlag = false;
+    private bool _spawnCompleted = false;
     private bool _cursorLocked = true;
 
     private const float PLAYER_STATE_INTERVAL = 0.1f;
@@ -26,7 +27,7 @@ public class IngameScene : BaseScene {
     }
 
     public void TryCompleteSpawnMe() {
-        if (_operationFlag) return;
+        if (_spawnCompleted) return;
         if (_isGetResponseSpawnMe && Managers.Scene.SceneDynamicContext.IsComplete())
             SpawnMeAndRequestPlayerObjects();
     }
@@ -45,7 +46,7 @@ public class IngameScene : BaseScene {
         _playerController = _characterGo.GetComponent<PlayerController>();
         _playerController.Setup(_characterType);
         _playerController.SetObjectId((int)_myObjectId);
-        _operationFlag = true;
+        _spawnCompleted = true;
         SetCursorLock(true);
 
         foreach (ObjectData data in Managers.Scene.SceneDynamicContext.ObjectDatas)
@@ -71,6 +72,8 @@ public class IngameScene : BaseScene {
     public void SpawnPlayerObjects(List<PlayerSpawnData> players) {
         foreach (PlayerSpawnData data in players)
             SpawnPlayerObject(data);
+        _operationFlag = true;
+        Managers.Network.udpManager.SendC2DNotifyLoadingComplete();
     }
 
     public void UpdatePlayerStates(List<PlayerStateData> playerStateDatas) {

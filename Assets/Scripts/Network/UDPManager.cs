@@ -191,6 +191,11 @@ public class UDPManager {
         SendReliable((ushort)GameProtocol.PktId.C2DRequestSpawnPlayerObjects, pkt);
     }
 
+    public void SendC2DNotifyLoadingComplete() {
+        C2DNotifyLoadingComplete pkt = new C2DNotifyLoadingComplete { };
+        SendReliable((ushort)GameProtocol.PktId.C2DNotifyLoadingComplete, pkt);
+    }
+
     public void SendC2DUpdatePlayerState(uint objectId, UnityEngine.Vector3 position, float yaw, float pitch, UnityEngine.Vector3 velocity, uint movementState) {
         C2DUpdatePlayerState pkt = new C2DUpdatePlayerState {
             State = new PlayerState {

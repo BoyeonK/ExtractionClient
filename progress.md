@@ -20,10 +20,9 @@
 
 ### 기타
 
-- [x] (2026-05-14 #0) `C2DRequestSpawnByObjectId` / `D2CResponseSpawnByObjectId` 패킷 구현 — `UDPManager.SendC2DRequestSpawnByObjectId(int objectId)` 추가, `PacketHandler.Handle_D2CResponseSpawnByObjectId` 구현 (worker thread에서 역직렬화·`ObjectData` 변환, main thread에서 `IngameScene` 확인 후 `InstantiateFromObjectDataStruct` 호출)
-- [x] (2026-05-14 #1) `C2DUpdatePlayerState` 패킷 구현 및 0.1초 주기 송신 — proto에 메시지 정의(`GameObjectMovementInfo` + `pitch` + `velocity`), `PlayerController`에 네트워크 상태 프로퍼티 추가(`ObjectId`/`Yaw`/`Pitch`/`Velocity`/`MovementState`), `UDPManager.SendC2DUpdatePlayerState()` 추가, `IngameScene`에서 0.1초 타이머로 Unreliable 송신
 - [x] (2026-05-14 #2) `D2CResponseSpawnMeSpawnSpot`에 objectId 추가 반영 — `HandleSpawnSpot`에 `uint objectId` 파라미터 추가, `_myObjectId` 필드 저장, `SpawnMeAndStartGame()`에서 `_playerController.SetObjectId((int)_myObjectId)` 호출
 - [x] (2026-05-16 #0) `D2CSpawnPlayerObjects` 스폰 흐름 완성 — `OppoPlayerController.Setup()` 주석 해제(모델·RigBuilder·MultiAimConstraint·Animator 바인딩 활성화), `_operationFlag = true` 설정 추가(재진입 방지 + 상태 전송 루프 활성화), `SpawnPlayerObject()`에 중복 ObjectId 방어 추가
+- [x] (2026-05-16 #2) `_operationFlag` 플래그 분리 + `C2DNotifyLoadingComplete` 패킷 추가 — re-entrance guard를 `_spawnCompleted`로 분리, `_operationFlag`는 `SpawnPlayerObjects()` 완료 후 설정으로 이동(전체 초기화 완료 게이트), `C2DNotifyLoadingComplete` proto 정의 + `UDPManager.SendC2DNotifyLoadingComplete()` 추가, `_operationFlag = true` 시점에 서버로 Reliable 전송
 
 ### 버그 수정
 
