@@ -78,6 +78,8 @@ public class LobbyScene : BaseScene {
         // TODO : 최초 실행인지, 한 게임 종료 후 재실행인지에 따라 분기 처리
         _lobbyState = LobbyState.BeforeConnect;
         Managers.UI.ShowSceneUI<UI_TestStart>();
+
+        Screen.SetResolution(1280, 720, FullScreenMode.Windowed);
     }
 
     // -----------------------------------------------------

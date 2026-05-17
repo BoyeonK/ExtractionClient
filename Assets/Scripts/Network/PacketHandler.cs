@@ -5,8 +5,6 @@ using System;
 using System.Collections.Generic;
 using System.Runtime.InteropServices;
 using UnityEngine;
-using UnityEngine.UIElements;
-using static UnityEditor.PlayerSettings;
 
 public delegate void HandlerFunc(ReadOnlySpan<byte> payloadSpan);
 
