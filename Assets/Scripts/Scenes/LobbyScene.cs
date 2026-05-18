@@ -16,9 +16,11 @@ public class LobbyScene : BaseScene {
     UI_Warehouse _warehouseUI;
     UI_Shop _shopUI;
     UI_MapSelect _mapSelectUI;
+    UI_CharacterSelect _characterSelectUI;
     UI_MatchProcess _matchProgressUI;
     LobbyReconfirmUI _lobbyReconfirmUI;
     LobbySettingUI _lobbySettingUI;
+    SelectedCharacter _selectedCharacter;
 
     const int INVENTORY_SLOT_COUNT = 25;
     const int WAREHOUSE_SLOT_COUNT = 80;
@@ -56,6 +58,7 @@ public class LobbyScene : BaseScene {
         _warehouseUI = Managers.UI.CacheSceneUI<UI_Warehouse>();
         _shopUI = Managers.UI.CacheSceneUI<UI_Shop>();
         _mapSelectUI = Managers.UI.CacheSceneUI<UI_MapSelect>();
+        _characterSelectUI = Managers.UI.CacheSceneUI<UI_CharacterSelect>();
         _matchProgressUI = Managers.UI.CacheSceneUI<UI_MatchProcess>();
 
         GameObject reconfirmObj = GameObject.Find("LobbyReconfirmUI");
@@ -68,6 +71,12 @@ public class LobbyScene : BaseScene {
             _lobbySettingUI = settingObj.GetComponent<LobbySettingUI>();
             _lobbySettingUI.Init();
             _lobbySettingUI.Hide();
+        }
+        GameObject selectedCharObj = GameObject.Find("SelectedCharacter");
+        if (selectedCharObj != null) {
+            _selectedCharacter = selectedCharObj.GetComponent<SelectedCharacter>();
+            _selectedCharacter.Init();
+            _selectedCharacter.SetCharacterType(_selectedCharacterType);
         }
 
         Managers.Input.AddKeyListener(Key.Escape, OnEscapeInput, InputManager.KeyState.Up);
@@ -271,6 +280,7 @@ public class LobbyScene : BaseScene {
         Main,
         Inventory,
         Shop,
+        Character,
     }
 
     UserState _userState = UserState.Main;
@@ -311,6 +321,7 @@ public class LobbyScene : BaseScene {
         Managers.UI.DisableUI("UI_Inventory");
         Managers.UI.DisableUI("UI_Warehouse");
         Managers.UI.DisableUI("UI_Shop");
+        Managers.UI.DisableUI("UI_CharacterSelect");
         Managers.UI.DisableUI("UI_MatchProgress");
 
         Array.Clear(_inventorySlots, 0, _inventorySlots.Length);
@@ -374,6 +385,7 @@ public class LobbyScene : BaseScene {
         Managers.UI.DisableUI("UI_Inventory");
         Managers.UI.DisableUI("UI_Warehouse");
         Managers.UI.DisableUI("UI_Shop");
+        Managers.UI.DisableUI("UI_CharacterSelect");
         Managers.UI.ShowSceneUI<UI_MapSelect>();
     }
 
@@ -390,6 +402,20 @@ public class LobbyScene : BaseScene {
         Managers.UI.ShowSceneUI<UI_Shop>();
         _warehouseUI.Refresh();
         _shopUI.Refresh();
+    }
+
+    public void ShowCharacter() {
+        if (_lobbyState != LobbyState.Lobby || _userState == UserState.Character)
+            return;
+
+        _userState = UserState.Character;
+        _mapSelectUI.SetNormalState();
+        Managers.UI.DisableUI("UI_MapSelect");
+        Managers.UI.DisableUI("UI_Inventory");
+        Managers.UI.DisableUI("UI_Warehouse");
+        Managers.UI.DisableUI("UI_Shop");
+        Managers.UI.ShowSceneUI<UI_CharacterSelect>();
+        _characterSelectUI.Refresh();
     }
 
     public async void TryPurchase(int itemId, int quantity) {
@@ -468,7 +494,13 @@ public class LobbyScene : BaseScene {
         return list.ToArray();
     }
 
-    public void SetCharacterType(int characterType) => _selectedCharacterType = characterType;
+    public int SelectedCharacterType => _selectedCharacterType;
+
+    public void SetCharacterType(int characterType) {
+        _selectedCharacterType = characterType;
+        if (_selectedCharacter != null)
+            _selectedCharacter.SetCharacterType(characterType);
+    }
 
     public async void TryMatchMake(int mapId, string loadoutType) {
         if (_lobbyState != LobbyState.Lobby) return;
@@ -549,7 +581,7 @@ public class LobbyScene : BaseScene {
                 }
                 break;
             case LobbyState.Lobby:
-                if (_userState == UserState.Inventory || _userState == UserState.Shop)
+                if (_userState == UserState.Inventory || _userState == UserState.Shop || _userState == UserState.Character)
                     BackToLobbyMain();
                 break;
             case LobbyState.Matching:

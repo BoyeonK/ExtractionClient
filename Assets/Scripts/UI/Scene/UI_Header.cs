@@ -15,18 +15,21 @@ public class UI_Header : UI_Scene {
     Button _lobbyButton;
     Button _inventoryButton;
     Button _shopButton;
+    Button _characterButton;
     Button _optionButton;
     Button _logoutButton;
 
     Image _lobbyBtnAccBar;
     Image _inventoryBtnAccBar;
     Image _shopBtnAccBar;
+    Image _characterBtnAccBar;
     Image _optionBtnAccBar;
     Image _logoutBtnAccBar;
 
     Color _lobbyBtnAccBarColor = new Color(51 / 255f, 153 / 255f, 255 / 255f, 1f);
     Color _inventoryBtnAccBarColor = new Color(102 / 255f, 217 / 255f, 128 / 255f, 1f);
     Color _shopBtnAccBarColor = new Color(255 / 255f, 178 / 255f, 51 / 255f, 1f);
+    Color _characterBtnAccBarColor = new Color(150 / 255f, 150 / 255f, 150 / 255f, 1f);
     Color _optionBtnAccBarColor = new Color(178 / 255f, 102 / 255f, 230 / 255f, 1f);
     Color _logoutBtnAccBarColor = new Color(230 / 255f, 80 / 255f, 80 / 255f, 1f);
     Color _invalidBtnAccBarColor = new Color(50 / 255f, 50 / 255f, 50 / 255f, 1f);
@@ -43,11 +46,13 @@ public class UI_Header : UI_Scene {
         _lobbyButton = BindComponent<Button>("HeaderPanel/LeftMenuGroup/Btn_LOBBY");
         _inventoryButton = BindComponent<Button>("HeaderPanel/LeftMenuGroup/Btn_INVENTORY");
         _shopButton = BindComponent<Button>("HeaderPanel/LeftMenuGroup/Btn_SHOP");
+        _characterButton = BindComponent<Button>("HeaderPanel/LeftMenuGroup/Btn_CHARACTER");
         _optionButton = BindComponent<Button>("HeaderPanel/RightMenuGroup/Btn_OPTION");
         _leftMenuGroup = GameObject.Find("HeaderPanel/LeftMenuGroup");
         _lobbyBtnAccBar = BindComponent<Image>("HeaderPanel/LeftMenuGroup/Btn_LOBBY/AccentBar");
         _inventoryBtnAccBar = BindComponent<Image>("HeaderPanel/LeftMenuGroup/Btn_INVENTORY/AccentBar");
         _shopBtnAccBar = BindComponent<Image>("HeaderPanel/LeftMenuGroup/Btn_SHOP/AccentBar");
+        _characterBtnAccBar = BindComponent<Image>("HeaderPanel/LeftMenuGroup/Btn_CHARACTER/AccentBar");
         _optionBtnAccBar = BindComponent<Image>("HeaderPanel/RightMenuGroup/Btn_OPTION/AccentBar");
         _logoutButton = BindComponent<Button>("HeaderPanel/RightMenuGroup/Btn_LOGOUT");
         _logoutBtnAccBar = BindComponent<Image>("HeaderPanel/RightMenuGroup/Btn_LOGOUT/AccentBar");
@@ -56,6 +61,7 @@ public class UI_Header : UI_Scene {
         _lobbyButton.onClick.AddListener(OnClickLobbyBtn);
         _inventoryButton.onClick.AddListener(OnClickInventoryBtn);
         _shopButton.onClick.AddListener(OnClickShopBtn);
+        _characterButton.onClick.AddListener(OnClickCharacterBtn);
         _optionButton.onClick.AddListener(OnClickOptionBtn);
         _logoutButton.onClick.AddListener(OnClickLogoutBtn);
 
@@ -94,6 +100,9 @@ public class UI_Header : UI_Scene {
         _shopButton.interactable = false;
         _shopBtnAccBar.color = _invalidBtnAccBarColor;
 
+        _characterButton.interactable = false;
+        _characterBtnAccBar.color = _invalidBtnAccBarColor;
+
         _optionButton.interactable = true;
         _optionBtnAccBar.color = _optionBtnAccBarColor;
 
@@ -112,6 +121,9 @@ public class UI_Header : UI_Scene {
 
         _shopButton.interactable = false;
         _shopBtnAccBar.color = _invalidBtnAccBarColor;
+
+        _characterButton.interactable = true;
+        _characterBtnAccBar.color = _characterBtnAccBarColor;
 
         _optionButton.interactable = true;
         _optionBtnAccBar.color = _optionBtnAccBarColor;
@@ -132,6 +144,9 @@ public class UI_Header : UI_Scene {
         _shopButton.interactable = true;
         _shopBtnAccBar.color = _shopBtnAccBarColor;
 
+        _characterButton.interactable = true;
+        _characterBtnAccBar.color = _characterBtnAccBarColor;
+
         _optionButton.interactable = true;
         _optionBtnAccBar.color = _optionBtnAccBarColor;
 
@@ -150,6 +165,9 @@ public class UI_Header : UI_Scene {
 
         _shopButton.interactable = false;
         _shopBtnAccBar.color = _invalidBtnAccBarColor;
+
+        _characterButton.interactable = false;
+        _characterBtnAccBar.color = _invalidBtnAccBarColor;
 
         _optionButton.interactable = false;
         _optionBtnAccBar.color = _invalidBtnAccBarColor;
@@ -170,6 +188,10 @@ public class UI_Header : UI_Scene {
         _scene.ShowShop();
     }
 
+    private void OnClickCharacterBtn() {
+        _scene.ShowCharacter();
+    }
+
     private void OnClickLogoutBtn() {
         _scene.LogoutPopup();
     }
@@ -182,6 +204,7 @@ public class UI_Header : UI_Scene {
         _lobbyButton.onClick.RemoveAllListeners();
         _inventoryButton.onClick.RemoveAllListeners();
         _shopButton.onClick.RemoveAllListeners();
+        _characterButton.onClick.RemoveAllListeners();
         _optionButton.onClick.RemoveAllListeners();
         _logoutButton.onClick.RemoveAllListeners();
     }
