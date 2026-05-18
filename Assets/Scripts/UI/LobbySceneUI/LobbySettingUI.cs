@@ -103,7 +103,9 @@ public class LobbySettingUI : MonoBehaviour {
         Hide();
     }
 
-    private void ApplySetting() { }
+    private void ApplySetting() {
+        Managers.Setting.ApplyFrameRate();
+    }
 
     private void ChangeTab(SelectedTab tab) {
         _selectedTab = tab;

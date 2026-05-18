@@ -17,6 +17,13 @@ public class SettingManager {
             root = new GameObject { name = "@Setting" };
             Object.DontDestroyOnLoad(root);
         }
+
+        ApplyFrameRate();
+    }
+
+    public void ApplyFrameRate() {
+        int fps = _frameRate == Define.FrameRate._30 ? 30 : 60;
+        Application.targetFrameRate = fps;
     }
 
     public void ApplyPreviousSceneSetting() {

@@ -89,6 +89,7 @@ public class LobbyScene : BaseScene {
         Managers.UI.ShowSceneUI<UI_TestStart>();
 
         Screen.SetResolution(1280, 720, FullScreenMode.Windowed);
+        Application.runInBackground = true;
     }
 
     // -----------------------------------------------------

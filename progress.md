@@ -15,17 +15,17 @@
 - [x] (2026-05-18 #5) `UI_CharacterSelect` 즉시 선택 + Description 연동 — HB클릭 시 즉시 `SetCharacterType` 호출(SelectedCharacter 즉시 반영), SelectBtn→BackToLobbyMain 단순화, `Refresh()`에서 `SelectedCharacterType` Getter로 동기화, `Define.CharacterDescriptions`로 Description 텍스트 표시
 
 ### 네트워크
-- [x] (2026-05-16 #1) `OppoPlayerController` 보간/애니메이션/에임 구현 — `ProcessMovement()`에 `Vector3.Lerp`+`LerpAngle` 위치·회전 보간, `ProcessAnimation()`에 velocity→로컬좌표 변환 후 Animator 파라미터 구동(MoveX/MoveY/MovingSpeed), `ProcessAim()`에 yaw+pitch→aimDir 계산으로 `_aimTarget` 배치. `ApplyState()`를 보간 지원 구조로 수정(첫 수신/대규모 이동만 즉시 텔레포트)
-
 ### 기타
 
 - [x] (2026-05-18 #0) LobbyScene Init()에 창모드(1280x720) 전환 코드 추가 — `Screen.SetResolution(1280, 720, FullScreenMode.Windowed)` 호출
 - [x] (2026-05-18 #1) SettingManager에 설정 변수 추가 — `_ingameMouseSensitivity`, `_isWindow`, `_masterVolume`, `_resolution`, `_frameRate`, `_fov` 필드 + 각각 Getter/Setter 메서드 구현. `Define.cs`에 `Resolution`/`FrameRate` enum 및 `ResolutionValues` Dictionary 추가
-- [x] (2026-05-16 #2) `_operationFlag` 플래그 분리 + `C2DNotifyLoadingComplete` 패킷 추가 — re-entrance guard를 `_spawnCompleted`로 분리, `_operationFlag`는 `SpawnPlayerObjects()` 완료 후 설정으로 이동(전체 초기화 완료 게이트), `C2DNotifyLoadingComplete` proto 정의 + `UDPManager.SendC2DNotifyLoadingComplete()` 추가, `_operationFlag = true` 시점에 서버로 Reliable 전송
+- [x] (2026-05-18 #6) LobbyScene Init()에 `Application.runInBackground = true` 추가 — 포커스를 잃어도 게임이 계속 실행되도록 설정
 - [x] (2026-05-16 #3) HeartBeat 주기 및 Reliable 재전송 상수 튜닝 — 글로벌 환경(RTT ~50-200ms) 타겟으로 `HEARTBEAT_INTERVAL_SEC` 1→3초, `MIN_RTO_MS` 300→250ms, `MAX_RETRY` 10→7회 조정
 - [x] (2026-05-17 #0) RTO/RTT 상수 재조정 — `MIN_RTO_MS` 250→50ms, `MAX_RTO_MS` 1000ms 상한 추가(`Mathf.Clamp` 적용), `MIN_RTT_MS` 20ms RTT 하한 추가(로컬 환경 대비)
 
 ### 버그 수정
+
+- [x] (2026-05-18 #7) 빌드 환경 걷기 속도 이상 수정 — `SettingManager.Init()`에서 `Application.targetFrameRate` 기본 적용, `LobbySettingUI.ApplySetting()` 구현. 빌드 시 무제한 fps로 인해 walkSpeed의 프레임당 이동량이 CharacterController.minMoveDistance 이하로 떨어지는 문제 해결
 
 ---
 
