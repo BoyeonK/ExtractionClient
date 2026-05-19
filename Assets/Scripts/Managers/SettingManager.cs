@@ -37,7 +37,7 @@ public class SettingManager {
         if (type == Define.Sound.Effect) _effectVolume = clamped;
         else if (type == Define.Sound.Bgm) _bgmVolume = clamped;
 
-        float clampedFloatValue = clamped / 100f;
+        float clampedFloatValue = (clamped / 100f) * (_masterVolume / 100f);
         Managers.Sound.SetVolume(clampedFloatValue, type);
     }
 
@@ -67,6 +67,8 @@ public class SettingManager {
 
     public void SetMasterVolume(int volume) {
         _masterVolume = Mathf.Clamp(volume, 0, 100);
+        SetVolume(_effectVolume, Define.Sound.Effect);
+        SetVolume(_bgmVolume, Define.Sound.Bgm);
     }
 
     public int GetMasterVolume() {
