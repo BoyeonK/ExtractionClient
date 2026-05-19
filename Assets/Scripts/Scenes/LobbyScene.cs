@@ -506,6 +506,11 @@ public class LobbyScene : BaseScene {
     public async void TryMatchMake(int mapId, string loadoutType) {
         if (_lobbyState != LobbyState.Lobby) return;
 
+        if (loadoutType == "CUSTOM" && _loadoutSlots[0] == null && _loadoutSlots[1] == null) {
+            _lobbyReconfirmUI.ActiveOnlyConfirm("무기를 장착해주세요.\n(주무기 또는 보조무기 중 하나 이상 필수)");
+            return;
+        }
+
         InventoryItem[] snapshot = loadoutType == "CUSTOM" ? BuildInventorySnapshot() : null;
         bool isSuccess = await Managers.Network.httpManager.StartMatchCall(
             mapId, _selectedCharacterType, loadoutType, snapshot, _cts.Token);

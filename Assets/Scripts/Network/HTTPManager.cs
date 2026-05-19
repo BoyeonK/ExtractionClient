@@ -419,8 +419,9 @@ public class HTTPManager {
                 }
                 else {
                     IsMatching = false;
+                    string errorCode = resData.error?.code ?? "";
                     Managers.ExecuteAtMainThread(() => {
-                        Util.LogError($"매칭 큐 진입 실패");
+                        Util.LogError($"매칭 큐 진입 실패: {errorCode}");
                     });
                     return false;
                 }

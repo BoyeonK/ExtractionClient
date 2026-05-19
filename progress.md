@@ -9,12 +9,12 @@
 ## 완료된 것들
 
 ### UI
-- [x] (2026-05-18 #2) `UserState.Character` 추가 — `LobbyScene`에 `ShowCharacter()` 메서드 + ESC 복귀 처리, `UI_Header`에 `Btn_CHARACTER` 바인딩/이벤트/HeaderState별 활성화(Guest/Logined 활성, BeforeAuth/Matching 비활성)
-- [x] (2026-05-18 #3) `UI_CharacterSelect` 구현 — HB0/HB1/HB2 텍스트 클릭으로 캐릭터 선택(색상 피드백), SelectBtn으로 `LobbyScene.SetCharacterType()` 호출 후 메인 복귀. `LobbyScene`에 캐싱/표시/비활성화 연동 완료
 - [x] (2026-05-18 #4) `SelectedCharacter` 구현 — `SelectedCharacter.cs` 완성(HB0/1/2Selected 바인딩·SetCharacterType으로 활성화 전환), `LobbyScene.Init()`에서 `GameObject.Find`→Init→초기 타입 적용, `SetCharacterType()`에서 연동
 - [x] (2026-05-18 #5) `UI_CharacterSelect` 즉시 선택 + Description 연동 — HB클릭 시 즉시 `SetCharacterType` 호출(SelectedCharacter 즉시 반영), SelectBtn→BackToLobbyMain 단순화, `Refresh()`에서 `SelectedCharacterType` Getter로 동기화, `Define.CharacterDescriptions`로 Description 텍스트 표시
 
 ### 네트워크
+- [x] (2026-05-19 #4) CUSTOM 로드아웃 무기 장착 검증 — `LobbyScene.TryMatchMake()`에서 CUSTOM 선택 시 무기 슬롯(주무기/보조무기) 하나 이상 장착 필수 사전 검증 + 팝업, `HTTPManager.StartMatchCall()` 에러 로그에 서버 에러 코드 포함
+
 ### 기타
 
 
