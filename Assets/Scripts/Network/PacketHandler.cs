@@ -765,6 +765,8 @@ public class PacketHandler {
         Managers.ExecuteAtMainThread(() => {
             if (Managers.Scene.CurrentScene is not IngameScene ingameScene) return;
             ingameScene.Inventory.ApplyFullSync(inventoryVersion, slots, primaryWeapon, secondaryWeapon, armor);
+            ingameScene._itemLoaded = true;
+            ingameScene.TryInitWeapon();
         });
     }
 }

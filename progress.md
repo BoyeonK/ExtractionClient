@@ -1,6 +1,6 @@
 # 프로젝트 진행 상황
 
-> 최종 수정: 2026-05-20
+> 최종 수정: 2026-05-21
 > 장르: 멀티플레이어 Extraction 게임 (알파 단계)
 > 엔진: Unity 6000.4.0f1 / URP 17.4.0
 
@@ -9,18 +9,17 @@
 ## 완료된 것들
 
 ### UI
-- [x] (2026-05-18 #4) `SelectedCharacter` 구현 — `SelectedCharacter.cs` 완성(HB0/1/2Selected 바인딩·SetCharacterType으로 활성화 전환), `LobbyScene.Init()`에서 `GameObject.Find`→Init→초기 타입 적용, `SetCharacterType()`에서 연동
-- [x] (2026-05-18 #5) `UI_CharacterSelect` 즉시 선택 + Description 연동 — HB클릭 시 즉시 `SetCharacterType` 호출(SelectedCharacter 즉시 반영), SelectBtn→BackToLobbyMain 단순화, `Refresh()`에서 `SelectedCharacterType` Getter로 동기화, `Define.CharacterDescriptions`로 Description 텍스트 표시
 
 ### 네트워크
 - [x] (2026-05-19 #4) CUSTOM 로드아웃 무기 장착 검증 — `LobbyScene.TryMatchMake()`에서 CUSTOM 선택 시 무기 슬롯(주무기/보조무기) 하나 이상 장착 필수 사전 검증 + 팝업, `HTTPManager.StartMatchCall()` 에러 로그에 서버 에러 코드 포함
 - [x] (2026-05-20 #0) `IngameInventory` 클래스 신설 — 인게임 인벤토리 상태 관리 전담(inventoryVersion, inventorySlots[25], primaryWeapon, secondaryWeapon, armor). `IngameScene`이 멤버(`Inventory`)로 보유
 - [x] (2026-05-20 #1) `D2CFullInventorySync` 패킷 핸들러 — `PacketHandler`에 핸들러 등록·구현. Protobuf `InventorySlot` → `InventoryItem` 변환 후 `IngameScene.Inventory.ApplyFullSync()` 호출
+- [x] (2026-05-21 #0) `PlayerController.EquipWeapon(int weaponId)` 구현 — weaponId로 `Resources/Prefabs/Weapons/Weapon_{id}_{name}` 프리팹을 캐시 딕셔너리에서 조회·장착. `_equippedWeaponGo`로 무기만 추적하여 WeaponSocket 내 LeftHandIKTarget 등 기존 자식에 영향 없이 교체
+- [x] (2026-05-21 #1) `IngameInventory` 무기 전환 기능 — `_emptySlotIdx`+`FindEmptySlotIdx()` 빈 슬롯 추적, `_isPrimaryWeaponApplyed` 현재 적용 무기 관리, `GetIngameScene()` 늦은 참조, `InitWeapon()` 초기 무기 장착(주무기 우선→보조무기 폴백), `ApplyWeapon(bool)` 주/보조무기 전환·`EquipWeapon` 연동. `IngameScene.PlayerController` 프로퍼티 추가
+- [x] (2026-05-21 #2) 인게임 초기 무기 장착 자동화 — `IngameScene`에 `_itemLoaded`·`_weaponInitialized` 플래그 + `TryInitWeapon()` 추가. `_spawnCompleted`와 `_itemLoaded` 양쪽 모두 true인 시점에 1회만 `InitWeapon()` 실행. `PacketHandler.Handle_D2CFullInventorySync`에서 `_itemLoaded = true` + `TryInitWeapon()` 호출
 
 ### 기타
 
-
-- [x] (2026-05-18 #6) LobbyScene Init()에 `Application.runInBackground = true` 추가 — 포커스를 잃어도 게임이 계속 실행되도록 설정
 
 - [x] (2026-05-19 #0) `LobbySettingUI` General 탭 — 마우스 감도 슬라이더(0.1~5.0, 0.1단위 스냅) + 값 텍스트 구현, `SettingManager` 연동
 - [x] (2026-05-19 #1) `LobbySettingUI` Graphic 탭 — 화면 모드(창/전체화면 토글), 해상도(좌우 순환, `Define.Resolution` 참조), 프레임레이트(좌우 순환, `Define.FrameRate` 참조), FOV 슬라이더(60~90) 구현

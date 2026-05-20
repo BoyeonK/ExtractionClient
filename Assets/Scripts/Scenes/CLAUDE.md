@@ -33,9 +33,15 @@
    - `D2CResponseSpawnMeSpawnSpot` → `HandleSpawnSpot(spawnPoint, characterType, objectId)` — `_spawnPoint`, `_characterType`, `_myObjectId` 저장, `_isGetResponseSpawnMe = true`
    - `D2CResponseSpawnMeDynamicObjects` (1개 이상) → `SceneDynamicContext.AddObjectDatas()` 누적
 3. 두 조건(`_isGetResponseSpawnMe && SceneDynamicContext.IsComplete()`) 충족 시 `SpawnMeAndRequestPlayerObjects()` 호출 (이중 호출은 `_spawnCompleted` guard로 방지)
-4. `SpawnMeAndRequestPlayerObjects()`: `PlayerObject` 인스턴스화 → `Setup` · `SetObjectId` → `_spawnCompleted = true` → 동적 오브젝트 스폰 → `SendC2DRequestSpawnPlayerObjects()` 전송
+4. `SpawnMeAndRequestPlayerObjects()`: `PlayerObject` 인스턴스화 → `Setup` · `SetObjectId` → `_spawnCompleted = true` → `TryInitWeapon()` → 동적 오브젝트 스폰 → `SendC2DRequestSpawnPlayerObjects()` 전송
 5. 서버 응답 `D2CSpawnPlayerObjects` → `PacketHandler`에서 `PlayerSpawnData` 리스트 변환 → 메인 스레드에서 `IngameScene.SpawnPlayerObjects()` 호출
 6. `SpawnPlayerObjects()` 완료 시 `_operationFlag = true` → `OnUpdate()`의 플레이어 상태 전송 루프(0.1초 주기) 활성화 + `C2DNotifyLoadingComplete` Reliable 전송으로 서버에 로딩 완료 통보
+
+### 초기 무기 장착 흐름
+
+`_spawnCompleted`(스폰 완료)와 `_itemLoaded`(`D2CFullInventorySync` 수신 완료) 두 조건이 모두 충족되는 시점에 `TryInitWeapon()`이 `_inventory.InitWeapon()`을 1회 호출 (`_weaponInitialized` guard). 두 이벤트의 도착 순서가 보장되지 않으므로 양쪽 시점에서 모두 `TryInitWeapon()`을 호출한다:
+- `SpawnMeAndRequestPlayerObjects()` — `_spawnCompleted = true` 직후
+- `PacketHandler.Handle_D2CFullInventorySync` — `_itemLoaded = true` 직후
 
 ## 인게임 인벤토리 (`IngameInventory`)
 
@@ -43,13 +49,20 @@
 
 | 필드 | 타입 | 설명 |
 |------|------|------|
+| `_owner` | `IngameScene` | 소유 씬 (늦은 참조, `GetIngameScene()`으로 접근) |
 | `_inventoryVersion` | `uint` | 서버 주도 인벤토리 버전 |
 | `_inventorySlots[25]` | `InventoryItem[]` | 범용 인벤토리 슬롯 |
 | `_primaryWeapon` | `InventoryItem` | 주무기 슬롯 |
 | `_secondaryWeapon` | `InventoryItem` | 보조무기 슬롯 |
 | `_armor` | `InventoryItem` | 방어구 슬롯 |
+| `_emptySlotIdx` | `int` | 비어있는 슬롯 인덱스 최솟값 (없으면 -1) |
+| `_isPrimaryWeaponApplyed` | `bool` | 현재 주무기 적용 중 여부 (true=주무기, false=보조무기) |
 
-- **`ApplyFullSync()`**: 전체 인벤토리 일괄 덮어쓰기 (version + slots + weapon + armor)
+- **`GetIngameScene()`**: 늦은 참조로 `Managers.Scene.CurrentScene as IngameScene`을 캐싱하여 반환
+- **`ApplyFullSync()`**: 전체 인벤토리 일괄 덮어쓰기 (version + slots + weapon + armor), 완료 후 `FindEmptySlotIdx()` 자동 호출
+- **`FindEmptySlotIdx()`**: `_inventorySlots` 순회하여 첫 번째 빈 슬롯 인덱스를 `_emptySlotIdx`에 갱신 후 반환
+- **`InitWeapon()`**: 초기 무기 장착. 주무기 우선, 없으면 보조무기로 폴백하여 `EquipWeapon()` 호출 + `_isPrimaryWeaponApplyed` 설정
+- **`ApplyWeapon(bool primary)`**: 주/보조무기 전환. `_isPrimaryWeaponApplyed` 상태와 무기 존재 여부를 검증 후 `IngameScene.PlayerController.EquipWeapon()` 호출
 - **`SetInventorySlot(index, item)`** / **`SetPrimaryWeapon()`** / **`SetSecondaryWeapon()`** / **`SetArmor()`**: 개별 슬롯 갱신
 - 외부 접근: `ingameScene.Inventory.XXX`
 

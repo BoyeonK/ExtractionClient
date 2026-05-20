@@ -1,12 +1,23 @@
 public class IngameInventory {
     private const int INVENTORY_SLOT_COUNT = 25;
+    private IngameScene _owner = null;
     private uint _inventoryVersion = 0;
     private InventoryItem[] _inventorySlots = new InventoryItem[INVENTORY_SLOT_COUNT];
     private InventoryItem _primaryWeapon;
     private InventoryItem _secondaryWeapon;
     private InventoryItem _armor;
+    private int _emptySlotIdx = 0;
+    private bool _isPrimaryWeaponApplyed = true;
+
+    public IngameScene GetIngameScene() {
+        if (_owner == null)
+            _owner = Managers.Scene.CurrentScene as IngameScene;
+        return _owner;
+    }
 
     public uint InventoryVersion => _inventoryVersion;
+    public int EmptySlotIdx => _emptySlotIdx;
+    public bool IsPrimaryWeaponApplyed { get => _isPrimaryWeaponApplyed; set => _isPrimaryWeaponApplyed = value; }
     public InventoryItem[] InventorySlots => _inventorySlots;
     public InventoryItem PrimaryWeapon => _primaryWeapon;
     public InventoryItem SecondaryWeapon => _secondaryWeapon;
@@ -17,6 +28,7 @@ public class IngameInventory {
         _inventoryVersion = inventoryVersion;
 
         System.Array.Clear(_inventorySlots, 0, _inventorySlots.Length);
+        // slots 배열은 PacketHandler에서 slot_index 기준으로 이미 정렬되어 넘어오므로 순차 복사로 충분
         if (slots != null) {
             for (int i = 0; i < slots.Length && i < INVENTORY_SLOT_COUNT; i++)
                 _inventorySlots[i] = slots[i];
@@ -25,11 +37,51 @@ public class IngameInventory {
         _primaryWeapon = primaryWeapon;
         _secondaryWeapon = secondaryWeapon;
         _armor = armor;
+
+        FindEmptySlotIdx();
+    }
+
+
+    public int FindEmptySlotIdx() {
+        _emptySlotIdx = -1;
+        for (int i = 0; i < INVENTORY_SLOT_COUNT; i++) {
+            if (_inventorySlots[i] == null) {
+                _emptySlotIdx = i;
+                break;
+            }
+        }
+        return _emptySlotIdx;
     }
 
     public void SetInventorySlot(int index, InventoryItem item) {
         if (index >= 0 && index < INVENTORY_SLOT_COUNT)
             _inventorySlots[index] = item;
+    }
+
+    public void InitWeapon() {
+        if (_primaryWeapon != null) {
+            _isPrimaryWeaponApplyed = true;
+            GetIngameScene().PlayerController.EquipWeapon(_primaryWeapon.item_id);
+        } else if (_secondaryWeapon != null) {
+            _isPrimaryWeaponApplyed = false;
+            GetIngameScene().PlayerController.EquipWeapon(_secondaryWeapon.item_id);
+        }
+    }
+
+    public void ApplyWeapon(bool primary) {
+        if (primary) {
+            if (_isPrimaryWeaponApplyed) return;
+            if (_primaryWeapon == null) return;
+            _isPrimaryWeaponApplyed = true;
+            GetIngameScene().PlayerController.EquipWeapon(_primaryWeapon.item_id);
+            // TODO : 추후 서버에 무기전환요청 패킷 보내어 응답으로서 전환 시행하기
+        } else {
+            if (!_isPrimaryWeaponApplyed) return;
+            if (_secondaryWeapon == null) return;
+            _isPrimaryWeaponApplyed = false;
+            GetIngameScene().PlayerController.EquipWeapon(_secondaryWeapon.item_id);
+            // TODO : 추후 서버에 무기전환요청 패킷 보내어 응답으로서 전환 시행하기
+        }
     }
 
     public void SetPrimaryWeapon(InventoryItem item) => _primaryWeapon = item;

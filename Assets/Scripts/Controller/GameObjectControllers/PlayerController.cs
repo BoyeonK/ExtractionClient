@@ -1,3 +1,4 @@
+using System.Collections.Generic;
 using UnityEngine;
 using UnityEngine.Animations.Rigging;
 using UnityEngine.InputSystem;
@@ -16,6 +17,11 @@ public class PlayerController : GameObjectController {
     RigBuilder _rigBuilder;
     MultiAimConstraint _constraint;
     Animator _anim;
+
+    // 장착 무기 정보 연동
+    Transform _weaponSocketGo;
+    GameObject _equippedWeaponGo;
+    Dictionary<int, GameObject> _weaponPrefabCache;
     
     // Character Controller 설정값
     float walkSpeed = 1f;
@@ -71,6 +77,36 @@ public class PlayerController : GameObjectController {
         }
 
         _anim = Util.BindComponent<Animator>(modelName, this.gameObject);
+
+        _weaponSocketGo = transform.Find($"{modelName}/mixamorig:Hips/mixamorig:Spine/mixamorig:Spine1/mixamorig:Spine2/mixamorig:RightShoulder/mixamorig:RightArm/mixamorig:RightForeArm/mixamorig:RightHand/WeaponSocket");
+    }
+
+    void InitWeaponPrefabCache() {
+        _weaponPrefabCache = new Dictionary<int, GameObject>();
+        GameObject[] allWeapons = Resources.LoadAll<GameObject>("Prefabs/Weapons");
+        foreach (var prefab in allWeapons) {
+            string[] parts = prefab.name.Split('_');
+            if (parts.Length >= 2 && int.TryParse(parts[1], out int id)) {
+                _weaponPrefabCache[id] = prefab;
+            }
+        }
+    }
+
+    public void EquipWeapon(int weaponId) {
+        if (_weaponPrefabCache == null)
+            InitWeaponPrefabCache();
+
+        if (_equippedWeaponGo != null) {
+            Managers.Resource.Destroy(_equippedWeaponGo);
+            _equippedWeaponGo = null;
+        }
+
+        if (!_weaponPrefabCache.TryGetValue(weaponId, out GameObject weaponPrefab))
+            return;
+
+        _equippedWeaponGo = Object.Instantiate(weaponPrefab, _weaponSocketGo);
+        _equippedWeaponGo.transform.localPosition = Vector3.zero;
+        _equippedWeaponGo.transform.localRotation = Quaternion.identity;
     }
 
     void Update() {

@@ -5,6 +5,8 @@ public class IngameScene : BaseScene {
     private bool _operationFlag = false;
     private bool _spawnCompleted = false;
     private bool _cursorLocked = true;
+    public bool _itemLoaded = false;
+    private bool _weaponInitialized = false;
 
     private const float PLAYER_STATE_INTERVAL = 0.1f;
     private float _playerStateTimer = 0f;
@@ -16,6 +18,7 @@ public class IngameScene : BaseScene {
 
     private GameObject _characterGo;
     private PlayerController _playerController;
+    public PlayerController PlayerController => _playerController;
     private Dictionary<uint, OppoPlayerController> _oppoPlayers = new Dictionary<uint, OppoPlayerController>();
 
     // ── Inventory ──
@@ -51,6 +54,7 @@ public class IngameScene : BaseScene {
         _playerController.Setup(_characterType);
         _playerController.SetObjectId((int)_myObjectId);
         _spawnCompleted = true;
+        TryInitWeapon();
         SetCursorLock(true);
 
         foreach (ObjectData data in Managers.Scene.SceneDynamicContext.ObjectDatas)
@@ -90,6 +94,13 @@ public class IngameScene : BaseScene {
                 Managers.Network.udpManager.SendC2DRequestSpawnByObjectId((int)data.ObjectId);
             }
         }
+    }
+
+    public void TryInitWeapon() {
+        if (_weaponInitialized) return;
+        if (!_spawnCompleted || !_itemLoaded) return;
+        _weaponInitialized = true;
+        _inventory.InitWeapon();
     }
 
     protected void RequestSpawnMe() {
