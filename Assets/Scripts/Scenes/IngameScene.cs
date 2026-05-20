@@ -18,6 +18,10 @@ public class IngameScene : BaseScene {
     private PlayerController _playerController;
     private Dictionary<uint, OppoPlayerController> _oppoPlayers = new Dictionary<uint, OppoPlayerController>();
 
+    // ── Inventory ──
+    private IngameInventory _inventory = new IngameInventory();
+    public IngameInventory Inventory => _inventory;
+
     protected override void Init() {
         base.Init();
         foreach (ObjectData data in Managers.Scene.NextSceneStaticContext.ObjectDatas)
@@ -118,4 +122,5 @@ public class IngameScene : BaseScene {
             _playerController.MovementState
         );
     }
+
 }

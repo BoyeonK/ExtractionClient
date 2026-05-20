@@ -1,6 +1,6 @@
 # 프로젝트 진행 상황
 
-> 최종 수정: 2026-05-19
+> 최종 수정: 2026-05-20
 > 장르: 멀티플레이어 Extraction 게임 (알파 단계)
 > 엔진: Unity 6000.4.0f1 / URP 17.4.0
 
@@ -14,6 +14,8 @@
 
 ### 네트워크
 - [x] (2026-05-19 #4) CUSTOM 로드아웃 무기 장착 검증 — `LobbyScene.TryMatchMake()`에서 CUSTOM 선택 시 무기 슬롯(주무기/보조무기) 하나 이상 장착 필수 사전 검증 + 팝업, `HTTPManager.StartMatchCall()` 에러 로그에 서버 에러 코드 포함
+- [x] (2026-05-20 #0) `IngameInventory` 클래스 신설 — 인게임 인벤토리 상태 관리 전담(inventoryVersion, inventorySlots[25], primaryWeapon, secondaryWeapon, armor). `IngameScene`이 멤버(`Inventory`)로 보유
+- [x] (2026-05-20 #1) `D2CFullInventorySync` 패킷 핸들러 — `PacketHandler`에 핸들러 등록·구현. Protobuf `InventorySlot` → `InventoryItem` 변환 후 `IngameScene.Inventory.ApplyFullSync()` 호출
 
 ### 기타
 

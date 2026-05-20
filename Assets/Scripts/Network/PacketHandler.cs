@@ -99,6 +99,7 @@ public class PacketHandler {
         _handlers.Add((ushort)PktId.D2CSpawnPlayerObject, Handle_D2CSpawnPlayerObject);
         _handlers.Add((ushort)PktId.D2CSpawnPlayerObjects, Handle_D2CSpawnPlayerObjects);
         _handlers.Add((ushort)PktId.D2CUpdatePlayerStates, Handle_D2CUpdatePlayerStates);
+        _handlers.Add((ushort)PktId.D2CFullInventorySync, Handle_D2CFullInventorySync);
     }
 
     // ==========================================
@@ -722,6 +723,48 @@ public class PacketHandler {
         Managers.ExecuteAtMainThread(() => {
             if (Managers.Scene.CurrentScene is not IngameScene ingameScene) return;
             ingameScene.UpdatePlayerStates(playerStateDatas);
+        });
+    }
+
+    private void Handle_D2CFullInventorySync(ReadOnlySpan<byte> payloadSpan) {
+        D2CFullInventorySync pkt = null;
+
+        try {
+            pkt = D2CFullInventorySync.Parser.ParseFrom(payloadSpan);
+        }
+        catch (InvalidProtocolBufferException e) {
+            Managers.ExecuteAtMainThread(() => { Util.LogError($"D2CFullInventorySync 파싱 실패: {e.Message}"); });
+            return;
+        }
+        catch (Exception e) {
+            Managers.ExecuteAtMainThread(() => { Util.LogError($"D2CFullInventorySync 처리 중 알 수 없는 에러: {e.Message}"); });
+            return;
+        }
+
+        InventoryItem ToInventoryItem(InventorySlot slot) {
+            if (slot == null || slot.Item == null) return null;
+            return new InventoryItem {
+                item_id    = (int)slot.Item.BlueprintId,
+                slot_index = slot.SlotIndex,
+                quantity   = slot.Item.Quantity
+            };
+        }
+
+        InventoryItem[] slots = new InventoryItem[25];
+        foreach (InventorySlot slot in pkt.InventorySlots) {
+            InventoryItem item = ToInventoryItem(slot);
+            if (item != null && slot.SlotIndex >= 0 && slot.SlotIndex < 25)
+                slots[slot.SlotIndex] = item;
+        }
+
+        InventoryItem primaryWeapon   = ToInventoryItem(pkt.PrimaryWeapon);
+        InventoryItem secondaryWeapon = ToInventoryItem(pkt.SecondaryWeapon);
+        InventoryItem armor           = ToInventoryItem(pkt.Armor);
+        uint inventoryVersion         = pkt.InventoryVersion;
+
+        Managers.ExecuteAtMainThread(() => {
+            if (Managers.Scene.CurrentScene is not IngameScene ingameScene) return;
+            ingameScene.Inventory.ApplyFullSync(inventoryVersion, slots, primaryWeapon, secondaryWeapon, armor);
         });
     }
 }

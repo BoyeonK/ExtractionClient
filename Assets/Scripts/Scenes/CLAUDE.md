@@ -37,6 +37,22 @@
 5. 서버 응답 `D2CSpawnPlayerObjects` → `PacketHandler`에서 `PlayerSpawnData` 리스트 변환 → 메인 스레드에서 `IngameScene.SpawnPlayerObjects()` 호출
 6. `SpawnPlayerObjects()` 완료 시 `_operationFlag = true` → `OnUpdate()`의 플레이어 상태 전송 루프(0.1초 주기) 활성화 + `C2DNotifyLoadingComplete` Reliable 전송으로 서버에 로딩 완료 통보
 
+## 인게임 인벤토리 (`IngameInventory`)
+
+`IngameScene`이 `_inventory` 멤버로 보유하는 순수 C# 클래스 (MonoBehaviour 아님). 서버 주도의 `D2CFullInventorySync` 패킷으로 동기화된다.
+
+| 필드 | 타입 | 설명 |
+|------|------|------|
+| `_inventoryVersion` | `uint` | 서버 주도 인벤토리 버전 |
+| `_inventorySlots[25]` | `InventoryItem[]` | 범용 인벤토리 슬롯 |
+| `_primaryWeapon` | `InventoryItem` | 주무기 슬롯 |
+| `_secondaryWeapon` | `InventoryItem` | 보조무기 슬롯 |
+| `_armor` | `InventoryItem` | 방어구 슬롯 |
+
+- **`ApplyFullSync()`**: 전체 인벤토리 일괄 덮어쓰기 (version + slots + weapon + armor)
+- **`SetInventorySlot(index, item)`** / **`SetPrimaryWeapon()`** / **`SetSecondaryWeapon()`** / **`SetArmor()`**: 개별 슬롯 갱신
+- 외부 접근: `ingameScene.Inventory.XXX`
+
 ## 다른 플레이어 관리
 
 - **`_oppoPlayers`** (`Dictionary<uint, OppoPlayerController>`): objectId → OppoPlayerController 매핑
