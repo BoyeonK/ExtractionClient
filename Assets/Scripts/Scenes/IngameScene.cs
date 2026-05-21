@@ -21,6 +21,16 @@ public class IngameScene : BaseScene {
     public PlayerController PlayerController => _playerController;
     private Dictionary<uint, OppoPlayerController> _oppoPlayers = new Dictionary<uint, OppoPlayerController>();
 
+    // ── Weapon Prefab Cache ──
+    private Dictionary<int, GameObject> _weaponPrefabCache;
+    public Dictionary<int, GameObject> WeaponPrefabCache {
+        get {
+            if (_weaponPrefabCache == null)
+                InitWeaponPrefabCache();
+            return _weaponPrefabCache;
+        }
+    }
+
     // ── Inventory ──
     private IngameInventory _inventory = new IngameInventory();
     public IngameInventory Inventory => _inventory;
@@ -74,6 +84,8 @@ public class IngameScene : BaseScene {
         controller.SetPosition(data.Position);
         controller.SetRotation(data.Rotation);
         controller.Setup(data.CharacterType);
+        if (data.WeaponId != 0)
+            controller.EquipWeapon(data.WeaponId);
         _oppoPlayers[data.ObjectId] = controller;
     }
 
@@ -101,6 +113,17 @@ public class IngameScene : BaseScene {
         if (!_spawnCompleted || !_itemLoaded) return;
         _weaponInitialized = true;
         _inventory.InitWeapon();
+    }
+
+    private void InitWeaponPrefabCache() {
+        _weaponPrefabCache = new Dictionary<int, GameObject>();
+        GameObject[] allWeapons = Resources.LoadAll<GameObject>("Prefabs/Weapons");
+        foreach (var prefab in allWeapons) {
+            string[] parts = prefab.name.Split('_');
+            if (parts.Length >= 2 && int.TryParse(parts[1], out int id)) {
+                _weaponPrefabCache[id] = prefab;
+            }
+        }
     }
 
     protected void RequestSpawnMe() {

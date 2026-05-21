@@ -9,6 +9,10 @@ public class OppoPlayerController : GameObjectController {
     Animator _anim;
     Transform _aimTarget;
 
+    //장착 무기 정보
+    Transform _weaponSocketTr;
+    GameObject _equippedWeaponGo;
+
     Vector3 _velocity;
     float _yaw;
     float _pitch;
@@ -44,6 +48,23 @@ public class OppoPlayerController : GameObjectController {
         }
 
         _anim = Util.BindComponent<Animator>(modelName, this.gameObject);
+
+        _weaponSocketTr = transform.Find($"{modelName}/mixamorig:Hips/mixamorig:Spine/mixamorig:Spine1/mixamorig:Spine2/mixamorig:RightShoulder/mixamorig:RightArm/mixamorig:RightForeArm/mixamorig:RightHand/WeaponSocket");
+    }
+
+    public void EquipWeapon(int weaponId) {
+        if (_equippedWeaponGo != null) {
+            Managers.Resource.Destroy(_equippedWeaponGo);
+            _equippedWeaponGo = null;
+        }
+
+        IngameScene scene = Managers.Scene.CurrentScene as IngameScene;
+        if (!scene.WeaponPrefabCache.TryGetValue(weaponId, out GameObject weaponPrefab))
+            return;
+
+        _equippedWeaponGo = Object.Instantiate(weaponPrefab, _weaponSocketTr);
+        _equippedWeaponGo.transform.localPosition = Vector3.zero;
+        _equippedWeaponGo.transform.localRotation = Quaternion.identity;
     }
 
     public void ApplyState(PlayerStateData data) {

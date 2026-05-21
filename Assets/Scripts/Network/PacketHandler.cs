@@ -620,6 +620,7 @@ public class PacketHandler {
         PlayerSpawnData data = new PlayerSpawnData {
             ObjectId      = obj.ObjectId,
             CharacterType = pkt.CharacterType,
+            WeaponId      = pkt.WeaponId,
             Position      = new UnityEngine.Vector3(pos.X, pos.Y, pos.Z),
             Rotation      = rotation
         };
@@ -669,6 +670,7 @@ public class PacketHandler {
             playerSpawnDatas.Add(new PlayerSpawnData {
                 ObjectId      = obj.ObjectId,
                 CharacterType = player.CharacterType,
+                WeaponId      = player.WeaponId,
                 Position      = new UnityEngine.Vector3(pos.X, pos.Y, pos.Z),
                 Rotation      = rotation
             });

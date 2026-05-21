@@ -13,6 +13,7 @@ public struct ObjectData {
 public struct PlayerSpawnData {
     public uint ObjectId;
     public int CharacterType;
+    public int WeaponId;
     public UnityEngine.Vector3 Position;
     public UnityEngine.Quaternion Rotation;
 }

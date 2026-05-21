@@ -17,6 +17,8 @@
 - [x] (2026-05-21 #0) `PlayerController.EquipWeapon(int weaponId)` 구현 — weaponId로 `Resources/Prefabs/Weapons/Weapon_{id}_{name}` 프리팹을 캐시 딕셔너리에서 조회·장착. `_equippedWeaponGo`로 무기만 추적하여 WeaponSocket 내 LeftHandIKTarget 등 기존 자식에 영향 없이 교체
 - [x] (2026-05-21 #1) `IngameInventory` 무기 전환 기능 — `_emptySlotIdx`+`FindEmptySlotIdx()` 빈 슬롯 추적, `_isPrimaryWeaponApplyed` 현재 적용 무기 관리, `GetIngameScene()` 늦은 참조, `InitWeapon()` 초기 무기 장착(주무기 우선→보조무기 폴백), `ApplyWeapon(bool)` 주/보조무기 전환·`EquipWeapon` 연동. `IngameScene.PlayerController` 프로퍼티 추가
 - [x] (2026-05-21 #2) 인게임 초기 무기 장착 자동화 — `IngameScene`에 `_itemLoaded`·`_weaponInitialized` 플래그 + `TryInitWeapon()` 추가. `_spawnCompleted`와 `_itemLoaded` 양쪽 모두 true인 시점에 1회만 `InitWeapon()` 실행. `PacketHandler.Handle_D2CFullInventorySync`에서 `_itemLoaded = true` + `TryInitWeapon()` 호출
+- [x] (2026-05-21 #3) WeaponPrefabCache 공유화 — `_weaponPrefabCache`를 `PlayerController`에서 `IngameScene`으로 이동. lazy init getter(`WeaponPrefabCache`) 제공. `PlayerController`·`OppoPlayerController` 모두 공유 캐시 참조
+- [x] (2026-05-21 #4) OppoPlayer 무기 장착 — `OppoPlayerController.EquipWeapon()` 추가, `PlayerSpawnData`에 `WeaponId` 필드 추가, `PacketHandler`에서 `pkt.WeaponId` 추출, `IngameScene.SpawnPlayerObject()`에서 스폰 시 `EquipWeapon()` 호출
 
 ### 기타
 
@@ -27,8 +29,6 @@
 - [x] (2026-05-19 #3) `LobbySettingUI` 세팅 변경 감지 — `HasChanges()` 메서드 추가(8개 설정값을 SettingManager와 비교), `OnClickApply`/`OnClickCancel`에 적용하여 변경 없으면 팝업 없이 바로 닫기
 
 ### 버그 수정
-
-- [x] (2026-05-18 #7) 빌드 환경 걷기 속도 이상 수정 — `SettingManager.Init()`에서 `Application.targetFrameRate` 기본 적용, `LobbySettingUI.ApplySetting()` 구현. 빌드 시 무제한 fps로 인해 walkSpeed의 프레임당 이동량이 CharacterController.minMoveDistance 이하로 떨어지는 문제 해결
 
 ---
 
