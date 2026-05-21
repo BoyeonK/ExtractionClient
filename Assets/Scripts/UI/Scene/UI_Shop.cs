@@ -128,7 +128,7 @@ public class UI_Shop : UI_Scene {
             _totalPrice.text = _selectedItemPrice.ToString();
 
             ItemType type = ItemTypeHelper.GetType(_selectedItemId);
-            bool canStack = type != ItemType.Weapon && type != ItemType.Equipment;
+            bool canStack = type != ItemType.Weapon && type != ItemType.Armor;
             _plusBtn.gameObject.SetActive(canStack);
             _minusBtn.gameObject.SetActive(canStack);
         } else {
@@ -217,7 +217,7 @@ public class UI_Shop : UI_Scene {
 
     private ItemType TabToItemType(SelectedTab tab) => tab switch {
         SelectedTab.Weapon    => ItemType.Weapon,
-        SelectedTab.Equipment => ItemType.Equipment,
+        SelectedTab.Equipment => ItemType.Armor,
         SelectedTab.Ammo      => ItemType.Ammo,
         SelectedTab.Misc      => ItemType.Misc,
         _                     => ItemType.None,

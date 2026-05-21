@@ -35,7 +35,7 @@ public class UI_Inventory : UI_ItemRepo {
 
         _weaponSlot1?.Init(LOADOUT_START + 0, _scene, ItemType.Weapon);
         _weaponSlot2?.Init(LOADOUT_START + 1, _scene, ItemType.Weapon);
-        _equipSlot?.  Init(LOADOUT_START + 2, _scene, ItemType.Equipment);
+        _equipSlot?.  Init(LOADOUT_START + 2, _scene, ItemType.Armor);
 
         base.OnInitComplete();
     }

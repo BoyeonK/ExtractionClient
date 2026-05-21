@@ -1,6 +1,6 @@
 # 프로젝트 진행 상황
 
-> 최종 수정: 2026-05-21
+> 최종 수정: 2026-05-22
 > 장르: 멀티플레이어 Extraction 게임 (알파 단계)
 > 엔진: Unity 6000.4.0f1 / URP 17.4.0
 
@@ -11,8 +11,6 @@
 ### UI
 
 ### 네트워크
-- [x] (2026-05-19 #4) CUSTOM 로드아웃 무기 장착 검증 — `LobbyScene.TryMatchMake()`에서 CUSTOM 선택 시 무기 슬롯(주무기/보조무기) 하나 이상 장착 필수 사전 검증 + 팝업, `HTTPManager.StartMatchCall()` 에러 로그에 서버 에러 코드 포함
-- [x] (2026-05-20 #0) `IngameInventory` 클래스 신설 — 인게임 인벤토리 상태 관리 전담(inventoryVersion, inventorySlots[25], primaryWeapon, secondaryWeapon, armor). `IngameScene`이 멤버(`Inventory`)로 보유
 - [x] (2026-05-20 #1) `D2CFullInventorySync` 패킷 핸들러 — `PacketHandler`에 핸들러 등록·구현. Protobuf `InventorySlot` → `InventoryItem` 변환 후 `IngameScene.Inventory.ApplyFullSync()` 호출
 - [x] (2026-05-21 #0) `PlayerController.EquipWeapon(int weaponId)` 구현 — weaponId로 `Resources/Prefabs/Weapons/Weapon_{id}_{name}` 프리팹을 캐시 딕셔너리에서 조회·장착. `_equippedWeaponGo`로 무기만 추적하여 WeaponSocket 내 LeftHandIKTarget 등 기존 자식에 영향 없이 교체
 - [x] (2026-05-21 #1) `IngameInventory` 무기 전환 기능 — `_emptySlotIdx`+`FindEmptySlotIdx()` 빈 슬롯 추적, `_isPrimaryWeaponApplyed` 현재 적용 무기 관리, `GetIngameScene()` 늦은 참조, `InitWeapon()` 초기 무기 장착(주무기 우선→보조무기 폴백), `ApplyWeapon(bool)` 주/보조무기 전환·`EquipWeapon` 연동. `IngameScene.PlayerController` 프로퍼티 추가
@@ -22,11 +20,9 @@
 
 ### 기타
 
-
-- [x] (2026-05-19 #0) `LobbySettingUI` General 탭 — 마우스 감도 슬라이더(0.1~5.0, 0.1단위 스냅) + 값 텍스트 구현, `SettingManager` 연동
-- [x] (2026-05-19 #1) `LobbySettingUI` Graphic 탭 — 화면 모드(창/전체화면 토글), 해상도(좌우 순환, `Define.Resolution` 참조), 프레임레이트(좌우 순환, `Define.FrameRate` 참조), FOV 슬라이더(60~90) 구현
 - [x] (2026-05-19 #2) `LobbySettingUI` Audio 탭 — 마스터/이펙트/음악 볼륨 슬라이더(0~100) 구현 + `SettingManager.SetVolume()`에 마스터 볼륨 곱 적용, `SetMasterVolume()` 호출 시 Effect/Bgm 즉시 재적용
 - [x] (2026-05-19 #3) `LobbySettingUI` 세팅 변경 감지 — `HasChanges()` 메서드 추가(8개 설정값을 SettingManager와 비교), `OnClickApply`/`OnClickCancel`에 적용하여 변경 없으면 팝업 없이 바로 닫기
+- [x] (2026-05-22 #0) `ItemType.Equipment` → `ItemType.Armor` 리네이밍 — enum 정의(`ItemTypeHelper.cs`) 및 참조 4개 파일(`UI_Shop`, `UI_Inventory`, `ISlot`) 일괄 변경
 
 ### 버그 수정
 

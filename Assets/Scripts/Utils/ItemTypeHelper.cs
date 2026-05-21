@@ -1,13 +1,13 @@
 using System.Collections.Generic;
 
-public enum ItemType { None, Weapon, Equipment, Ammo, Misc }
+public enum ItemType { None, Weapon, Armor, Ammo, Misc }
 
 public static class ItemTypeHelper {
     static Dictionary<int, ItemType> _typeMap = new() {
         { 1, ItemType.Weapon },
         { 2, ItemType.Weapon },
         { 3, ItemType.Weapon },
-        { 4, ItemType.Equipment },
+        { 4, ItemType.Armor },
         { 5, ItemType.Ammo },
         { 6, ItemType.Ammo },
         { 7, ItemType.Misc },
