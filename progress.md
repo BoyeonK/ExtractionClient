@@ -1,6 +1,6 @@
 # 프로젝트 진행 상황
 
-> 최종 수정: 2026-05-26
+> 최종 수정: 2026-05-27
 > 장르: 멀티플레이어 Extraction 게임 (알파 단계)
 > 엔진: Unity 6000.4.0f1 / URP 17.4.0
 
@@ -20,9 +20,9 @@
 
 ### 기타
 
-- [x] (2026-05-19 #2) `LobbySettingUI` Audio 탭 — 마스터/이펙트/음악 볼륨 슬라이더(0~100) 구현 + `SettingManager.SetVolume()`에 마스터 볼륨 곱 적용, `SetMasterVolume()` 호출 시 Effect/Bgm 즉시 재적용
 - [x] (2026-05-19 #3) `LobbySettingUI` 세팅 변경 감지 — `HasChanges()` 메서드 추가(8개 설정값을 SettingManager와 비교), `OnClickApply`/`OnClickCancel`에 적용하여 변경 없으면 팝업 없이 바로 닫기
 - [x] (2026-05-22 #0) `ItemType.Equipment` → `ItemType.Armor` 리네이밍 — enum 정의(`ItemTypeHelper.cs`) 및 참조 4개 파일(`UI_Shop`, `UI_Inventory`, `ISlot`) 일괄 변경
+- [x] (2026-05-27 #0) `ItemTypeHelper` → `ItemDBHelper` 대체 — `ItemDB`/`WeaponSpec`/`ArmorSpec` 구조체 포함 통합 아이템 DB 헬퍼 도입. `ISlot`, `LSlot`, `UI_Shop` 참조 교체, `ItemTypeHelper.cs` 삭제
 
 ### 버그 수정
 

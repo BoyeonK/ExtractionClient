@@ -86,7 +86,7 @@ public class ISlot : MonoBehaviour {
 
     public virtual bool CanAcceptItem(InventoryItem item) => true;
     protected virtual bool CanMerge(InventoryItem item) {
-        ItemType type = ItemTypeHelper.GetType(item.item_id);
+        ItemType type = ItemDBHelper.GetType(item.item_id);
         return type != ItemType.Weapon && type != ItemType.Armor;
     }
 

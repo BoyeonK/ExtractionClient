@@ -127,7 +127,7 @@ public class UI_Shop : UI_Scene {
             _quantityTxt.text = "1";
             _totalPrice.text = _selectedItemPrice.ToString();
 
-            ItemType type = ItemTypeHelper.GetType(_selectedItemId);
+            ItemType type = ItemDBHelper.GetType(_selectedItemId);
             bool canStack = type != ItemType.Weapon && type != ItemType.Armor;
             _plusBtn.gameObject.SetActive(canStack);
             _minusBtn.gameObject.SetActive(canStack);
@@ -231,7 +231,7 @@ public class UI_Shop : UI_Scene {
         foreach (ShopItem item in items) {
             if (slotIndex >= _sSlots.Count) break;
             bool show = tab == SelectedTab.All
-                || ItemTypeHelper.GetType(item.item_id) == TabToItemType(tab);
+                || ItemDBHelper.GetType(item.item_id) == TabToItemType(tab);
             if (show) {
                 _sSlots[slotIndex].SetItem(item);
                 _sSlots[slotIndex].ActiveThis();
@@ -245,7 +245,7 @@ public class UI_Shop : UI_Scene {
             bool stillVisible = false;
             foreach (ShopItem item in items) {
                 if (item.item_id != _selectedItemId) continue;
-                if (tab == SelectedTab.All || ItemTypeHelper.GetType(item.item_id) == TabToItemType(tab))
+                if (tab == SelectedTab.All || ItemDBHelper.GetType(item.item_id) == TabToItemType(tab))
                     stillVisible = true;
                 break;
             }
