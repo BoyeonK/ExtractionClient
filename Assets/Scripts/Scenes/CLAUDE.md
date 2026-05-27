@@ -63,15 +63,17 @@
 | `_primaryWeapon` | `InventoryItem` | 주무기 슬롯 |
 | `_secondaryWeapon` | `InventoryItem` | 보조무기 슬롯 |
 | `_armor` | `InventoryItem` | 방어구 슬롯 |
+| `_primaryWeaponMagazine` | `InventoryItem` | 주무기 탄창 슬롯 |
+| `_secondaryWeaponMagazine` | `InventoryItem` | 보조무기 탄창 슬롯 |
 | `_emptySlotIdx` | `int` | 비어있는 슬롯 인덱스 최솟값 (없으면 -1) |
 | `_isPrimaryWeaponApplyed` | `bool` | 현재 주무기 적용 중 여부 (true=주무기, false=보조무기) |
 
 - **`GetIngameScene()`**: 늦은 참조로 `Managers.Scene.CurrentScene as IngameScene`을 캐싱하여 반환
-- **`ApplyFullSync()`**: 전체 인벤토리 일괄 덮어쓰기 (version + slots + weapon + armor), 완료 후 `FindEmptySlotIdx()` 자동 호출
+- **`ApplyFullSync()`**: 전체 인벤토리 일괄 덮어쓰기 (version + slots + weapon + armor + magazine), 완료 후 `FindEmptySlotIdx()` 자동 호출
 - **`FindEmptySlotIdx()`**: `_inventorySlots` 순회하여 첫 번째 빈 슬롯 인덱스를 `_emptySlotIdx`에 갱신 후 반환
 - **`InitWeapon()`**: 초기 무기 장착. 주무기 우선, 없으면 보조무기로 폴백하여 `EquipWeapon()` 호출 + `_isPrimaryWeaponApplyed` 설정
 - **`ApplyWeapon(bool primary)`**: 주/보조무기 전환. `_isPrimaryWeaponApplyed` 상태와 무기 존재 여부를 검증 후 `IngameScene.PlayerController.EquipWeapon()` 호출
-- **`SetInventorySlot(index, item)`** / **`SetPrimaryWeapon()`** / **`SetSecondaryWeapon()`** / **`SetArmor()`**: 개별 슬롯 갱신
+- **`SetInventorySlot(index, item)`** / **`SetPrimaryWeapon()`** / **`SetSecondaryWeapon()`** / **`SetArmor()`** / **`SetPrimaryWeaponMagazine()`** / **`SetSecondaryWeaponMagazine()`**: 개별 슬롯 갱신
 - 외부 접근: `ingameScene.Inventory.XXX`
 
 ## 다른 플레이어 관리

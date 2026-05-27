@@ -759,14 +759,16 @@ public class PacketHandler {
                 slots[slot.SlotIndex] = item;
         }
 
-        InventoryItem primaryWeapon   = ToInventoryItem(pkt.PrimaryWeapon);
-        InventoryItem secondaryWeapon = ToInventoryItem(pkt.SecondaryWeapon);
-        InventoryItem armor           = ToInventoryItem(pkt.Armor);
-        uint inventoryVersion         = pkt.InventoryVersion;
+        InventoryItem primaryWeapon            = ToInventoryItem(pkt.PrimaryWeapon);
+        InventoryItem secondaryWeapon          = ToInventoryItem(pkt.SecondaryWeapon);
+        InventoryItem armor                    = ToInventoryItem(pkt.Armor);
+        InventoryItem primaryWeaponMagazine    = ToInventoryItem(pkt.PrimaryWeaponMagazine);
+        InventoryItem secondaryWeaponMagazine  = ToInventoryItem(pkt.SecondaryWeaponMagazine);
+        uint inventoryVersion                  = pkt.InventoryVersion;
 
         Managers.ExecuteAtMainThread(() => {
             if (Managers.Scene.CurrentScene is not IngameScene ingameScene) return;
-            ingameScene.Inventory.ApplyFullSync(inventoryVersion, slots, primaryWeapon, secondaryWeapon, armor);
+            ingameScene.Inventory.ApplyFullSync(inventoryVersion, slots, primaryWeapon, secondaryWeapon, armor, primaryWeaponMagazine, secondaryWeaponMagazine);
             ingameScene._itemLoaded = true;
             ingameScene.TryInitWeapon();
         });

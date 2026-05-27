@@ -6,6 +6,8 @@ public class IngameInventory {
     private InventoryItem _primaryWeapon;
     private InventoryItem _secondaryWeapon;
     private InventoryItem _armor;
+    private InventoryItem _primaryWeaponMagazine;
+    private InventoryItem _secondaryWeaponMagazine;
     private int _emptySlotIdx = 0;
     private bool _isPrimaryWeaponApplyed = true;
 
@@ -22,9 +24,12 @@ public class IngameInventory {
     public InventoryItem PrimaryWeapon => _primaryWeapon;
     public InventoryItem SecondaryWeapon => _secondaryWeapon;
     public InventoryItem Armor => _armor;
+    public InventoryItem PrimaryWeaponMagazine => _primaryWeaponMagazine;
+    public InventoryItem SecondaryWeaponMagazine => _secondaryWeaponMagazine;
 
     public void ApplyFullSync(uint inventoryVersion, InventoryItem[] slots,
-        InventoryItem primaryWeapon, InventoryItem secondaryWeapon, InventoryItem armor) {
+        InventoryItem primaryWeapon, InventoryItem secondaryWeapon, InventoryItem armor,
+        InventoryItem primaryWeaponMagazine, InventoryItem secondaryWeaponMagazine) {
         _inventoryVersion = inventoryVersion;
 
         System.Array.Clear(_inventorySlots, 0, _inventorySlots.Length);
@@ -37,6 +42,8 @@ public class IngameInventory {
         _primaryWeapon = primaryWeapon;
         _secondaryWeapon = secondaryWeapon;
         _armor = armor;
+        _primaryWeaponMagazine = primaryWeaponMagazine;
+        _secondaryWeaponMagazine = secondaryWeaponMagazine;
 
         FindEmptySlotIdx();
     }
@@ -87,4 +94,6 @@ public class IngameInventory {
     public void SetPrimaryWeapon(InventoryItem item) => _primaryWeapon = item;
     public void SetSecondaryWeapon(InventoryItem item) => _secondaryWeapon = item;
     public void SetArmor(InventoryItem item) => _armor = item;
+    public void SetPrimaryWeaponMagazine(InventoryItem item) => _primaryWeaponMagazine = item;
+    public void SetSecondaryWeaponMagazine(InventoryItem item) => _secondaryWeaponMagazine = item;
 }
