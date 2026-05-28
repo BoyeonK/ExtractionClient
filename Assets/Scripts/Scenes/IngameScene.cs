@@ -16,6 +16,10 @@ public class IngameScene : BaseScene {
     private int _characterType = -1;
     private uint _myObjectId = 0;
 
+    // ── HP ──
+    private float _maxHp = 100f;
+    private float _currentHp = 100f;
+
     private GameObject _characterGo;
     private PlayerController _playerController;
     public PlayerController PlayerController => _playerController;
