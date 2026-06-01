@@ -11,6 +11,10 @@ public class IngameInventory {
     private int _emptySlotIdx = 0;
     private bool _isPrimaryWeaponApplyed = true;
 
+    private const int CONTAINER_SLOT_COUNT = 25;
+    private InventoryItem[] _interactingContainerSlots = new InventoryItem[CONTAINER_SLOT_COUNT];
+    private uint _interactingContainerVersion = 0;
+
     public IngameScene GetIngameScene() {
         if (_owner == null)
             _owner = Managers.Scene.CurrentScene as IngameScene;
@@ -18,6 +22,7 @@ public class IngameInventory {
     }
 
     public uint InventoryVersion => _inventoryVersion;
+    public uint InteractingContainerVersion => _interactingContainerVersion;
     public int EmptySlotIdx => _emptySlotIdx;
     public bool IsPrimaryWeaponApplyed { get => _isPrimaryWeaponApplyed; set => _isPrimaryWeaponApplyed = value; }
     public InventoryItem[] InventorySlots => _inventorySlots;

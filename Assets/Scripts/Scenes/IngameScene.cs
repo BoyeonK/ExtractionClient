@@ -39,6 +39,9 @@ public class IngameScene : BaseScene {
     private IngameInventory _inventory = new IngameInventory();
     public IngameInventory Inventory => _inventory;
 
+    IngameISlot _ingameDragSourceSlot;
+    IngameDragGhost _ingameDragGhost;
+
     protected override void Init() {
         base.Init();
         foreach (ObjectData data in Managers.Scene.NextSceneStaticContext.ObjectDatas)
@@ -160,5 +163,4 @@ public class IngameScene : BaseScene {
             _playerController.MovementState
         );
     }
-
 }
