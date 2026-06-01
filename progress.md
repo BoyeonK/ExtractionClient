@@ -1,6 +1,6 @@
 # 프로젝트 진행 상황
 
-> 최종 수정: 2026-05-27
+> 최종 수정: 2026-06-01
 > 장르: 멀티플레이어 Extraction 게임 (알파 단계)
 > 엔진: Unity 6000.4.0f1 / URP 17.4.0
 
@@ -17,6 +17,7 @@
 - [x] (2026-05-21 #3) WeaponPrefabCache 공유화 — `_weaponPrefabCache`를 `PlayerController`에서 `IngameScene`으로 이동. lazy init getter(`WeaponPrefabCache`) 제공. `PlayerController`·`OppoPlayerController` 모두 공유 캐시 참조
 - [x] (2026-05-21 #4) OppoPlayer 무기 장착 — `OppoPlayerController.EquipWeapon()` 추가, `PlayerSpawnData`에 `WeaponId` 필드 추가, `PacketHandler`에서 `pkt.WeaponId` 추출, `IngameScene.SpawnPlayerObject()`에서 스폰 시 `EquipWeapon()` 호출
 - [x] (2026-05-26 #0) `IngameInventory` 탄창 슬롯 추가 — `_primaryWeaponMagazine`·`_secondaryWeaponMagazine` 필드/프로퍼티/setter 추가, `ApplyFullSync()` 파라미터 확장, `PacketHandler`에서 `pkt.PrimaryWeaponMagazine`·`pkt.SecondaryWeaponMagazine` 변환·전달
+- [x] (2026-06-01 #0) 컨테이너 패킷 핸들러/헬퍼 구현 — `UDPManager`에 `SendC2DRequestOpenContainer`·`SendC2DCloseContainer` 추가, `PacketHandler`에 `Handle_D2CResponseOpenContainer` 구현·등록, `IngameInventory.ApplyContainerSync()` 추가(슬롯 30개), `ContainerController.RequestOpenContainer()` 연결
 
 ### 기타
 

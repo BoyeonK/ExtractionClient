@@ -5,6 +5,16 @@ public class ContainerCollider : MonoBehaviour {
     public ContainerController OwnerController => _ownerController;
 
     public void RegisterOwner(ContainerController ownerController) {
+        if (ownerController == null)
+            return;
+
         _ownerController = ownerController;
+    }
+
+    public void OnPressInteractBtn() {
+        if (_ownerController == null)
+            return;
+
+        _ownerController.RequestOpenContainer();
     }
 }

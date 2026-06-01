@@ -213,4 +213,16 @@ public class UDPManager {
         };
         SendUnreliable((ushort)GameProtocol.PktId.C2DUpdatePlayerState, pkt);
     }
+
+    public void SendC2DRequestOpenContainer(uint containerObjectId) {
+        C2DRequestOpenContainer pkt = new C2DRequestOpenContainer {
+            ContainerObjectId = containerObjectId
+        };
+        SendReliable((ushort)GameProtocol.PktId.C2DRequestOpenContainer, pkt);
+    }
+
+    public void SendC2DCloseContainer() {
+        C2DCloseContainer pkt = new C2DCloseContainer { };
+        SendReliable((ushort)GameProtocol.PktId.C2DCloseContainer, pkt);
+    }
 }

@@ -11,7 +11,7 @@ public class IngameInventory {
     private int _emptySlotIdx = 0;
     private bool _isPrimaryWeaponApplyed = true;
 
-    private const int CONTAINER_SLOT_COUNT = 25;
+    private const int CONTAINER_SLOT_COUNT = 30;
     private InventoryItem[] _interactingContainerSlots = new InventoryItem[CONTAINER_SLOT_COUNT];
     private uint _interactingContainerVersion = 0;
 
@@ -26,6 +26,7 @@ public class IngameInventory {
     public int EmptySlotIdx => _emptySlotIdx;
     public bool IsPrimaryWeaponApplyed { get => _isPrimaryWeaponApplyed; set => _isPrimaryWeaponApplyed = value; }
     public InventoryItem[] InventorySlots => _inventorySlots;
+    public InventoryItem[] InteractingContainerSlots => _interactingContainerSlots;
     public InventoryItem PrimaryWeapon => _primaryWeapon;
     public InventoryItem SecondaryWeapon => _secondaryWeapon;
     public InventoryItem Armor => _armor;
@@ -53,6 +54,14 @@ public class IngameInventory {
         FindEmptySlotIdx();
     }
 
+    public void ApplyContainerSync(uint containerVersion, InventoryItem[] slots) {
+        _interactingContainerVersion = containerVersion;
+        System.Array.Clear(_interactingContainerSlots, 0, _interactingContainerSlots.Length);
+        if (slots != null) {
+            for (int i = 0; i < slots.Length && i < CONTAINER_SLOT_COUNT; i++)
+                _interactingContainerSlots[i] = slots[i];
+        }
+    }
 
     public int FindEmptySlotIdx() {
         _emptySlotIdx = -1;

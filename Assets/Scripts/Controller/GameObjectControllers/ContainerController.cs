@@ -1,7 +1,17 @@
 using UnityEngine;
 
 public class ContainerController : GameObjectController {
+    ContainerCollider _containerCollider;
+
     public void RequestOpenContainer() {
-        // TODO : 서버에 RequestOpenContainer 패킷 전송
+        Managers.Network.udpManager.SendC2DRequestOpenContainer((uint)_objectId);
+    }
+
+    protected void RegisterCollider(ContainerCollider collider) {
+        if (collider == null)
+            return;
+
+        _containerCollider = collider;
+        collider.RegisterOwner(this);
     }
 }
