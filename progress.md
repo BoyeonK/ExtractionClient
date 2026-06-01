@@ -9,9 +9,9 @@
 ## 완료된 것들
 
 ### UI
+- [x] (2026-06-01 #4) IngameScene Init() UI 바인딩 — `IngameInventoryUI`, `IngameDragGhost`, `InteractUI`, `IngameHealthBarUI` 4개 MonoBehaviour UI를 `GameObject.Find()` + `Init()` 패턴으로 연결. `InteractUI.cs` 신규 생성 (CanInteract 상태에 따라 텍스트 표시/숨김)
 
 ### 네트워크
-- [x] (2026-05-21 #2) 인게임 초기 무기 장착 자동화 — `IngameScene`에 `_itemLoaded`·`_weaponInitialized` 플래그 + `TryInitWeapon()` 추가. `_spawnCompleted`와 `_itemLoaded` 양쪽 모두 true인 시점에 1회만 `InitWeapon()` 실행. `PacketHandler.Handle_D2CFullInventorySync`에서 `_itemLoaded = true` + `TryInitWeapon()` 호출
 - [x] (2026-05-21 #3) WeaponPrefabCache 공유화 — `_weaponPrefabCache`를 `PlayerController`에서 `IngameScene`으로 이동. lazy init getter(`WeaponPrefabCache`) 제공. `PlayerController`·`OppoPlayerController` 모두 공유 캐시 참조
 - [x] (2026-05-21 #4) OppoPlayer 무기 장착 — `OppoPlayerController.EquipWeapon()` 추가, `PlayerSpawnData`에 `WeaponId` 필드 추가, `PacketHandler`에서 `pkt.WeaponId` 추출, `IngameScene.SpawnPlayerObject()`에서 스폰 시 `EquipWeapon()` 호출
 - [x] (2026-05-26 #0) `IngameInventory` 탄창 슬롯 추가 — `_primaryWeaponMagazine`·`_secondaryWeaponMagazine` 필드/프로퍼티/setter 추가, `ApplyFullSync()` 파라미터 확장, `PacketHandler`에서 `pkt.PrimaryWeaponMagazine`·`pkt.SecondaryWeaponMagazine` 변환·전달

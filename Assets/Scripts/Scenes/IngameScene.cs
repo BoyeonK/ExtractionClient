@@ -55,6 +55,9 @@ public class IngameScene : BaseScene {
 
     IngameISlot _ingameDragSourceSlot;
     IngameDragGhost _ingameDragGhost;
+    IngameInventoryUI _ingameInventoryUI;
+    InteractUI _interactUI;
+    IngameHealthBarUI _ingameHealthBarUI;
 
     protected override void Init() {
         base.Init();
@@ -62,6 +65,29 @@ public class IngameScene : BaseScene {
             Managers.Resource.InstantiateFromObjectDataStruct(data);
         
         Managers.Scene.ResetLoadSceneOp();
+
+        GameObject inventoryObj = GameObject.Find("IngameInventoryUI");
+        if (inventoryObj != null) {
+            _ingameInventoryUI = inventoryObj.GetComponent<IngameInventoryUI>();
+            _ingameInventoryUI.Init(this);
+        }
+
+        GameObject dragGhostObj = GameObject.Find("IngameDragGhost");
+        if (dragGhostObj != null) {
+            _ingameDragGhost = dragGhostObj.GetComponent<IngameDragGhost>();
+            _ingameDragGhost.Init();
+        }
+
+        GameObject interactObj = GameObject.Find("InteractUI");
+        if (interactObj != null) {
+            _interactUI = interactObj.GetComponent<InteractUI>();
+            _interactUI.Init(this);
+        }
+
+        GameObject healthBarObj = GameObject.Find("IngameHealthBarUI");
+        if (healthBarObj != null) {
+            _ingameHealthBarUI = healthBarObj.GetComponent<IngameHealthBarUI>();
+        }
     }
 
     public void TryCompleteSpawnMe() {
@@ -169,6 +195,8 @@ public class IngameScene : BaseScene {
             _playerStateTimer = 0f;
             SendPlayerState();
         }
+
+        // 인터랙션 UI 업데이트
     }
 
     private void SendPlayerState() {

@@ -18,6 +18,17 @@ UI_Base (abstract)
 - **인벤토리 데이터 소유**: `LobbyScene`이 `_inventorySlots`, `_loadoutSlots`, `_warehouseSlots` 배열 소유. UI는 뷰 역할만 — `SetItemAtSlot()`이 scene setter + Refresh 담당. `SyncSlot` 없음
 - **Shift+클릭 분할**: `LobbyScene.OnSlotClick()` — 수량을 절반으로 나눠 `FirstEmptySlot`에 배치. 인벤토리/창고 각각 독립 처리
 
+## 씬 내장 UI (`IngameSceneUI/`)
+
+UIManager가 아닌 씬 자체에 존재하는 MonoBehaviour UI 오브젝트. `IngameScene.Init()`에서 `GameObject.Find()`로 바인딩 + `Init()` 호출:
+
+| 클래스 | Init 시그니처 | 역할 |
+|--------|---------------|------|
+| `IngameInventoryUI` | `Init(IngameScene)` | 인게임 인벤토리 그리드 + 장비 슬롯 |
+| `IngameDragGhost` | `Init()` | 드래그 중 아이템 고스트 이미지 |
+| `InteractUI` | `Init(IngameScene)` | 상호작용 안내 텍스트 (CanInteract 상태 연동) |
+| `IngameHealthBarUI` | 없음 | HP/방어구 게이지 |
+
 ## 씬 내장 UI (`LobbySceneUI/`)
 
 UIManager가 아닌 씬 자체에 존재하는 MonoBehaviour UI 오브젝트. `LobbyScene.Init()`에서 `GameObject.Find()`로 바인딩 + `Init()` 호출:
