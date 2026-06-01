@@ -11,17 +11,17 @@
 ### UI
 
 ### 네트워크
-- [x] (2026-05-21 #0) `PlayerController.EquipWeapon(int weaponId)` 구현 — weaponId로 `Resources/Prefabs/Weapons/Weapon_{id}_{name}` 프리팹을 캐시 딕셔너리에서 조회·장착. `_equippedWeaponGo`로 무기만 추적하여 WeaponSocket 내 LeftHandIKTarget 등 기존 자식에 영향 없이 교체
-- [x] (2026-05-21 #1) `IngameInventory` 무기 전환 기능 — `_emptySlotIdx`+`FindEmptySlotIdx()` 빈 슬롯 추적, `_isPrimaryWeaponApplyed` 현재 적용 무기 관리, `GetIngameScene()` 늦은 참조, `InitWeapon()` 초기 무기 장착(주무기 우선→보조무기 폴백), `ApplyWeapon(bool)` 주/보조무기 전환·`EquipWeapon` 연동. `IngameScene.PlayerController` 프로퍼티 추가
 - [x] (2026-05-21 #2) 인게임 초기 무기 장착 자동화 — `IngameScene`에 `_itemLoaded`·`_weaponInitialized` 플래그 + `TryInitWeapon()` 추가. `_spawnCompleted`와 `_itemLoaded` 양쪽 모두 true인 시점에 1회만 `InitWeapon()` 실행. `PacketHandler.Handle_D2CFullInventorySync`에서 `_itemLoaded = true` + `TryInitWeapon()` 호출
 - [x] (2026-05-21 #3) WeaponPrefabCache 공유화 — `_weaponPrefabCache`를 `PlayerController`에서 `IngameScene`으로 이동. lazy init getter(`WeaponPrefabCache`) 제공. `PlayerController`·`OppoPlayerController` 모두 공유 캐시 참조
 - [x] (2026-05-21 #4) OppoPlayer 무기 장착 — `OppoPlayerController.EquipWeapon()` 추가, `PlayerSpawnData`에 `WeaponId` 필드 추가, `PacketHandler`에서 `pkt.WeaponId` 추출, `IngameScene.SpawnPlayerObject()`에서 스폰 시 `EquipWeapon()` 호출
 - [x] (2026-05-26 #0) `IngameInventory` 탄창 슬롯 추가 — `_primaryWeaponMagazine`·`_secondaryWeaponMagazine` 필드/프로퍼티/setter 추가, `ApplyFullSync()` 파라미터 확장, `PacketHandler`에서 `pkt.PrimaryWeaponMagazine`·`pkt.SecondaryWeaponMagazine` 변환·전달
 - [x] (2026-06-01 #0) 컨테이너 패킷 핸들러/헬퍼 구현 — `UDPManager`에 `SendC2DRequestOpenContainer`·`SendC2DCloseContainer` 추가, `PacketHandler`에 `Handle_D2CResponseOpenContainer` 구현·등록, `IngameInventory.ApplyContainerSync()` 추가(슬롯 30개), `ContainerController.RequestOpenContainer()` 연결
+- [x] (2026-06-01 #1) 네트워크 호출 IngameScene 경유 리팩토링 — `ContainerController.RequestOpenContainer()`의 직접 UDP 호출을 `IngameScene.RequestOpenContainer(uint)` 경유로 변경. 네트워크 호출 추적성 향상
+- [x] (2026-06-01 #2) `InteractableGameObjectController` 중간 클래스 도입 — `GameObjectController` → `InteractableGameObjectController` → `ContainerController` 상속 구조. `_ingameScene` 참조·`_interactText`·`_onInteract` 델리게이트를 중간 클래스에서 관리, `Interact()` 메서드로 다형적 상호작용 호출
+- [x] (2026-06-01 #3) PlayerController Raycast 기반 상호작용 감지 — `ProcessAim()` Raycast 결과를 활용한 `CheckInteractable()` 구현. 거리 2 이내 `InteractableGameObjectController` 감지 시 `IngameScene.SetInteractState()`로 상호작용 가능 여부·텍스트·대상 참조 전달
 
 ### 기타
 
-- [x] (2026-05-19 #3) `LobbySettingUI` 세팅 변경 감지 — `HasChanges()` 메서드 추가(8개 설정값을 SettingManager와 비교), `OnClickApply`/`OnClickCancel`에 적용하여 변경 없으면 팝업 없이 바로 닫기
 - [x] (2026-05-22 #0) `ItemType.Equipment` → `ItemType.Armor` 리네이밍 — enum 정의(`ItemTypeHelper.cs`) 및 참조 4개 파일(`UI_Shop`, `UI_Inventory`, `ISlot`) 일괄 변경
 - [x] (2026-05-27 #0) `ItemTypeHelper` → `ItemDBHelper` 대체 — `ItemDB`/`WeaponSpec`/`ArmorSpec` 구조체 포함 통합 아이템 DB 헬퍼 도입. `ISlot`, `LSlot`, `UI_Shop` 참조 교체, `ItemTypeHelper.cs` 삭제
 

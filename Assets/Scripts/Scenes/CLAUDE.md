@@ -89,3 +89,31 @@
 - **`OppoPlayerController.ApplyState(PlayerStateData)`**: 수신한 상태를 `_targetPosition`·`_yaw`·`_pitch`·`_velocity`·`_movementState`에 저장. 첫 수신 또는 대규모 이동(sqrMagnitude>100)시에만 즉시 텔레포트, 그 외에는 `ProcessMovement()`가 `Vector3.Lerp`+`LerpAngle`로 매 프레임 보간
 - **`OppoPlayerController.ProcessAnimation()`**: `_velocity`를 yaw 기준 로컬 좌표로 변환하여 Animator 파라미터(`MoveX`/`MoveY`/`MovingSpeed`) 구동. PlayerController와 동일 damping(0.1f) 적용
 - **`OppoPlayerController.ProcessAim()`**: yaw+pitch 각도에서 방향 벡터를 계산하여 `_aimTarget`을 가슴 높이(yOffset=0.58f) + 100m 전방에 배치 → MultiAimConstraint가 상체 회전 처리
+
+## 상호작용 상태 관리
+
+`IngameScene`이 현재 상호작용 대상의 상태를 중앙에서 보유한다:
+
+| 필드 | 타입 | 설명 |
+|------|------|------|
+| `_canInteract` | `bool` | 상호작용 가능 여부 |
+| `_interactText` | `string` | 대상의 상호작용 안내 텍스트 |
+| `_interactTarget` | `InteractableGameObjectController` | 현재 상호작용 대상 참조 |
+
+- **`SetInteractState(bool, InteractableGameObjectController)`**: `PlayerController.CheckInteractable()`에서 매 프레임 호출하여 상태 갱신
+- **`RequestOpenContainer(uint containerObjectId)`**: 컨테이너 열기 요청을 UDP로 전송 — `InteractableGameObjectController`의 `_onInteract` 델리게이트를 통해 간접 호출됨
+
+### 게임 오브젝트 컨트롤러 상속 구조
+
+```
+GameObjectController (MonoBehaviour)
+├── PlayerController
+├── OppoPlayerController
+└── InteractableGameObjectController
+      └── ContainerController
+            └── TestItemBoxController
+```
+
+- **`InteractableGameObjectController`**: `_ingameScene` 참조(Init에서 획득), `_interactText`, `Action _onInteract` 델리게이트, `Interact()` 메서드
+- **`ContainerController`**: `Init()`에서 `_onInteract += RequestOpenContainer` 구독
+- **`PlayerController.CheckInteractable(RaycastHit)`**: `ProcessAim()` Raycast 결과를 활용, `GetComponentInParent<InteractableGameObjectController>()` + 거리 2 이하 체크 → `IngameScene.SetInteractState()` 호출

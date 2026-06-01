@@ -17,6 +17,9 @@ public class PlayerController : GameObjectController {
     MultiAimConstraint _constraint;
     Animator _anim;
 
+    // 상호작용
+    IngameScene _ingameScene;
+
     // 장착 무기 정보 연동
     Transform _weaponSocketTr;
     GameObject _equippedWeaponGo;
@@ -51,6 +54,7 @@ public class PlayerController : GameObjectController {
     }
 
     public void Setup(int characterType) {
+        _ingameScene = Managers.Scene.CurrentScene as IngameScene;
         _controller = GetComponent<CharacterController>();
         Transform camTransform = transform.Find("ViewPoint");
         if (camTransform != null) _viewPoint = camTransform.gameObject;
@@ -178,9 +182,20 @@ public class PlayerController : GameObjectController {
         RaycastHit hit;
 
         if (Physics.Raycast(ray, out hit, 1000f)) {
-            _aimTarget.position = hit.point; 
+            _aimTarget.position = hit.point;
+            CheckInteractable(hit);
         } else {
-            _aimTarget.position = ray.GetPoint(1000f); 
+            _aimTarget.position = ray.GetPoint(1000f);
+            _ingameScene.SetInteractState(false, null);
+        }
+    }
+
+    private void CheckInteractable(RaycastHit hit) {
+        InteractableGameObjectController interactable = hit.collider.GetComponentInParent<InteractableGameObjectController>();
+        if (interactable != null && Vector3.Distance(transform.position, hit.collider.transform.position) <= 2f) {
+            _ingameScene.SetInteractState(true, interactable);
+        } else {
+            _ingameScene.SetInteractState(false, null);
         }
     }
 

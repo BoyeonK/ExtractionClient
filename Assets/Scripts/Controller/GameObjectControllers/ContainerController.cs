@@ -1,17 +1,13 @@
 using UnityEngine;
 
-public class ContainerController : GameObjectController {
-    ContainerCollider _containerCollider;
+public class ContainerController : InteractableGameObjectController {
 
-    public void RequestOpenContainer() {
-        Managers.Network.udpManager.SendC2DRequestOpenContainer((uint)_objectId);
+    public override void Init() {
+        base.Init();
+        _onInteract += RequestOpenContainer;
     }
 
-    protected void RegisterCollider(ContainerCollider collider) {
-        if (collider == null)
-            return;
-
-        _containerCollider = collider;
-        collider.RegisterOwner(this);
+    public void RequestOpenContainer() {
+        _ingameScene.RequestOpenContainer((uint)_objectId);
     }
 }

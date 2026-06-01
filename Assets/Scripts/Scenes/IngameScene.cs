@@ -39,6 +39,20 @@ public class IngameScene : BaseScene {
     private IngameInventory _inventory = new IngameInventory();
     public IngameInventory Inventory => _inventory;
 
+    // ── Interact ──
+    private bool _canInteract = false;
+    private string _interactText;
+    private InteractableGameObjectController _interactTarget;
+    public bool CanInteract => _canInteract;
+    public string InteractText => _interactText;
+    public InteractableGameObjectController InteractTarget => _interactTarget;
+
+    public void SetInteractState(bool canInteract, InteractableGameObjectController target) {
+        _canInteract = canInteract;
+        _interactTarget = target;
+        _interactText = target != null ? target.InteractText : null;
+    }
+
     IngameISlot _ingameDragSourceSlot;
     IngameDragGhost _ingameDragGhost;
 
@@ -131,6 +145,10 @@ public class IngameScene : BaseScene {
                 _weaponPrefabCache[id] = prefab;
             }
         }
+    }
+
+    public void RequestOpenContainer(uint containerObjectId) {
+        Managers.Network.udpManager.SendC2DRequestOpenContainer(containerObjectId);
     }
 
     protected void RequestSpawnMe() {
