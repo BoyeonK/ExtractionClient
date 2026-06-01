@@ -13,11 +13,11 @@
 - [x] (2026-06-01 #5) InteractUI Show/Hide + OnUpdate 연동 — `InteractUI`에 `Show(text)`/`Hide()` 메서드 추가, `IngameScene.OnUpdate()`에서 `_canInteract` 상태에 따라 호출
 
 ### 네트워크
-- [x] (2026-05-26 #0) `IngameInventory` 탄창 슬롯 추가 — `_primaryWeaponMagazine`·`_secondaryWeaponMagazine` 필드/프로퍼티/setter 추가, `ApplyFullSync()` 파라미터 확장, `PacketHandler`에서 `pkt.PrimaryWeaponMagazine`·`pkt.SecondaryWeaponMagazine` 변환·전달
 - [x] (2026-06-01 #0) 컨테이너 패킷 핸들러/헬퍼 구현 — `UDPManager`에 `SendC2DRequestOpenContainer`·`SendC2DCloseContainer` 추가, `PacketHandler`에 `Handle_D2CResponseOpenContainer` 구현·등록, `IngameInventory.ApplyContainerSync()` 추가(슬롯 30개), `ContainerController.RequestOpenContainer()` 연결
 - [x] (2026-06-01 #1) 네트워크 호출 IngameScene 경유 리팩토링 — `ContainerController.RequestOpenContainer()`의 직접 UDP 호출을 `IngameScene.RequestOpenContainer(uint)` 경유로 변경. 네트워크 호출 추적성 향상
 - [x] (2026-06-01 #2) `InteractableGameObjectController` 중간 클래스 도입 — `GameObjectController` → `InteractableGameObjectController` → `ContainerController` 상속 구조. `_ingameScene` 참조·`_interactText`·`_onInteract` 델리게이트를 중간 클래스에서 관리, `Interact()` 메서드로 다형적 상호작용 호출
 - [x] (2026-06-01 #3) PlayerController Raycast 기반 상호작용 감지 — `ProcessAim()` Raycast 결과를 활용한 `CheckInteractable()` 구현. 거리 2 이내 `InteractableGameObjectController` 감지 시 `IngameScene.SetInteractState()`로 상호작용 가능 여부·텍스트·대상 참조 전달
+- [x] (2026-06-01 #8) `Handle_D2CResponseOpenContainer` 디버그 로그 추가 — 파싱 직후 `container_object_id`, `container_version`, `container_volume` 값을 `Util.Log`로 출력 (`container_slots` 제외)
 
 ### 상호작용
 - [x] (2026-06-01 #6) `IngameScene.TryInteract()` 메서드 추가 — `_canInteract` + `_interactTarget` null 가드 후 `_interactTarget.Interact()` 호출. 입력 바인딩의 진입점 역할
@@ -25,7 +25,7 @@
 
 ### 기타
 
-- [x] (2026-05-27 #0) `ItemTypeHelper` → `ItemDBHelper` 대체 — `ItemDB`/`WeaponSpec`/`ArmorSpec` 구조체 포함 통합 아이템 DB 헬퍼 도입. `ISlot`, `LSlot`, `UI_Shop` 참조 교체, `ItemTypeHelper.cs` 삭제
+
 
 ### 버그 수정
 

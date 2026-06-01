@@ -790,6 +790,10 @@ public class PacketHandler {
             return;
         }
 
+        Managers.ExecuteAtMainThread(() => {
+            Util.Log($"[D2CResponseOpenContainer] container_object_id={pkt.ContainerObjectId}, container_version={pkt.ContainerVersion}, container_volume={pkt.ContainerVolume}");
+        });
+
         InventoryItem ToInventoryItem(InventorySlot slot) {
             if (slot == null || slot.Item == null) return null;
             return new InventoryItem {
