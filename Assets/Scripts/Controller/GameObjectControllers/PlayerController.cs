@@ -45,6 +45,7 @@ public class PlayerController : GameObjectController {
         Managers.Input.AddKeyListener(Key.D, DDown, InputManager.KeyState.Down);
         Managers.Input.AddKeyListener(Key.LeftShift, ShiftDown, InputManager.KeyState.Down);
         Managers.Input.AddKeyListener(Key.Space, TryJump, InputManager.KeyState.Down);
+        Managers.Input.AddKeyListener(Key.E, TryInteract, InputManager.KeyState.Down);
 
         Managers.Input.AddKeyListener(Key.W, WUp, InputManager.KeyState.Up);
         Managers.Input.AddKeyListener(Key.A, AUp, InputManager.KeyState.Up);
@@ -227,6 +228,7 @@ public class PlayerController : GameObjectController {
     private void DUp() { _d = false; }
     private void ShiftUp() { _shift = false; }
     private void TryJump() { _jump = true; }
+    private void TryInteract() { _ingameScene.TryInteract(); }
 
     private void OnDestroy() {
         if (Managers.Instance == null) return;
@@ -236,6 +238,7 @@ public class PlayerController : GameObjectController {
         Managers.Input.RemoveKeyListener(Key.D, DDown, InputManager.KeyState.Down);
         Managers.Input.RemoveKeyListener(Key.LeftShift, ShiftDown, InputManager.KeyState.Down);
         Managers.Input.RemoveKeyListener(Key.Space, TryJump, InputManager.KeyState.Down);
+        Managers.Input.RemoveKeyListener(Key.E, TryInteract, InputManager.KeyState.Down);
 
         Managers.Input.RemoveKeyListener(Key.W, WUp, InputManager.KeyState.Up);
         Managers.Input.RemoveKeyListener(Key.A, AUp, InputManager.KeyState.Up);

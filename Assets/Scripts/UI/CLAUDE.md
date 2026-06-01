@@ -26,7 +26,7 @@ UIManager가 아닌 씬 자체에 존재하는 MonoBehaviour UI 오브젝트. `I
 |--------|---------------|------|
 | `IngameInventoryUI` | `Init(IngameScene)` | 인게임 인벤토리 그리드 + 장비 슬롯 |
 | `IngameDragGhost` | `Init()` | 드래그 중 아이템 고스트 이미지 |
-| `InteractUI` | `Init(IngameScene)` | 상호작용 안내 텍스트 (CanInteract 상태 연동) |
+| `InteractUI` | `Init(IngameScene)` | 상호작용 안내 텍스트 — `Show(text)`로 텍스트 설정+활성화, `Hide()`로 비활성화. `IngameScene.OnUpdate()`에서 `_canInteract` 상태에 따라 호출 |
 | `IngameHealthBarUI` | 없음 | HP/방어구 게이지 |
 
 ## 씬 내장 UI (`LobbySceneUI/`)

@@ -173,6 +173,12 @@ public class IngameScene : BaseScene {
         }
     }
 
+    public void TryInteract() {
+        if (!_canInteract || _interactTarget == null)
+            return;
+        _interactTarget.Interact();
+    }
+
     public void RequestOpenContainer(uint containerObjectId) {
         Managers.Network.udpManager.SendC2DRequestOpenContainer(containerObjectId);
     }
@@ -197,6 +203,12 @@ public class IngameScene : BaseScene {
         }
 
         // 인터랙션 UI 업데이트
+        if (_interactUI != null) {
+            if (_canInteract)
+                _interactUI.Show(_interactText);
+            else
+                _interactUI.Hide();
+        }
     }
 
     private void SendPlayerState() {

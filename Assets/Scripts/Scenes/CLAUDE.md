@@ -101,6 +101,8 @@
 | `_interactTarget` | `InteractableGameObjectController` | 현재 상호작용 대상 참조 |
 
 - **`SetInteractState(bool, InteractableGameObjectController)`**: `PlayerController.CheckInteractable()`에서 매 프레임 호출하여 상태 갱신
+- **`TryInteract()`**: `_canInteract` + `_interactTarget` null 가드 후 `_interactTarget.Interact()` 호출. `PlayerController`의 E키 입력(`Key.E`, `KeyState.Down`)에 바인딩됨
+- **`OnUpdate()` 인터랙션 UI**: `_canInteract` 상태에 따라 `InteractUI.Show(text)` / `Hide()` 호출
 - **`RequestOpenContainer(uint containerObjectId)`**: 컨테이너 열기 요청을 UDP로 전송 — `InteractableGameObjectController`의 `_onInteract` 델리게이트를 통해 간접 호출됨
 
 ### 게임 오브젝트 컨트롤러 상속 구조

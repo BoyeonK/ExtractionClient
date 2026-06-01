@@ -27,5 +27,7 @@ public class IngameInventoryUI : MonoBehaviour {
         _primaryWeaponSlot?.Init(_scene, ItemType.Weapon);
         _secondaryWeaponSlot?.Init(_scene, ItemType.Weapon);
         _armorSlot?.Init(_scene, ItemType.Armor);
+
+        gameObject.SetActive(false);
     }
 }
