@@ -14,7 +14,8 @@ UI_Base (abstract)
 - **UI는 Destroy 금지 — SetActive 사용**. UIManager가 인스턴스를 캐시하므로 `DisableUI` / `EnableUI` 활용
 - 정렬 순서: SceneUI는 0부터 증가, PopupUI는 20부터 증가, 긴급 팝업은 +1000
 - `UI_Base.BindComponent<T>(path)`: 경로로 자식 컴포넌트를 찾아 반환 (없으면 예외 발생)
-- **슬롯**: `ISlot` (일반) / `LSlot : ISlot` (로드아웃 전용, 타입 제약). 아이템 타입은 `ItemDBHelper`로 item_id 기반 판별. 로드아웃 인덱스는 `UI_Inventory.LOADOUT_START(=25)` 오프셋 사용. Weapon/Equipment는 `ISlot.CanMerge()`로 어느 슬롯에서도 수량 합산 불가
+- **로비 슬롯**: `ISlot` (일반) / `LSlot : ISlot` (로드아웃 전용, 타입 제약). 아이템 타입은 `ItemDBHelper`로 item_id 기반 판별. 로드아웃 인덱스는 `UI_Inventory.LOADOUT_START(=25)` 오프셋 사용. Weapon/Equipment는 `ISlot.CanMerge()`로 어느 슬롯에서도 수량 합산 불가
+- **인게임 슬롯**: `IngameISlot` (일반, slotIndex 0~) / `IngameLSlot : IngameISlot` (장비 전용, slotIndex=-1, `_acceptedType`으로 타입 제약). `IngameLSlot.Init(scene, acceptedType)`이 `base.Init(-1, scene)` 호출하여 eventHandler 바인딩. `CanAcceptItem()` 오버라이드로 아이템 타입 검증
 - **인벤토리 데이터 소유**: `LobbyScene`이 `_inventorySlots`, `_loadoutSlots`, `_warehouseSlots` 배열 소유. UI는 뷰 역할만 — `SetItemAtSlot()`이 scene setter + Refresh 담당. `SyncSlot` 없음
 - **Shift+클릭 분할**: `LobbyScene.OnSlotClick()` — 수량을 절반으로 나눠 `FirstEmptySlot`에 배치. 인벤토리/창고 각각 독립 처리
 
@@ -24,7 +25,7 @@ UIManager가 아닌 씬 자체에 존재하는 MonoBehaviour UI 오브젝트. `I
 
 | 클래스 | Init 시그니처 | 역할 |
 |--------|---------------|------|
-| `IngameInventoryUI` | `Init(IngameScene)` | 인게임 인벤토리 그리드 + 장비 슬롯 |
+| `IngameInventoryUI` | `Init(IngameScene)` | 인게임 인벤토리 그리드 + 장비 슬롯. `SyncMyInventory()`·`SyncEquipment()`·`SyncContainer()`로 `IngameInventory` 데이터→UI 동기화 |
 | `IngameDragGhost` | `Init()` | 드래그 중 아이템 고스트 이미지 |
 | `InteractUI` | `Init(IngameScene)` | 상호작용 안내 텍스트 — `Show(text)`로 텍스트 설정+활성화, `Hide()`로 비활성화. `IngameScene.OnUpdate()`에서 `_canInteract` 상태에 따라 호출 |
 | `IngameHealthBarUI` | 없음 | HP/방어구 게이지 |

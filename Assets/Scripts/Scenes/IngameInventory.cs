@@ -14,6 +14,8 @@ public class IngameInventory {
     private const int CONTAINER_SLOT_COUNT = 30;
     private InventoryItem[] _interactingContainerSlots = new InventoryItem[CONTAINER_SLOT_COUNT];
     private uint _interactingContainerVersion = 0;
+    private uint _interactingContainerObjectId = 0;
+    private uint _interactingContainerVolume = 0;
 
     public IngameScene GetIngameScene() {
         if (_owner == null)
@@ -23,6 +25,8 @@ public class IngameInventory {
 
     public uint InventoryVersion => _inventoryVersion;
     public uint InteractingContainerVersion => _interactingContainerVersion;
+    public uint InteractingContainerObjectId => _interactingContainerObjectId;
+    public uint InteractingContainerVolume => _interactingContainerVolume;
     public int EmptySlotIdx => _emptySlotIdx;
     public bool IsPrimaryWeaponApplyed { get => _isPrimaryWeaponApplyed; set => _isPrimaryWeaponApplyed = value; }
     public InventoryItem[] InventorySlots => _inventorySlots;
@@ -54,13 +58,22 @@ public class IngameInventory {
         FindEmptySlotIdx();
     }
 
-    public void ApplyContainerSync(uint containerVersion, InventoryItem[] slots) {
+    public void ApplyContainerSync(uint containerObjectId, uint containerVersion, uint containerVolume, InventoryItem[] slots) {
+        _interactingContainerObjectId = containerObjectId;
         _interactingContainerVersion = containerVersion;
+        _interactingContainerVolume = containerVolume;
         System.Array.Clear(_interactingContainerSlots, 0, _interactingContainerSlots.Length);
         if (slots != null) {
             for (int i = 0; i < slots.Length && i < CONTAINER_SLOT_COUNT; i++)
                 _interactingContainerSlots[i] = slots[i];
         }
+    }
+
+    public void ClearContainer() {
+        _interactingContainerObjectId = 0;
+        _interactingContainerVersion = 0;
+        _interactingContainerVolume = 0;
+        System.Array.Clear(_interactingContainerSlots, 0, _interactingContainerSlots.Length);
     }
 
     public int FindEmptySlotIdx() {

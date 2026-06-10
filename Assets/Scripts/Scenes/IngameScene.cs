@@ -179,6 +179,28 @@ public class IngameScene : BaseScene {
         _interactTarget.Interact();
     }
 
+    public void SyncInventoryUI() {
+        if (_ingameInventoryUI == null) return;
+        _ingameInventoryUI.SyncMyInventory();
+        _ingameInventoryUI.SyncEquipment();
+    }
+
+    public void ShowOpenedContainer() {
+        if (_ingameInventoryUI == null) return;
+        _ingameInventoryUI.SyncMyInventory();
+        _ingameInventoryUI.SyncEquipment();
+        _ingameInventoryUI.SyncContainer();
+        _ingameInventoryUI.ActiveLootBox();
+    }
+
+    public void CloseContainer() {
+        Managers.Network.udpManager.SendC2DCloseContainer();
+        _inventory.ClearContainer();
+        if (_ingameInventoryUI != null)
+            _ingameInventoryUI.DeactiveThis();
+        SetCursorLock(true);
+    }
+
     public void RequestOpenContainer(uint containerObjectId) {
         Managers.Network.udpManager.SendC2DRequestOpenContainer(containerObjectId);
     }

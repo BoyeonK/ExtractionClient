@@ -67,6 +67,8 @@
 | `_secondaryWeaponMagazine` | `InventoryItem` | 보조무기 탄창 슬롯 |
 | `_emptySlotIdx` | `int` | 비어있는 슬롯 인덱스 최솟값 (없으면 -1) |
 | `_isPrimaryWeaponApplyed` | `bool` | 현재 주무기 적용 중 여부 (true=주무기, false=보조무기) |
+| `_interactingContainerObjectId` | `uint` | 현재 열려있는 컨테이너의 오브젝트 ID (0이면 미열림) |
+| `_interactingContainerVolume` | `uint` | 현재 컨테이너의 사용 가능 슬롯 수 |
 
 - **`GetIngameScene()`**: 늦은 참조로 `Managers.Scene.CurrentScene as IngameScene`을 캐싱하여 반환
 - **`ApplyFullSync()`**: 전체 인벤토리 일괄 덮어쓰기 (version + slots + weapon + armor + magazine), 완료 후 `FindEmptySlotIdx()` 자동 호출
@@ -74,6 +76,8 @@
 - **`InitWeapon()`**: 초기 무기 장착. 주무기 우선, 없으면 보조무기로 폴백하여 `EquipWeapon()` 호출 + `_isPrimaryWeaponApplyed` 설정
 - **`ApplyWeapon(bool primary)`**: 주/보조무기 전환. `_isPrimaryWeaponApplyed` 상태와 무기 존재 여부를 검증 후 `IngameScene.PlayerController.EquipWeapon()` 호출
 - **`SetInventorySlot(index, item)`** / **`SetPrimaryWeapon()`** / **`SetSecondaryWeapon()`** / **`SetArmor()`** / **`SetPrimaryWeaponMagazine()`** / **`SetSecondaryWeaponMagazine()`**: 개별 슬롯 갱신
+- **`ApplyContainerSync(objectId, version, volume, slots)`**: 컨테이너 데이터 일괄 덮어쓰기 (메타데이터 + 슬롯 30개)
+- **`ClearContainer()`**: 컨테이너 메타데이터·슬롯 전체 초기화
 - 외부 접근: `ingameScene.Inventory.XXX`
 
 ## 다른 플레이어 관리
@@ -104,6 +108,9 @@
 - **`TryInteract()`**: `_canInteract` + `_interactTarget` null 가드 후 `_interactTarget.Interact()` 호출. `PlayerController`의 E키 입력(`Key.E`, `KeyState.Down`)에 바인딩됨
 - **`OnUpdate()` 인터랙션 UI**: `_canInteract` 상태에 따라 `InteractUI.Show(text)` / `Hide()` 호출
 - **`RequestOpenContainer(uint containerObjectId)`**: 컨테이너 열기 요청을 UDP로 전송 — `InteractableGameObjectController`의 `_onInteract` 델리게이트를 통해 간접 호출됨
+- **`ShowOpenedContainer()`**: 컨테이너 응답 수신 후 호출. MyInventory+Equipment+Container 동기화 후 LootBox UI 활성화
+- **`CloseContainer()`**: `C2DCloseContainer` 패킷 전송 + `Inventory.ClearContainer()` + UI 숨김 + 커서 잠금 복원
+- **`SyncInventoryUI()`**: `D2CFullInventorySync` 수신 후 호출. MyInventory+Equipment UI 동기화
 
 ### 게임 오브젝트 컨트롤러 상속 구조
 

@@ -1,6 +1,6 @@
 # 프로젝트 진행 상황
 
-> 최종 수정: 2026-06-01
+> 최종 수정: 2026-06-10
 > 장르: 멀티플레이어 Extraction 게임 (알파 단계)
 > 엔진: Unity 6000.4.0f1 / URP 17.4.0
 
@@ -11,10 +11,11 @@
 ### UI
 - [x] (2026-06-01 #4) IngameScene Init() UI 바인딩 — `IngameInventoryUI`, `IngameDragGhost`, `InteractUI`, `IngameHealthBarUI` 4개 MonoBehaviour UI를 `GameObject.Find()` + `Init()` 패턴으로 연결. `InteractUI.cs` 신규 생성 (CanInteract 상태에 따라 텍스트 표시/숨김)
 - [x] (2026-06-01 #5) InteractUI Show/Hide + OnUpdate 연동 — `InteractUI`에 `Show(text)`/`Hide()` 메서드 추가, `IngameScene.OnUpdate()`에서 `_canInteract` 상태에 따라 호출
+- [x] (2026-06-10 #0) IngameInventoryUI 완성 — Init 버그 수정(`_containerSlots` 초기화 순서), Sync 함수 3종(`SyncMyInventory`, `SyncEquipment`, `SyncContainer`) 추가, `IngameLSlot.Init()` 구현(base.Init(-1, scene) + CanAcceptItem 오버라이드)
+- [x] (2026-06-10 #1) 컨테이너 열기/닫기 흐름 연결 — `IngameScene`에 `ShowOpenedContainer()`·`CloseContainer()`·`SyncInventoryUI()` 프록시 메서드 추가, `PacketHandler`에서 D2CFullInventorySync→SyncInventoryUI, D2CResponseOpenContainer→ShowOpenedContainer 호출 연결
+- [x] (2026-06-10 #2) IngameInventory 컨테이너 메타데이터 추가 — `_interactingContainerObjectId`·`_interactingContainerVolume` 필드 추가, `ApplyContainerSync()` 시그니처 확장, `ClearContainer()` 메서드 추가
 
 ### 네트워크
-- [x] (2026-06-01 #0) 컨테이너 패킷 핸들러/헬퍼 구현 — `UDPManager`에 `SendC2DRequestOpenContainer`·`SendC2DCloseContainer` 추가, `PacketHandler`에 `Handle_D2CResponseOpenContainer` 구현·등록, `IngameInventory.ApplyContainerSync()` 추가(슬롯 30개), `ContainerController.RequestOpenContainer()` 연결
-- [x] (2026-06-01 #1) 네트워크 호출 IngameScene 경유 리팩토링 — `ContainerController.RequestOpenContainer()`의 직접 UDP 호출을 `IngameScene.RequestOpenContainer(uint)` 경유로 변경. 네트워크 호출 추적성 향상
 - [x] (2026-06-01 #2) `InteractableGameObjectController` 중간 클래스 도입 — `GameObjectController` → `InteractableGameObjectController` → `ContainerController` 상속 구조. `_ingameScene` 참조·`_interactText`·`_onInteract` 델리게이트를 중간 클래스에서 관리, `Interact()` 메서드로 다형적 상호작용 호출
 - [x] (2026-06-01 #3) PlayerController Raycast 기반 상호작용 감지 — `ProcessAim()` Raycast 결과를 활용한 `CheckInteractable()` 구현. 거리 2 이내 `InteractableGameObjectController` 감지 시 `IngameScene.SetInteractState()`로 상호작용 가능 여부·텍스트·대상 참조 전달
 - [x] (2026-06-01 #8) `Handle_D2CResponseOpenContainer` 디버그 로그 추가 — 파싱 직후 `container_object_id`, `container_version`, `container_volume` 값을 `Util.Log`로 출력 (`container_slots` 제외)
@@ -49,5 +50,7 @@
 
 ## 다음 작업 우선순위 (제안)
 
-1. **실제 맵 씬에서 IngameScene 상속 완성** — `IngameScene`을 상속하는 맵별 씬 컴포넌트 구현
-2. **설정값 실제 적용** — 해상도/창모드/FOV 변경이 `Screen.SetResolution()`, `Camera.fieldOfView` 등에 반영되도록 구현
+1. **인벤토리 열기/닫기 키바인딩** — Tab키로 MyInventory 토글, 컨테이너 열림 시 ESC/Tab으로 닫기 등 입력 연결
+2. **드래그&드롭 아이템 이동** — `IngameISlot`의 주석 처리된 드래그 핸들러 구현, 서버에 아이템 이동 요청 패킷 전송
+3. **실제 맵 씬에서 IngameScene 상속 완성** — `IngameScene`을 상속하는 맵별 씬 컴포넌트 구현
+4. **설정값 실제 적용** — 해상도/창모드/FOV 변경이 `Screen.SetResolution()`, `Camera.fieldOfView` 등에 반영되도록 구현

@@ -772,6 +772,7 @@ public class PacketHandler {
             ingameScene.Inventory.ApplyFullSync(inventoryVersion, slots, primaryWeapon, secondaryWeapon, armor, primaryWeaponMagazine, secondaryWeaponMagazine);
             ingameScene._itemLoaded = true;
             ingameScene.TryInitWeapon();
+            ingameScene.SyncInventoryUI();
         });
     }
 
@@ -816,8 +817,8 @@ public class PacketHandler {
 
         Managers.ExecuteAtMainThread(() => {
             if (Managers.Scene.CurrentScene is not IngameScene ingameScene) return;
-            ingameScene.Inventory.ApplyContainerSync(containerVersion, containerSlots);
-            // TODO: 컨테이너 UI 표시
+            ingameScene.Inventory.ApplyContainerSync(containerObjectId, containerVersion, containerVolume, containerSlots);
+            ingameScene.ShowOpenedContainer();
         });
     }
 }
