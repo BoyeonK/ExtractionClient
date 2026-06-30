@@ -17,6 +17,7 @@
 - `Disconnect()` 시 `_isRunning = false` → 스레드 Join(최대 2초, Poll 루프 자연 종료) → `_socket.Close()` → `Handler.Reset()` 순서
 - 수신 데이터는 모두 `Managers.ExecuteAtMainThread`를 통해 메인 스레드에서 처리
 - 송신: `SendReliable(packetId, IMessage)` / `SendUnreliable(packetId, IMessage)` — 큐에 삽입, 워커 스레드가 실제 전송
+- 인벤토리 조작 송신: `SendC2DRequestInteractContainerObject(interactType, startObjectId, startVersion, startSlotIdx, quantity, endObjectId, endVersion, endSlotIdx)` (Reliable) / `SendC2DRequestEquipItem(actionType, equipmentSlotType, objectId, objectVersion, objectSlotIdx)` (Reliable)
 - `OnUpdate()`가 매 프레임 `PacketHandler.CollectRetransmits()`를 호출해 RTO 초과 패킷을 큐에 재삽입. 재전송 7회 초과 시 `Disconnect()`. 3초마다 `C2DHeartBeat`(Unreliable) 자동 전송
 - Reliable 재전송 상수: `MIN_RTO_MS=50ms` (RTO 하한), `MAX_RTO_MS=1000ms` (RTO 상한), `MIN_RTT_MS=20ms` (RTT 하한), `MAX_RETRY=7` (최대 재전송). RTO는 `Mathf.Clamp(SRTT + 4×RTTVAR, 50, 1000)`으로 계산
 

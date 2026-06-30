@@ -225,4 +225,33 @@ public class UDPManager {
         C2DCloseContainer pkt = new C2DCloseContainer { };
         SendReliable((ushort)GameProtocol.PktId.C2DCloseContainer, pkt);
     }
+
+    public void SendC2DRequestInteractContainerObject(
+        uint interactType, uint startObjectId, uint startVersion, uint startSlotIdx,
+        int quantity, uint endObjectId, uint endVersion, uint endSlotIdx) {
+        C2DRequestInteractContainerObject pkt = new C2DRequestInteractContainerObject {
+            InteractType = interactType,
+            StartObjectId = startObjectId,
+            StartObjectInventoryVersion = startVersion,
+            StartObjectSlotIdx = startSlotIdx,
+            Quantity = quantity,
+            EndObjectId = endObjectId,
+            EndObjectInventoryVersion = endVersion,
+            EndObjectSlotIdx = endSlotIdx
+        };
+        SendReliable((ushort)GameProtocol.PktId.C2DRequestInteractContainerObject, pkt);
+    }
+
+    public void SendC2DRequestEquipItem(
+        uint actionType, uint equipmentSlotType,
+        uint objectId, uint objectVersion, uint objectSlotIdx) {
+        C2DRequestEquipItem pkt = new C2DRequestEquipItem {
+            ActionType = actionType,
+            EquipmentSlotType = equipmentSlotType,
+            ObjectId = objectId,
+            ObjectInventoryVersion = objectVersion,
+            ObjectSlotIdx = objectSlotIdx
+        };
+        SendReliable((ushort)GameProtocol.PktId.C2DRequestEquipItem, pkt);
+    }
 }

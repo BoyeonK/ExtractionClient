@@ -1,5 +1,6 @@
 using System.Collections.Generic;
 using UnityEngine;
+using UnityEngine.InputSystem;
 
 public class IngameScene : BaseScene {
     private bool _operationFlag = false;
@@ -7,6 +8,9 @@ public class IngameScene : BaseScene {
     private bool _cursorLocked = true;
     public bool _itemLoaded = false;
     private bool _weaponInitialized = false;
+    private bool _isContainerOpen = false;
+    private int _uiOpenCount = 0;
+    public bool IsAnyUIOpen => _uiOpenCount > 0;
 
     private const float PLAYER_STATE_INTERVAL = 0.1f;
     private float _playerStateTimer = 0f;
@@ -88,6 +92,13 @@ public class IngameScene : BaseScene {
         if (healthBarObj != null) {
             _ingameHealthBarUI = healthBarObj.GetComponent<IngameHealthBarUI>();
         }
+
+        Managers.Input.AddKeyListener(Key.I, TryCloseContainerUI, InputManager.KeyState.Down);
+    }
+
+    private void OnDestroy() {
+        if (Managers.Instance == null) return;
+        Managers.Input.RemoveKeyListener(Key.I, TryCloseContainerUI, InputManager.KeyState.Down);
     }
 
     public void TryCompleteSpawnMe() {
@@ -173,10 +184,21 @@ public class IngameScene : BaseScene {
         }
     }
 
+    public bool IsContainerOpen => _isContainerOpen;
+
     public void TryInteract() {
+        if (IsContainerOpen) {
+            CloseContainer();
+            return;
+        }
         if (!_canInteract || _interactTarget == null)
             return;
         _interactTarget.Interact();
+    }
+
+    public void TryCloseContainerUI() {
+        if (IsContainerOpen)
+            CloseContainer();
     }
 
     public void SyncInventoryUI() {
@@ -191,22 +213,169 @@ public class IngameScene : BaseScene {
         _ingameInventoryUI.SyncEquipment();
         _ingameInventoryUI.SyncContainer();
         _ingameInventoryUI.ActiveLootBox();
+        _isContainerOpen = true;
+        OnUIOpened();
     }
 
     public void CloseContainer() {
         Managers.Network.udpManager.SendC2DCloseContainer();
         _inventory.ClearContainer();
+        _isContainerOpen = false;
         if (_ingameInventoryUI != null)
             _ingameInventoryUI.DeactiveThis();
-        SetCursorLock(true);
+        OnUIClosed();
     }
 
     public void RequestOpenContainer(uint containerObjectId) {
         Managers.Network.udpManager.SendC2DRequestOpenContainer(containerObjectId);
     }
 
+    // ── Drag ──
+
+    private const uint PLAYER_OBJECT_ID = 0xFFFFFFFF;
+    public IngameISlot DragSource => _ingameDragSourceSlot;
+
+    public void BeginDrag(IngameISlot source) {
+        _ingameDragSourceSlot = source;
+        _ingameDragGhost.BeginDrag(source);
+        UpdateDragPosition(UnityEngine.InputSystem.Mouse.current.position.ReadValue());
+    }
+
+    public void UpdateDragPosition(Vector2 screenPos) {
+        _ingameDragGhost.OnDrag(screenPos);
+    }
+
+    public void EndDrag() {
+        _ingameDragGhost.EndDrag();
+        _ingameDragSourceSlot = null;
+    }
+
+    // ── 서버 요청 ──
+
+    private uint GetObjectId(SlotOwnerType ownerType) {
+        return ownerType == SlotOwnerType.PlayerInventory
+            ? PLAYER_OBJECT_ID
+            : _inventory.InteractingContainerObjectId;
+    }
+
+    private uint GetVersion(SlotOwnerType ownerType) {
+        return ownerType == SlotOwnerType.PlayerInventory
+            ? _inventory.InventoryVersion
+            : _inventory.InteractingContainerVersion;
+    }
+
+    public void RequestInteractContainerObject(uint interactType, IngameISlot source, IngameISlot target) {
+        uint startObjectId = GetObjectId(source.OwnerType);
+        uint startVersion  = GetVersion(source.OwnerType);
+        uint startSlotIdx  = (uint)source.SlotIndex;
+        int  quantity      = source.GetItem() != null ? source.GetItem().quantity : 0;
+        uint endObjectId   = GetObjectId(target.OwnerType);
+        uint endVersion    = GetVersion(target.OwnerType);
+        uint endSlotIdx    = (uint)target.SlotIndex;
+
+        Managers.Network.udpManager.SendC2DRequestInteractContainerObject(
+            interactType, startObjectId, startVersion, startSlotIdx,
+            quantity, endObjectId, endVersion, endSlotIdx);
+    }
+
+    public void RequestEquipItem(uint actionType, uint equipmentSlotType, IngameISlot slot) {
+        uint objectId = GetObjectId(slot.OwnerType);
+        uint version  = GetVersion(slot.OwnerType);
+        uint slotIdx  = (uint)slot.SlotIndex;
+
+        Managers.Network.udpManager.SendC2DRequestEquipItem(
+            actionType, equipmentSlotType, objectId, version, slotIdx);
+    }
+
+    // ── 서버 응답 처리 ──
+
+    public void ApplyInteractContainerObject(uint interactType,
+        uint startObjectId, uint startVersion, uint startSlotIdx,
+        int quantity,
+        uint endObjectId, uint endVersion, uint endSlotIdx) {
+
+        InventoryItem startItem = _inventory.GetSlotByObjectId(startObjectId, startSlotIdx);
+        InventoryItem endItem   = _inventory.GetSlotByObjectId(endObjectId, endSlotIdx);
+
+        switch (interactType) {
+            case 0: // get: 아이템을 빈 슬롯으로 이동
+                _inventory.SetSlotByObjectId(endObjectId, endSlotIdx, startItem);
+                _inventory.SetSlotByObjectId(startObjectId, startSlotIdx, null);
+                break;
+            case 1: // swap: 서로 교환
+                _inventory.SetSlotByObjectId(startObjectId, startSlotIdx, endItem);
+                _inventory.SetSlotByObjectId(endObjectId, endSlotIdx, startItem);
+                break;
+            case 2: // merge: 수량 합산
+                if (endItem != null && startItem != null) {
+                    endItem.quantity += startItem.quantity;
+                    _inventory.SetSlotByObjectId(endObjectId, endSlotIdx, endItem);
+                    _inventory.SetSlotByObjectId(startObjectId, startSlotIdx, null);
+                }
+                break;
+        }
+
+        _inventory.SetVersionByObjectId(startObjectId, startVersion);
+        _inventory.SetVersionByObjectId(endObjectId, endVersion);
+        _inventory.FindEmptySlotIdx();
+        SyncInventoryUI();
+        if (_isContainerOpen && _ingameInventoryUI != null)
+            _ingameInventoryUI.SyncContainer();
+    }
+
+    public void ApplyEquipItem(uint actionType, uint equipmentSlotType,
+        uint objectId, uint objectVersion, uint objectSlotIdx) {
+
+        if (actionType == 0) {
+            // equip: 슬롯 → 장비
+            InventoryItem item = _inventory.GetSlotByObjectId(objectId, objectSlotIdx);
+            InventoryItem prevEquip = _inventory.GetEquipmentSlot(equipmentSlotType);
+            _inventory.SetEquipmentSlot(equipmentSlotType, item);
+            _inventory.SetSlotByObjectId(objectId, objectSlotIdx, prevEquip);
+        } else {
+            // unequip: 장비 → 슬롯
+            InventoryItem equipItem = _inventory.GetEquipmentSlot(equipmentSlotType);
+            InventoryItem slotItem = _inventory.GetSlotByObjectId(objectId, objectSlotIdx);
+            _inventory.SetSlotByObjectId(objectId, objectSlotIdx, equipItem);
+            _inventory.SetEquipmentSlot(equipmentSlotType, slotItem);
+        }
+
+        _inventory.SetVersionByObjectId(objectId, objectVersion);
+        _inventory.FindEmptySlotIdx();
+        SyncInventoryUI();
+        if (_isContainerOpen && _ingameInventoryUI != null)
+            _ingameInventoryUI.SyncContainer();
+
+        // 무기 슬롯이 변경된 경우 무기 장착 갱신
+        if (equipmentSlotType <= 1 && _playerController != null) {
+            InventoryItem currentWeapon = _inventory.IsPrimaryWeaponApplyed
+                ? _inventory.PrimaryWeapon
+                : _inventory.SecondaryWeapon;
+            if (currentWeapon != null)
+                _playerController.EquipWeapon(currentWeapon.item_id);
+        }
+    }
+
+    public void HandleInteractItemDeny(uint sourcePacketId, uint denyReasonMask) {
+        Util.LogError($"[InteractItemDeny] sourcePacketId={sourcePacketId}, denyReasonMask=0x{denyReasonMask:X}");
+    }
+
     protected void RequestSpawnMe() {
         Managers.Network.udpManager.SendC2DRequestSpawnMe();
+    }
+
+    public void OnUIOpened() {
+        _uiOpenCount++;
+        if (_uiOpenCount == 1)
+            SetCursorLock(false);
+    }
+
+    public void OnUIClosed() {
+        _uiOpenCount--;
+        if (_uiOpenCount <= 0) {
+            _uiOpenCount = 0;
+            SetCursorLock(true);
+        }
     }
 
     private void SetCursorLock(bool isLocked) {

@@ -3,22 +3,30 @@ using UnityEngine;
 using UnityEngine.EventSystems;
 using UnityEngine.UI;
 
+public enum SlotOwnerType {
+    PlayerInventory,
+    Container
+}
+
 public class IngameISlot : MonoBehaviour {
     protected InventoryItem _item = null;
     protected int _slotIndex = -1;
     protected IngameScene _scene = null;
+    protected SlotOwnerType _ownerType;
     UI_EventHandler _eventHandler;
     protected Image _iconImage;
     protected TextMeshProUGUI _quantity;
 
     public InventoryItem GetItem() => _item;
     public int SlotIndex => _slotIndex;
+    public SlotOwnerType OwnerType => _ownerType;
 
-    public void Init(int index, IngameScene scene) {
+    public void Init(int index, IngameScene scene, SlotOwnerType ownerType) {
         _slotIndex = index;
         _scene = scene;
+        _ownerType = ownerType;
         _eventHandler = GetComponent<UI_EventHandler>();
-        
+
         Transform fillTransform = transform.Find("Fill");
         if (fillTransform != null) {
             _iconImage = fillTransform.GetComponent<Image>();
@@ -66,22 +74,21 @@ public class IngameISlot : MonoBehaviour {
 
     private void OnBeginDrag(PointerEventData eventData) {
         if (_item == null) return;
-        //_scene.BeginDrag(this);
+        _scene.BeginDrag(this);
     }
 
     public Image GetIconImage() => _iconImage;
 
     private void OnDrag(PointerEventData eventData) {
-        //_scene.UpdateDragPosition(eventData.position);
+        _scene.UpdateDragPosition(eventData.position);
     }
 
     // OnEndDrag는 드롭 성공/실패 모두 항상 호출됨 — 여기서 정리
     private void OnEndDrag(PointerEventData eventData) {
-        //_scene.EndDrag();
+        _scene.EndDrag();
     }
 
     private void OnClick(PointerEventData eventData) {
-        //_scene.OnSlotClick(this)
     }
 
     public virtual bool CanAcceptItem(InventoryItem item) => true;
@@ -91,7 +98,40 @@ public class IngameISlot : MonoBehaviour {
     }
 
     private void OnDrop(PointerEventData eventData) {
-        // 인게임에서의 처리가 아니라 서버에게 요청하는 방식으로 작동해야 함.
+        IngameISlot source = _scene.DragSource;
+        if (source == null || source == this) return;
+
+        IngameISlot target = this;
+        InventoryItem sourceItem = source.GetItem();
+        if (sourceItem == null) return;
+
+        // 장비 슬롯 → 일반 슬롯: Unequip
+        if (source is IngameLSlot sourceLSlot && !(target is IngameLSlot)) {
+            _scene.RequestEquipItem(1, sourceLSlot.EquipmentSlotType, target);
+            return;
+        }
+
+        // 일반 슬롯 → 장비 슬롯: Equip
+        if (target is IngameLSlot targetLSlot && !(source is IngameLSlot)) {
+            if (!targetLSlot.CanAcceptItem(sourceItem)) return;
+            _scene.RequestEquipItem(0, targetLSlot.EquipmentSlotType, source);
+            return;
+        }
+
+        // 일반 슬롯 → 일반 슬롯
+        InventoryItem targetItem = target.GetItem();
+
+        if (targetItem == null) {
+            // get: 빈 슬롯으로 이동
+            _scene.RequestInteractContainerObject(0, source, target);
+        } else if (targetItem.item_id == sourceItem.item_id && CanMerge(sourceItem)) {
+            // merge: 같은 아이템 합산
+            _scene.RequestInteractContainerObject(2, source, target);
+        } else {
+            // swap: 서로 교환
+            if (!source.CanAcceptItem(targetItem)) return;
+            _scene.RequestInteractContainerObject(1, source, target);
+        }
     }
 
     private void OnDestroy() {

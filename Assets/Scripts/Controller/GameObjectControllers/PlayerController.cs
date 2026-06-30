@@ -108,6 +108,7 @@ public class PlayerController : GameObjectController {
 
     private void ProcessMouseLook() {
         if (_viewPoint == null) return;
+        if (_ingameScene.IsAnyUIOpen) return;
 
         // Mouse Delta는 순수 픽셀 이동량
         float mouseX = 0f;

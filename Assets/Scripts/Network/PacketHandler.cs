@@ -101,6 +101,9 @@ public class PacketHandler {
         _handlers.Add((ushort)PktId.D2CUpdatePlayerStates, Handle_D2CUpdatePlayerStates);
         _handlers.Add((ushort)PktId.D2CFullInventorySync, Handle_D2CFullInventorySync);
         _handlers.Add((ushort)PktId.D2CResponseOpenContainer, Handle_D2CResponseOpenContainer);
+        _handlers.Add((ushort)PktId.D2CResponseInteractContainerObject, Handle_D2CResponseInteractContainerObject);
+        _handlers.Add((ushort)PktId.D2CResponseEquipItem, Handle_D2CResponseEquipItem);
+        _handlers.Add((ushort)PktId.D2CResponseInteractItemDeny, Handle_D2CResponseInteractItemDeny);
     }
 
     // ==========================================
@@ -819,6 +822,91 @@ public class PacketHandler {
             if (Managers.Scene.CurrentScene is not IngameScene ingameScene) return;
             ingameScene.Inventory.ApplyContainerSync(containerObjectId, containerVersion, containerVolume, containerSlots);
             ingameScene.ShowOpenedContainer();
+        });
+    }
+
+    private void Handle_D2CResponseInteractContainerObject(ReadOnlySpan<byte> payloadSpan) {
+        D2CResponseInteractContainerObject pkt = null;
+
+        try {
+            pkt = D2CResponseInteractContainerObject.Parser.ParseFrom(payloadSpan);
+        }
+        catch (InvalidProtocolBufferException e) {
+            Managers.ExecuteAtMainThread(() => { Util.LogError($"D2CResponseInteractContainerObject 파싱 실패: {e.Message}"); });
+            return;
+        }
+        catch (Exception e) {
+            Managers.ExecuteAtMainThread(() => { Util.LogError($"D2CResponseInteractContainerObject 처리 중 알 수 없는 에러: {e.Message}"); });
+            return;
+        }
+
+        uint interactType = pkt.InteractType;
+        uint startObjectId = pkt.StartObjectId;
+        uint startVersion = pkt.StartObjectInventoryVersion;
+        uint startSlotIdx = pkt.StartObjectSlotIdx;
+        int quantity = pkt.Quantity;
+        uint endObjectId = pkt.EndObjectId;
+        uint endVersion = pkt.EndObjectInventoryVersion;
+        uint endSlotIdx = pkt.EndObjectSlotIdx;
+
+        Managers.ExecuteAtMainThread(() => {
+            if (Managers.Scene.CurrentScene is not IngameScene ingameScene) return;
+            ingameScene.ApplyInteractContainerObject(interactType,
+                startObjectId, startVersion, startSlotIdx,
+                quantity,
+                endObjectId, endVersion, endSlotIdx);
+        });
+    }
+
+    private void Handle_D2CResponseEquipItem(ReadOnlySpan<byte> payloadSpan) {
+        D2CResponseEquipItem pkt = null;
+
+        try {
+            pkt = D2CResponseEquipItem.Parser.ParseFrom(payloadSpan);
+        }
+        catch (InvalidProtocolBufferException e) {
+            Managers.ExecuteAtMainThread(() => { Util.LogError($"D2CResponseEquipItem 파싱 실패: {e.Message}"); });
+            return;
+        }
+        catch (Exception e) {
+            Managers.ExecuteAtMainThread(() => { Util.LogError($"D2CResponseEquipItem 처리 중 알 수 없는 에러: {e.Message}"); });
+            return;
+        }
+
+        uint actionType = pkt.ActionType;
+        uint equipmentSlotType = pkt.EquipmentSlotType;
+        uint objectId = pkt.ObjectId;
+        uint objectVersion = pkt.ObjectInventoryVersion;
+        uint objectSlotIdx = pkt.ObjectSlotIdx;
+
+        Managers.ExecuteAtMainThread(() => {
+            if (Managers.Scene.CurrentScene is not IngameScene ingameScene) return;
+            ingameScene.ApplyEquipItem(actionType, equipmentSlotType,
+                objectId, objectVersion, objectSlotIdx);
+        });
+    }
+
+    private void Handle_D2CResponseInteractItemDeny(ReadOnlySpan<byte> payloadSpan) {
+        D2CResponseInteractItemDeny pkt = null;
+
+        try {
+            pkt = D2CResponseInteractItemDeny.Parser.ParseFrom(payloadSpan);
+        }
+        catch (InvalidProtocolBufferException e) {
+            Managers.ExecuteAtMainThread(() => { Util.LogError($"D2CResponseInteractItemDeny 파싱 실패: {e.Message}"); });
+            return;
+        }
+        catch (Exception e) {
+            Managers.ExecuteAtMainThread(() => { Util.LogError($"D2CResponseInteractItemDeny 처리 중 알 수 없는 에러: {e.Message}"); });
+            return;
+        }
+
+        uint sourcePacketId = pkt.SourcePacketId;
+        uint denyReasonMask = pkt.DenyReasonMask;
+
+        Managers.ExecuteAtMainThread(() => {
+            if (Managers.Scene.CurrentScene is not IngameScene ingameScene) return;
+            ingameScene.HandleInteractItemDeny(sourcePacketId, denyReasonMask);
         });
     }
 }

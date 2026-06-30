@@ -33,7 +33,7 @@ public class IngameInventoryUI : MonoBehaviour {
         }
 
         for (int i = 0; i < _myInventorySlots.Count; i++) {
-            _myInventorySlots[i].Init(i, _scene);
+            _myInventorySlots[i].Init(i, _scene, SlotOwnerType.PlayerInventory);
         }
 
         Transform containerGridTransform = transform.Find("LootBoxWindow/GridPanel/ItemGrid");
@@ -43,16 +43,16 @@ public class IngameInventoryUI : MonoBehaviour {
         }
 
         for (int i = 0; i < _containerSlots.Count; i++) {
-            _containerSlots[i].Init(i, _scene);
+            _containerSlots[i].Init(i, _scene, SlotOwnerType.Container);
         }
 
         _primaryWeaponSlot = transform.Find("MyInventoryWindow/EquipmentPanel/EquipPrimaryWpn")?.GetComponent<IngameLSlot>();
         _secondaryWeaponSlot = transform.Find("MyInventoryWindow/EquipmentPanel/EquipSecondaryWpn")?.GetComponent<IngameLSlot>();
         _armorSlot = transform.Find("MyInventoryWindow/EquipmentPanel/EquipBody")?.GetComponent<IngameLSlot>();
 
-        _primaryWeaponSlot?.Init(_scene, ItemType.Weapon);
-        _secondaryWeaponSlot?.Init(_scene, ItemType.Weapon);
-        _armorSlot?.Init(_scene, ItemType.Armor);
+        _primaryWeaponSlot?.Init(_scene, ItemType.Weapon, 0);
+        _secondaryWeaponSlot?.Init(_scene, ItemType.Weapon, 1);
+        _armorSlot?.Init(_scene, ItemType.Armor, 2);
 
         DeactiveThis();
     }

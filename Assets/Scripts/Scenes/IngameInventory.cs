@@ -123,4 +123,51 @@ public class IngameInventory {
     public void SetArmor(InventoryItem item) => _armor = item;
     public void SetPrimaryWeaponMagazine(InventoryItem item) => _primaryWeaponMagazine = item;
     public void SetSecondaryWeaponMagazine(InventoryItem item) => _secondaryWeaponMagazine = item;
+
+    private const uint PLAYER_OBJECT_ID = 0xFFFFFFFF;
+
+    public InventoryItem GetSlotByObjectId(uint objectId, uint slotIdx) {
+        if (objectId == PLAYER_OBJECT_ID) {
+            if (slotIdx < INVENTORY_SLOT_COUNT)
+                return _inventorySlots[slotIdx];
+        } else {
+            if (slotIdx < CONTAINER_SLOT_COUNT)
+                return _interactingContainerSlots[slotIdx];
+        }
+        return null;
+    }
+
+    public void SetSlotByObjectId(uint objectId, uint slotIdx, InventoryItem item) {
+        if (objectId == PLAYER_OBJECT_ID) {
+            if (slotIdx < INVENTORY_SLOT_COUNT)
+                _inventorySlots[slotIdx] = item;
+        } else {
+            if (slotIdx < CONTAINER_SLOT_COUNT)
+                _interactingContainerSlots[slotIdx] = item;
+        }
+    }
+
+    public void SetVersionByObjectId(uint objectId, uint version) {
+        if (objectId == PLAYER_OBJECT_ID)
+            _inventoryVersion = version;
+        else
+            _interactingContainerVersion = version;
+    }
+
+    public InventoryItem GetEquipmentSlot(uint slotType) {
+        return slotType switch {
+            0 => _primaryWeapon,
+            1 => _secondaryWeapon,
+            2 => _armor,
+            _ => null
+        };
+    }
+
+    public void SetEquipmentSlot(uint slotType, InventoryItem item) {
+        switch (slotType) {
+            case 0: _primaryWeapon = item; break;
+            case 1: _secondaryWeapon = item; break;
+            case 2: _armor = item; break;
+        }
+    }
 }

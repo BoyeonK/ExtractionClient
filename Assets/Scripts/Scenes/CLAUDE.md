@@ -78,6 +78,11 @@
 - **`SetInventorySlot(index, item)`** / **`SetPrimaryWeapon()`** / **`SetSecondaryWeapon()`** / **`SetArmor()`** / **`SetPrimaryWeaponMagazine()`** / **`SetSecondaryWeaponMagazine()`**: 개별 슬롯 갱신
 - **`ApplyContainerSync(objectId, version, volume, slots)`**: 컨테이너 데이터 일괄 덮어쓰기 (메타데이터 + 슬롯 30개)
 - **`ClearContainer()`**: 컨테이너 메타데이터·슬롯 전체 초기화
+- **`GetSlotByObjectId(objectId, slotIdx)`**: objectId=`PLAYER_OBJECT_ID(0xFFFFFFFF)`이면 inventorySlots, 그 외 containerSlots에서 아이템 반환
+- **`SetSlotByObjectId(objectId, slotIdx, item)`**: objectId에 따라 해당 슬롯에 아이템 설정
+- **`SetVersionByObjectId(objectId, version)`**: objectId에 따라 inventory 또는 container version 갱신
+- **`GetEquipmentSlot(slotType)`**: 0→PrimaryWeapon, 1→SecondaryWeapon, 2→Armor 반환
+- **`SetEquipmentSlot(slotType, item)`**: 장비 슬롯 설정
 - 외부 접근: `ingameScene.Inventory.XXX`
 
 ## 다른 플레이어 관리
@@ -94,6 +99,20 @@
 - **`OppoPlayerController.ProcessAnimation()`**: `_velocity`를 yaw 기준 로컬 좌표로 변환하여 Animator 파라미터(`MoveX`/`MoveY`/`MovingSpeed`) 구동. PlayerController와 동일 damping(0.1f) 적용
 - **`OppoPlayerController.ProcessAim()`**: yaw+pitch 각도에서 방향 벡터를 계산하여 `_aimTarget`을 가슴 높이(yOffset=0.58f) + 100m 전방에 배치 → MultiAimConstraint가 상체 회전 처리
 
+## UI 열림 상태 관리 (`_uiOpenCount`)
+
+`IngameScene`이 현재 열린 UI 개수를 레퍼런스 카운팅으로 추적한다. 새로운 UI를 추가할 때 동일 패턴을 따른다:
+
+| 필드/프로퍼티 | 타입 | 설명 |
+|--------------|------|------|
+| `_uiOpenCount` | `int` | 현재 열린 UI 수 (0이면 모든 UI 닫힘) |
+| `IsAnyUIOpen` | `bool` | `_uiOpenCount > 0` — UI가 하나라도 열려있는지 |
+
+- **`OnUIOpened()`**: `_uiOpenCount++`, 첫 UI가 열리면 `SetCursorLock(false)` (커서 해제)
+- **`OnUIClosed()`**: `_uiOpenCount--`, 모든 UI가 닫히면 `SetCursorLock(true)` (커서 잠금 복원). 0 미만 방어 내장
+- **`PlayerController.ProcessMouseLook()`**: `_ingameScene.IsAnyUIOpen`이 true이면 마우스룩 처리를 건너뜀 (이동·에임은 계속 동작)
+- 새 UI 추가 시: 열 때 `OnUIOpened()`, 닫을 때 `OnUIClosed()` 호출
+
 ## 상호작용 상태 관리
 
 `IngameScene`이 현재 상호작용 대상의 상태를 중앙에서 보유한다:
@@ -105,12 +124,25 @@
 | `_interactTarget` | `InteractableGameObjectController` | 현재 상호작용 대상 참조 |
 
 - **`SetInteractState(bool, InteractableGameObjectController)`**: `PlayerController.CheckInteractable()`에서 매 프레임 호출하여 상태 갱신
-- **`TryInteract()`**: `_canInteract` + `_interactTarget` null 가드 후 `_interactTarget.Interact()` 호출. `PlayerController`의 E키 입력(`Key.E`, `KeyState.Down`)에 바인딩됨
+- **`_isContainerOpen`** (`bool`): 컨테이너 UI 열림 상태 플래그. `ShowOpenedContainer()`에서 true, `CloseContainer()`에서 false
+- **`IsContainerOpen`** (프로퍼티): `_isContainerOpen` 반환 — objectId가 0일 수 있으므로 별도 플래그 사용
+- **`TryInteract()`**: 컨테이너가 열려있으면 `CloseContainer()` 호출 후 return, 아니면 `_canInteract` + `_interactTarget` null 가드 후 `_interactTarget.Interact()` 호출. `PlayerController`의 E키 입력(`Key.E`, `KeyState.Down`)에 바인딩됨
+- **`TryCloseContainerUI()`**: 컨테이너가 열려있을 때만 `CloseContainer()` 호출. `IngameScene.Init()`에서 I키 입력(`Key.I`, `KeyState.Down`)에 바인딩, `OnDestroy()`에서 해제
 - **`OnUpdate()` 인터랙션 UI**: `_canInteract` 상태에 따라 `InteractUI.Show(text)` / `Hide()` 호출
 - **`RequestOpenContainer(uint containerObjectId)`**: 컨테이너 열기 요청을 UDP로 전송 — `InteractableGameObjectController`의 `_onInteract` 델리게이트를 통해 간접 호출됨
 - **`ShowOpenedContainer()`**: 컨테이너 응답 수신 후 호출. MyInventory+Equipment+Container 동기화 후 LootBox UI 활성화
 - **`CloseContainer()`**: `C2DCloseContainer` 패킷 전송 + `Inventory.ClearContainer()` + UI 숨김 + 커서 잠금 복원
 - **`SyncInventoryUI()`**: `D2CFullInventorySync` 수신 후 호출. MyInventory+Equipment UI 동기화
+
+### 드래그 상태 관리 + 서버 요청/응답
+
+- **`DragSource`** (`IngameISlot`): 현재 드래그 중인 슬롯 참조
+- **`BeginDrag(source)`** / **`UpdateDragPosition(screenPos)`** / **`EndDrag()`**: 드래그 고스트 제어
+- **`RequestInteractContainerObject(interactType, source, target)`**: source/target의 `OwnerType`으로 objectId·version 결정 후 UDP 전송 (get=0, swap=1, merge=2)
+- **`RequestEquipItem(actionType, equipmentSlotType, slot)`**: 장비 장착(0)/해제(1) 요청 UDP 전송
+- **`ApplyInteractContainerObject(...)`**: 서버 응답 수신 시 IngameInventory 슬롯 업데이트 + UI 동기화
+- **`ApplyEquipItem(...)`**: 서버 응답 수신 시 장비↔슬롯 교환 + 무기 장착 갱신 + UI 동기화
+- **`HandleInteractItemDeny(sourcePacketId, denyReasonMask)`**: 거부 응답 로그 출력
 
 ### 게임 오브젝트 컨트롤러 상속 구조
 
