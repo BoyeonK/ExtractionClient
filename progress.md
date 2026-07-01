@@ -1,6 +1,6 @@
 # 프로젝트 진행 상황
 
-> 최종 수정: 2026-06-18
+> 최종 수정: 2026-07-01
 > 장르: 멀티플레이어 Extraction 게임 (알파 단계)
 > 엔진: Unity 6000.4.0f1 / URP 17.4.0
 
@@ -9,21 +9,17 @@
 ## 완료된 것들
 
 ### UI
-- [x] (2026-06-10 #0) IngameInventoryUI 완성 — Init 버그 수정(`_containerSlots` 초기화 순서), Sync 함수 3종(`SyncMyInventory`, `SyncEquipment`, `SyncContainer`) 추가, `IngameLSlot.Init()` 구현(base.Init(-1, scene) + CanAcceptItem 오버라이드)
 - [x] (2026-06-10 #1) 컨테이너 열기/닫기 흐름 연결 — `IngameScene`에 `ShowOpenedContainer()`·`CloseContainer()`·`SyncInventoryUI()` 프록시 메서드 추가, `PacketHandler`에서 D2CFullInventorySync→SyncInventoryUI, D2CResponseOpenContainer→ShowOpenedContainer 호출 연결
 - [x] (2026-06-10 #2) IngameInventory 컨테이너 메타데이터 추가 — `_interactingContainerObjectId`·`_interactingContainerVolume` 필드 추가, `ApplyContainerSync()` 시그니처 확장, `ClearContainer()` 메서드 추가
 - [x] (2026-06-15 #2) UI 열림 시 커서 해제 + 마우스룩 중단 — `_uiOpenCount` 레퍼런스 카운팅, `IsAnyUIOpen` 프로퍼티, `OnUIOpened()`/`OnUIClosed()` 메서드 추가. `PlayerController.ProcessMouseLook()`에서 `IsAnyUIOpen` 체크 추가
 - [x] (2026-06-18 #0) 드래그&드롭 아이템 이동 — `IngameISlot`에 `SlotOwnerType` enum·드래그 핸들러·`OnDrop()` 서버 요청 분기 구현, `IngameLSlot`에 `equipmentSlotType` 추가, `IngameScene`에 드래그 상태 관리+서버 요청/응답 메서드 추가, `PacketHandler`에 D2CResponseInteractContainerObject·D2CResponseEquipItem·D2CResponseInteractItemDeny 핸들러 등록, `UDPManager`에 SendC2DRequestInteractContainerObject·SendC2DRequestEquipItem 추가
 
 ### 네트워크
-- [x] (2026-06-01 #8) `Handle_D2CResponseOpenContainer` 디버그 로그 추가 — 파싱 직후 `container_object_id`, `container_version`, `container_volume` 값을 `Util.Log`로 출력 (`container_slots` 제외)
-
-### 상호작용
-- [x] (2026-06-01 #7) E키 → TryInteract 바인딩 — `PlayerController.Init()`에서 `Key.E` → `TryInteract` 등록, `OnDestroy()`에서 해제. `_ingameScene.TryInteract()` 호출
 - [x] (2026-06-15 #0) E/I키로 컨테이너 UI 닫기 — `IngameScene`에 `_isContainerOpen` 플래그·`IsContainerOpen` 프로퍼티·`TryCloseContainerUI()` 추가. E키는 `TryInteract()` 내 분기, I키는 `IngameScene.Init()`에서 리스너 등록
-
-### 기타
 - [x] (2026-06-15 #3) ContainerController 중복 상호작용 검사 — 서버 측에서 중복 요청을 무시하므로 클라이언트 측 수정 불필요 확인
+- [x] (2026-07-01 #0) C2DRequestEquipItem.my_inventory_version 직렬화 추가 — `UDPManager.SendC2DRequestEquipItem`에 `myInventoryVersion` 파라미터 추가, `IngameScene.RequestEquipItem`에서 컨테이너 케이스일 때 `_inventory.InventoryVersion` 전달
+- [x] (2026-07-01 #1) D2CResponseEquipItem.my_inventory_version 역직렬화 반영 — `PacketHandler.Handle_D2CResponseEquipItem`에서 추출 후 `ApplyEquipItem`에 전달, 컨테이너 케이스에서 `SetVersionByObjectId(PLAYER_OBJECT_ID, myInventoryVersion)` 추가 호출
+- [x] (2026-07-01 #2) Deny 패킷 분리 — `D2CResponseInteractItemDeny` → `D2CResponseInteractContainerObjectDeny`(PktId 25) + `D2CResponseEquipItemDeny`(PktId 26) 두 핸들러로 교체, `IngameScene` 메서드도 `HandleInteractContainerObjectDeny` / `HandleEquipItemDeny`로 분리
 
 ### 버그 수정
 - [x] (2026-06-15 #1) IsContainerOpen 판정 버그 수정 — objectId=0인 컨테이너에서 `InteractingContainerObjectId != 0` 판정이 항상 false. `_isContainerOpen` bool 플래그 방식으로 교체

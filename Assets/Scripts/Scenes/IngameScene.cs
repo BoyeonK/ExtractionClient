@@ -279,12 +279,15 @@ public class IngameScene : BaseScene {
     }
 
     public void RequestEquipItem(uint actionType, uint equipmentSlotType, IngameISlot slot) {
-        uint objectId = GetObjectId(slot.OwnerType);
-        uint version  = GetVersion(slot.OwnerType);
-        uint slotIdx  = (uint)slot.SlotIndex;
+        uint objectId           = GetObjectId(slot.OwnerType);
+        uint version            = GetVersion(slot.OwnerType);
+        uint slotIdx            = (uint)slot.SlotIndex;
+        uint myInventoryVersion = slot.OwnerType == SlotOwnerType.PlayerInventory
+            ? 0
+            : _inventory.InventoryVersion;
 
         Managers.Network.udpManager.SendC2DRequestEquipItem(
-            actionType, equipmentSlotType, objectId, version, slotIdx);
+            actionType, equipmentSlotType, objectId, version, slotIdx, myInventoryVersion);
     }
 
     // ── 서버 응답 처리 ──
@@ -324,7 +327,7 @@ public class IngameScene : BaseScene {
     }
 
     public void ApplyEquipItem(uint actionType, uint equipmentSlotType,
-        uint objectId, uint objectVersion, uint objectSlotIdx) {
+        uint objectId, uint objectVersion, uint objectSlotIdx, uint myInventoryVersion) {
 
         if (actionType == 0) {
             // equip: 슬롯 → 장비
@@ -341,6 +344,8 @@ public class IngameScene : BaseScene {
         }
 
         _inventory.SetVersionByObjectId(objectId, objectVersion);
+        if (objectId != PLAYER_OBJECT_ID)
+            _inventory.SetVersionByObjectId(PLAYER_OBJECT_ID, myInventoryVersion);
         _inventory.FindEmptySlotIdx();
         SyncInventoryUI();
         if (_isContainerOpen && _ingameInventoryUI != null)
@@ -356,8 +361,12 @@ public class IngameScene : BaseScene {
         }
     }
 
-    public void HandleInteractItemDeny(uint sourcePacketId, uint denyReasonMask) {
-        Util.LogError($"[InteractItemDeny] sourcePacketId={sourcePacketId}, denyReasonMask=0x{denyReasonMask:X}");
+    public void HandleInteractContainerObjectDeny(uint denyReasonMask) {
+        Util.LogError($"[InteractContainerObjectDeny] denyReasonMask=0x{denyReasonMask:X}");
+    }
+
+    public void HandleEquipItemDeny(uint denyReasonMask) {
+        Util.LogError($"[EquipItemDeny] denyReasonMask=0x{denyReasonMask:X}");
     }
 
     protected void RequestSpawnMe() {

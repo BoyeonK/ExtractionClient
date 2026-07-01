@@ -244,13 +244,15 @@ public class UDPManager {
 
     public void SendC2DRequestEquipItem(
         uint actionType, uint equipmentSlotType,
-        uint objectId, uint objectVersion, uint objectSlotIdx) {
+        uint objectId, uint objectVersion, uint objectSlotIdx,
+        uint myInventoryVersion) {
         C2DRequestEquipItem pkt = new C2DRequestEquipItem {
             ActionType = actionType,
             EquipmentSlotType = equipmentSlotType,
             ObjectId = objectId,
             ObjectInventoryVersion = objectVersion,
-            ObjectSlotIdx = objectSlotIdx
+            ObjectSlotIdx = objectSlotIdx,
+            MyInventoryVersion = myInventoryVersion
         };
         SendReliable((ushort)GameProtocol.PktId.C2DRequestEquipItem, pkt);
     }

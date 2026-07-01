@@ -833,6 +833,10 @@ PrefabInstance:
       propertyPath: m_AnchoredPosition.y
       value: 0
       objectReference: {fileID: 0}
+    - target: {fileID: 6402049147015230990, guid: a528bbc1159c7b5479662d38b504cdd6, type: 3}
+      propertyPath: m_SortingOrder
+      value: 101
+      objectReference: {fileID: 0}
     - target: {fileID: 6614219405995427311, guid: a528bbc1159c7b5479662d38b504cdd6, type: 3}
       propertyPath: m_Name
       value: IngameDragGhost
@@ -1074,6 +1078,10 @@ PrefabInstance:
     - target: {fileID: 6344671374814424738, guid: b6b5535a06a242748b7077dd59ca3e15, type: 3}
       propertyPath: m_Name
       value: InteractKeyImage
+      objectReference: {fileID: 0}
+    - target: {fileID: 7382001430209687579, guid: b6b5535a06a242748b7077dd59ca3e15, type: 3}
+      propertyPath: m_SortingOrder
+      value: 10
       objectReference: {fileID: 0}
     - target: {fileID: 8042648295562631404, guid: b6b5535a06a242748b7077dd59ca3e15, type: 3}
       propertyPath: m_Name

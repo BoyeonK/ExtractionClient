@@ -103,7 +103,8 @@ public class PacketHandler {
         _handlers.Add((ushort)PktId.D2CResponseOpenContainer, Handle_D2CResponseOpenContainer);
         _handlers.Add((ushort)PktId.D2CResponseInteractContainerObject, Handle_D2CResponseInteractContainerObject);
         _handlers.Add((ushort)PktId.D2CResponseEquipItem, Handle_D2CResponseEquipItem);
-        _handlers.Add((ushort)PktId.D2CResponseInteractItemDeny, Handle_D2CResponseInteractItemDeny);
+        _handlers.Add((ushort)PktId.D2CResponseInteractContainerObjectDeny, Handle_D2CResponseInteractContainerObjectDeny);
+        _handlers.Add((ushort)PktId.D2CResponseEquipItemDeny, Handle_D2CResponseEquipItemDeny);
     }
 
     // ==========================================
@@ -873,40 +874,63 @@ public class PacketHandler {
             return;
         }
 
-        uint actionType = pkt.ActionType;
-        uint equipmentSlotType = pkt.EquipmentSlotType;
-        uint objectId = pkt.ObjectId;
-        uint objectVersion = pkt.ObjectInventoryVersion;
-        uint objectSlotIdx = pkt.ObjectSlotIdx;
+        uint actionType         = pkt.ActionType;
+        uint equipmentSlotType  = pkt.EquipmentSlotType;
+        uint objectId           = pkt.ObjectId;
+        uint objectVersion      = pkt.ObjectInventoryVersion;
+        uint objectSlotIdx      = pkt.ObjectSlotIdx;
+        uint myInventoryVersion = pkt.MyInventoryVersion;
 
         Managers.ExecuteAtMainThread(() => {
             if (Managers.Scene.CurrentScene is not IngameScene ingameScene) return;
             ingameScene.ApplyEquipItem(actionType, equipmentSlotType,
-                objectId, objectVersion, objectSlotIdx);
+                objectId, objectVersion, objectSlotIdx, myInventoryVersion);
         });
     }
 
-    private void Handle_D2CResponseInteractItemDeny(ReadOnlySpan<byte> payloadSpan) {
-        D2CResponseInteractItemDeny pkt = null;
+    private void Handle_D2CResponseInteractContainerObjectDeny(ReadOnlySpan<byte> payloadSpan) {
+        D2CResponseInteractContainerObjectDeny pkt = null;
 
         try {
-            pkt = D2CResponseInteractItemDeny.Parser.ParseFrom(payloadSpan);
+            pkt = D2CResponseInteractContainerObjectDeny.Parser.ParseFrom(payloadSpan);
         }
         catch (InvalidProtocolBufferException e) {
-            Managers.ExecuteAtMainThread(() => { Util.LogError($"D2CResponseInteractItemDeny 파싱 실패: {e.Message}"); });
+            Managers.ExecuteAtMainThread(() => { Util.LogError($"D2CResponseInteractContainerObjectDeny 파싱 실패: {e.Message}"); });
             return;
         }
         catch (Exception e) {
-            Managers.ExecuteAtMainThread(() => { Util.LogError($"D2CResponseInteractItemDeny 처리 중 알 수 없는 에러: {e.Message}"); });
+            Managers.ExecuteAtMainThread(() => { Util.LogError($"D2CResponseInteractContainerObjectDeny 처리 중 알 수 없는 에러: {e.Message}"); });
             return;
         }
 
-        uint sourcePacketId = pkt.SourcePacketId;
         uint denyReasonMask = pkt.DenyReasonMask;
 
         Managers.ExecuteAtMainThread(() => {
             if (Managers.Scene.CurrentScene is not IngameScene ingameScene) return;
-            ingameScene.HandleInteractItemDeny(sourcePacketId, denyReasonMask);
+            ingameScene.HandleInteractContainerObjectDeny(denyReasonMask);
+        });
+    }
+
+    private void Handle_D2CResponseEquipItemDeny(ReadOnlySpan<byte> payloadSpan) {
+        D2CResponseEquipItemDeny pkt = null;
+
+        try {
+            pkt = D2CResponseEquipItemDeny.Parser.ParseFrom(payloadSpan);
+        }
+        catch (InvalidProtocolBufferException e) {
+            Managers.ExecuteAtMainThread(() => { Util.LogError($"D2CResponseEquipItemDeny 파싱 실패: {e.Message}"); });
+            return;
+        }
+        catch (Exception e) {
+            Managers.ExecuteAtMainThread(() => { Util.LogError($"D2CResponseEquipItemDeny 처리 중 알 수 없는 에러: {e.Message}"); });
+            return;
+        }
+
+        uint denyReasonMask = pkt.DenyReasonMask;
+
+        Managers.ExecuteAtMainThread(() => {
+            if (Managers.Scene.CurrentScene is not IngameScene ingameScene) return;
+            ingameScene.HandleEquipItemDeny(denyReasonMask);
         });
     }
 }

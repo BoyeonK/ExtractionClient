@@ -142,7 +142,8 @@
 - **`RequestEquipItem(actionType, equipmentSlotType, slot)`**: 장비 장착(0)/해제(1) 요청 UDP 전송
 - **`ApplyInteractContainerObject(...)`**: 서버 응답 수신 시 IngameInventory 슬롯 업데이트 + UI 동기화
 - **`ApplyEquipItem(...)`**: 서버 응답 수신 시 장비↔슬롯 교환 + 무기 장착 갱신 + UI 동기화
-- **`HandleInteractItemDeny(sourcePacketId, denyReasonMask)`**: 거부 응답 로그 출력
+- **`HandleInteractContainerObjectDeny(denyReasonMask)`**: 컨테이너 아이템 조작 거부 응답 로그 출력
+- **`HandleEquipItemDeny(denyReasonMask)`**: 장비 장착/해제 거부 응답 로그 출력
 
 ### 게임 오브젝트 컨트롤러 상속 구조
 
