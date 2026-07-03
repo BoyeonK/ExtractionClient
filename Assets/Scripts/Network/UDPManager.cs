@@ -256,4 +256,11 @@ public class UDPManager {
         };
         SendReliable((ushort)GameProtocol.PktId.C2DRequestEquipItem, pkt);
     }
+
+    public void SendC2DRequestRecentInventoryInfo(uint objectId) {
+        C2DRequestRecentInventoryInfo pkt = new C2DRequestRecentInventoryInfo {
+            ObjectId = objectId
+        };
+        SendReliable((ushort)GameProtocol.PktId.C2DRequestRecentInventoryInfo, pkt);
+    }
 }

@@ -18,6 +18,7 @@
 - 수신 데이터는 모두 `Managers.ExecuteAtMainThread`를 통해 메인 스레드에서 처리
 - 송신: `SendReliable(packetId, IMessage)` / `SendUnreliable(packetId, IMessage)` — 큐에 삽입, 워커 스레드가 실제 전송
 - 인벤토리 조작 송신: `SendC2DRequestInteractContainerObject(interactType, startObjectId, startVersion, startSlotIdx, quantity, endObjectId, endVersion, endSlotIdx)` (Reliable) / `SendC2DRequestEquipItem(actionType, equipmentSlotType, objectId, objectVersion, objectSlotIdx, myInventoryVersion)` (Reliable) — `myInventoryVersion`은 objectId가 컨테이너일 때 플레이어 인벤토리 버전, PLAYER_OBJECT_ID(0xFFFFFFFF)일 때는 0
+- 인벤토리 재동기화 요청: `SendC2DRequestRecentInventoryInfo(uint objectId)` (Reliable) — `objectId=0xFFFFFFFF`이면 플레이어 인벤토리, 그 외는 컨테이너. Deny 수신 시 호출. 서버는 기존 `D2CFullInventorySync` / `D2CResponseOpenContainer`로 응답
 - `OnUpdate()`가 매 프레임 `PacketHandler.CollectRetransmits()`를 호출해 RTO 초과 패킷을 큐에 재삽입. 재전송 7회 초과 시 `Disconnect()`. 3초마다 `C2DHeartBeat`(Unreliable) 자동 전송
 - Reliable 재전송 상수: `MIN_RTO_MS=50ms` (RTO 하한), `MAX_RTO_MS=1000ms` (RTO 상한), `MIN_RTT_MS=20ms` (RTT 하한), `MAX_RETRY=7` (최대 재전송). RTO는 `Mathf.Clamp(SRTT + 4×RTTVAR, 50, 1000)`으로 계산
 

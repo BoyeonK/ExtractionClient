@@ -142,8 +142,9 @@
 - **`RequestEquipItem(actionType, equipmentSlotType, slot)`**: 장비 장착(0)/해제(1) 요청 UDP 전송
 - **`ApplyInteractContainerObject(...)`**: 서버 응답 수신 시 IngameInventory 슬롯 업데이트 + UI 동기화
 - **`ApplyEquipItem(...)`**: 서버 응답 수신 시 장비↔슬롯 교환 + 무기 장착 갱신 + UI 동기화
-- **`HandleInteractContainerObjectDeny(denyReasonMask)`**: 컨테이너 아이템 조작 거부 응답 로그 출력
-- **`HandleEquipItemDeny(denyReasonMask)`**: 장비 장착/해제 거부 응답 로그 출력
+- **`HandleInteractContainerObjectDeny(denyReasonMask)`**: 컨테이너 아이템 조작 거부 응답 로그 출력 + `RequestRecentInventoryInfo()` 호출
+- **`HandleEquipItemDeny(denyReasonMask)`**: 장비 장착/해제 거부 응답 로그 출력 + `RequestRecentInventoryInfo()` 호출
+- **`RequestRecentInventoryInfo()`**: 서버에 최신 인벤토리 재요청. 항상 플레이어 인벤토리(`PLAYER_OBJECT_ID`)를 요청하고, 컨테이너가 열려있으면(`IsContainerOpen`) 해당 컨테이너도 추가 요청. 서버는 기존 `D2CFullInventorySync` / `D2CResponseOpenContainer`로 응답
 
 ### 게임 오브젝트 컨트롤러 상속 구조
 

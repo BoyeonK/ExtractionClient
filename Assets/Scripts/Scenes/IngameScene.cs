@@ -363,10 +363,18 @@ public class IngameScene : BaseScene {
 
     public void HandleInteractContainerObjectDeny(uint denyReasonMask) {
         Util.LogError($"[InteractContainerObjectDeny] denyReasonMask=0x{denyReasonMask:X}");
+        RequestRecentInventoryInfo();
     }
 
     public void HandleEquipItemDeny(uint denyReasonMask) {
         Util.LogError($"[EquipItemDeny] denyReasonMask=0x{denyReasonMask:X}");
+        RequestRecentInventoryInfo();
+    }
+
+    private void RequestRecentInventoryInfo() {
+        Managers.Network.udpManager.SendC2DRequestRecentInventoryInfo(PLAYER_OBJECT_ID);
+        if (IsContainerOpen)
+            Managers.Network.udpManager.SendC2DRequestRecentInventoryInfo(_inventory.InteractingContainerObjectId);
     }
 
     protected void RequestSpawnMe() {
