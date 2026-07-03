@@ -105,6 +105,7 @@ public class PacketHandler {
         _handlers.Add((ushort)PktId.D2CResponseEquipItem, Handle_D2CResponseEquipItem);
         _handlers.Add((ushort)PktId.D2CResponseInteractContainerObjectDeny, Handle_D2CResponseInteractContainerObjectDeny);
         _handlers.Add((ushort)PktId.D2CResponseEquipItemDeny, Handle_D2CResponseEquipItemDeny);
+        _handlers.Add((ushort)PktId.D2CResponseRecentContainerInfo, Handle_D2CResponseRecentContainerInfo);
     }
 
     // ==========================================
@@ -931,6 +932,49 @@ public class PacketHandler {
         Managers.ExecuteAtMainThread(() => {
             if (Managers.Scene.CurrentScene is not IngameScene ingameScene) return;
             ingameScene.HandleEquipItemDeny(denyReasonMask);
+        });
+    }
+
+    private void Handle_D2CResponseRecentContainerInfo(ReadOnlySpan<byte> payloadSpan) {
+        D2CResponseRecentContainerInfo pkt = null;
+
+        try {
+            pkt = D2CResponseRecentContainerInfo.Parser.ParseFrom(payloadSpan);
+        }
+        catch (InvalidProtocolBufferException e) {
+            Managers.ExecuteAtMainThread(() => { Util.LogError($"D2CResponseRecentContainerInfo 파싱 실패: {e.Message}"); });
+            return;
+        }
+        catch (Exception e) {
+            Managers.ExecuteAtMainThread(() => { Util.LogError($"D2CResponseRecentContainerInfo 처리 중 알 수 없는 에러: {e.Message}"); });
+            return;
+        }
+
+        InventoryItem ToInventoryItem(InventorySlot slot) {
+            if (slot == null || slot.Item == null) return null;
+            return new InventoryItem {
+                item_id    = (int)slot.Item.BlueprintId,
+                slot_index = slot.SlotIndex,
+                quantity   = slot.Item.Quantity
+            };
+        }
+
+        InventoryItem[] containerSlots = new InventoryItem[30];
+        foreach (InventorySlot slot in pkt.ContainerSlots) {
+            InventoryItem item = ToInventoryItem(slot);
+            if (item != null && slot.SlotIndex >= 0 && slot.SlotIndex < 30)
+                containerSlots[slot.SlotIndex] = item;
+        }
+
+        uint containerObjectId = pkt.ContainerObjectId;
+        uint containerVersion  = pkt.ContainerVersion;
+        uint containerVolume   = pkt.ContainerVolume;
+
+        Managers.ExecuteAtMainThread(() => {
+            if (Managers.Scene.CurrentScene is not IngameScene ingameScene) return;
+            if (!ingameScene.IsContainerOpen) return;
+            ingameScene.Inventory.ApplyContainerSync(containerObjectId, containerVersion, containerVolume, containerSlots);
+            ingameScene.SyncContainerUI();
         });
     }
 }

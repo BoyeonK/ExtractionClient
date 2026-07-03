@@ -133,6 +133,7 @@
 - **`ShowOpenedContainer()`**: 컨테이너 응답 수신 후 호출. MyInventory+Equipment+Container 동기화 후 LootBox UI 활성화
 - **`CloseContainer()`**: `C2DCloseContainer` 패킷 전송 + `Inventory.ClearContainer()` + UI 숨김 + 커서 잠금 복원
 - **`SyncInventoryUI()`**: `D2CFullInventorySync` 수신 후 호출. MyInventory+Equipment UI 동기화
+- **`SyncContainerUI()`**: `D2CResponseRecentContainerInfo` 수신 후 호출. Container 슬롯 UI만 갱신 (UI 활성화·커서·`_uiOpenCount` 변경 없음). `ShowOpenedContainer()`와 달리 이미 열린 컨테이너의 데이터 재동기화용
 
 ### 드래그 상태 관리 + 서버 요청/응답
 
@@ -144,7 +145,7 @@
 - **`ApplyEquipItem(...)`**: 서버 응답 수신 시 장비↔슬롯 교환 + 무기 장착 갱신 + UI 동기화
 - **`HandleInteractContainerObjectDeny(denyReasonMask)`**: 컨테이너 아이템 조작 거부 응답 로그 출력 + `RequestRecentInventoryInfo()` 호출
 - **`HandleEquipItemDeny(denyReasonMask)`**: 장비 장착/해제 거부 응답 로그 출력 + `RequestRecentInventoryInfo()` 호출
-- **`RequestRecentInventoryInfo()`**: 서버에 최신 인벤토리 재요청. 항상 플레이어 인벤토리(`PLAYER_OBJECT_ID`)를 요청하고, 컨테이너가 열려있으면(`IsContainerOpen`) 해당 컨테이너도 추가 요청. 서버는 기존 `D2CFullInventorySync` / `D2CResponseOpenContainer`로 응답
+- **`RequestRecentInventoryInfo()`**: 서버에 최신 인벤토리 재요청. 항상 플레이어 인벤토리(`PLAYER_OBJECT_ID`)를 요청하고, 컨테이너가 열려있으면(`IsContainerOpen`) 해당 컨테이너도 추가 요청. 서버는 플레이어→`D2CFullInventorySync`, 컨테이너→`D2CResponseRecentContainerInfo`로 응답
 
 ### 게임 오브젝트 컨트롤러 상속 구조
 

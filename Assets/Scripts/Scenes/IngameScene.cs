@@ -207,6 +207,11 @@ public class IngameScene : BaseScene {
         _ingameInventoryUI.SyncEquipment();
     }
 
+    public void SyncContainerUI() {
+        if (_ingameInventoryUI == null) return;
+        _ingameInventoryUI.SyncContainer();
+    }
+
     public void ShowOpenedContainer() {
         if (_ingameInventoryUI == null) return;
         _ingameInventoryUI.SyncMyInventory();

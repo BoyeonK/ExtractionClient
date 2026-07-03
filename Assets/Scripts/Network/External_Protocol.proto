@@ -34,6 +34,7 @@ enum PktId {
     D2C_RESPONSE_INTERACT_CONTAINER_OBJECT_DENY = 25;
     D2C_RESPONSE_EQUIP_ITEM_DENY = 26;
     C2D_REQUEST_RECENT_INVENTORY_INFO = 27;
+    D2C_RESPONSE_RECENT_CONTAINER_INFO = 28;
 }
 
 message C2DChannelOpen {
@@ -203,4 +204,11 @@ message D2CResponseEquipItemDeny {
 
 message C2DRequestRecentInventoryInfo {
     uint32 object_id = 1; // 0xFFFFFFFF=player inventory, else=container
+}
+
+message D2CResponseRecentContainerInfo {
+    uint32 container_object_id = 1;
+    uint32 container_version = 2;
+    uint32 container_volume = 3;
+    repeated InventorySlot container_slots = 4;
 }

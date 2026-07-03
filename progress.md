@@ -9,7 +9,6 @@
 ## 완료된 것들
 
 ### UI
-- [x] (2026-06-10 #1) 컨테이너 열기/닫기 흐름 연결 — `IngameScene`에 `ShowOpenedContainer()`·`CloseContainer()`·`SyncInventoryUI()` 프록시 메서드 추가, `PacketHandler`에서 D2CFullInventorySync→SyncInventoryUI, D2CResponseOpenContainer→ShowOpenedContainer 호출 연결
 - [x] (2026-06-10 #2) IngameInventory 컨테이너 메타데이터 추가 — `_interactingContainerObjectId`·`_interactingContainerVolume` 필드 추가, `ApplyContainerSync()` 시그니처 확장, `ClearContainer()` 메서드 추가
 - [x] (2026-06-15 #2) UI 열림 시 커서 해제 + 마우스룩 중단 — `_uiOpenCount` 레퍼런스 카운팅, `IsAnyUIOpen` 프로퍼티, `OnUIOpened()`/`OnUIClosed()` 메서드 추가. `PlayerController.ProcessMouseLook()`에서 `IsAnyUIOpen` 체크 추가
 - [x] (2026-06-18 #0) 드래그&드롭 아이템 이동 — `IngameISlot`에 `SlotOwnerType` enum·드래그 핸들러·`OnDrop()` 서버 요청 분기 구현, `IngameLSlot`에 `equipmentSlotType` 추가, `IngameScene`에 드래그 상태 관리+서버 요청/응답 메서드 추가, `PacketHandler`에 D2CResponseInteractContainerObject·D2CResponseEquipItem·D2CResponseInteractItemDeny 핸들러 등록, `UDPManager`에 SendC2DRequestInteractContainerObject·SendC2DRequestEquipItem 추가
@@ -21,6 +20,7 @@
 - [x] (2026-07-01 #1) D2CResponseEquipItem.my_inventory_version 역직렬화 반영 — `PacketHandler.Handle_D2CResponseEquipItem`에서 추출 후 `ApplyEquipItem`에 전달, 컨테이너 케이스에서 `SetVersionByObjectId(PLAYER_OBJECT_ID, myInventoryVersion)` 추가 호출
 - [x] (2026-07-01 #2) Deny 패킷 분리 — `D2CResponseInteractItemDeny` → `D2CResponseInteractContainerObjectDeny`(PktId 25) + `D2CResponseEquipItemDeny`(PktId 26) 두 핸들러로 교체, `IngameScene` 메서드도 `HandleInteractContainerObjectDeny` / `HandleEquipItemDeny`로 분리
 - [x] (2026-07-03 #0) C2DRequestRecentInventoryInfo 패킷 추가 — Deny 수신 시 서버에 최신 인벤토리 재요청. `External_Protocol.proto`에 PktId 27 + 메시지 정의, `UDPManager`에 Send 함수, `IngameScene`에 `RequestRecentInventoryInfo()` 추가 (플레이어 인벤토리 항상 + 컨테이너 열림 시 컨테이너도 요청)
+- [x] (2026-07-03 #1) D2CResponseRecentContainerInfo 핸들러 구현 — PktId 28, `PacketHandler`에 핸들러 등록+구현, `IngameScene`에 `SyncContainerUI()` 추가. 컨테이너 닫힘 상태 시 응답 무시(`IsContainerOpen` 가드)
 
 ### 버그 수정
 - [x] (2026-06-15 #1) IsContainerOpen 판정 버그 수정 — objectId=0인 컨테이너에서 `InteractingContainerObjectId != 0` 판정이 항상 false. `_isContainerOpen` bool 플래그 방식으로 교체
