@@ -774,6 +774,20 @@ public class PacketHandler {
 
         Managers.ExecuteAtMainThread(() => {
             if (Managers.Scene.CurrentScene is not IngameScene ingameScene) return;
+
+            var sb = new System.Text.StringBuilder();
+            sb.AppendLine($"[D2CFullInventorySync] version={inventoryVersion}");
+            for (int i = 0; i < slots.Length; i++) {
+                if (slots[i] != null)
+                    sb.AppendLine($"  slot[{i}]: item_id={slots[i].item_id}, qty={slots[i].quantity}");
+            }
+            if (primaryWeapon != null) sb.AppendLine($"  primaryWeapon: item_id={primaryWeapon.item_id}, qty={primaryWeapon.quantity}");
+            if (secondaryWeapon != null) sb.AppendLine($"  secondaryWeapon: item_id={secondaryWeapon.item_id}, qty={secondaryWeapon.quantity}");
+            if (armor != null) sb.AppendLine($"  armor: item_id={armor.item_id}, qty={armor.quantity}");
+            if (primaryWeaponMagazine != null) sb.AppendLine($"  primaryWeaponMag: item_id={primaryWeaponMagazine.item_id}, qty={primaryWeaponMagazine.quantity}");
+            if (secondaryWeaponMagazine != null) sb.AppendLine($"  secondaryWeaponMag: item_id={secondaryWeaponMagazine.item_id}, qty={secondaryWeaponMagazine.quantity}");
+            Util.Log(sb.ToString());
+
             ingameScene.Inventory.ApplyFullSync(inventoryVersion, slots, primaryWeapon, secondaryWeapon, armor, primaryWeaponMagazine, secondaryWeaponMagazine);
             ingameScene._itemLoaded = true;
             ingameScene.TryInitWeapon();
@@ -973,6 +987,15 @@ public class PacketHandler {
         Managers.ExecuteAtMainThread(() => {
             if (Managers.Scene.CurrentScene is not IngameScene ingameScene) return;
             if (!ingameScene.IsContainerOpen) return;
+
+            var sb = new System.Text.StringBuilder();
+            sb.AppendLine($"[D2CResponseRecentContainerInfo] objectId={containerObjectId}, version={containerVersion}, volume={containerVolume}");
+            for (int i = 0; i < containerSlots.Length; i++) {
+                if (containerSlots[i] != null)
+                    sb.AppendLine($"  slot[{i}]: item_id={containerSlots[i].item_id}, qty={containerSlots[i].quantity}");
+            }
+            Util.Log(sb.ToString());
+
             ingameScene.Inventory.ApplyContainerSync(containerObjectId, containerVersion, containerVolume, containerSlots);
             ingameScene.SyncContainerUI();
         });
