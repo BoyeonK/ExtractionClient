@@ -431,7 +431,8 @@ public class IngameScene : BaseScene {
             _playerController.Yaw,
             _playerController.Pitch,
             _playerController.Velocity,
-            _playerController.MovementState
+            _playerController.MovementState,
+            _playerController.ActionState
         );
     }
 }

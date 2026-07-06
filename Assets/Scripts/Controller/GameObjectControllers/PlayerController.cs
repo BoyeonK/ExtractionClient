@@ -164,7 +164,7 @@ public class PlayerController : GameObjectController {
 
         bool isMoving = animDir.sqrMagnitude > 0;
         bool isRunning = isMoving && _shift;
-        bool isShootingInput = Mouse.current != null && Mouse.current.leftButton.isPressed;
+        bool isShootingInput = Mouse.current != null && Mouse.current.leftButton.isPressed && !_ingameScene.IsAnyUIOpen;
         bool actualShooting = isShootingInput && !isRunning;
 
         _anim.SetBool("IsShooting", actualShooting);
@@ -207,6 +207,15 @@ public class PlayerController : GameObjectController {
     // xRotation은 3인칭 카메라의 피치를 나타내며, 네트워크에서는 -5도 보정하여 전송
     public float Pitch => (xRotation - 5f);
     public Vector3 Velocity => _controller != null ? _controller.velocity : Vector3.zero;
+    public uint ActionState {
+        get {
+            if (Mouse.current == null) return 0;
+            bool isMoving = _w || _s || _a || _d;
+            bool isRunning = isMoving && _shift;
+            bool isShooting = Mouse.current.leftButton.isPressed && !_ingameScene.IsAnyUIOpen && !isRunning;
+            return isShooting ? 1u : 0u;
+        }
+    }
     public uint MovementState {
         get {
             if (_controller == null) return 0;

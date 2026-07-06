@@ -17,6 +17,7 @@ public class OppoPlayerController : GameObjectController {
     float _yaw;
     float _pitch;
     uint _movementState;
+    uint _actionState;
 
     float yOffset = 0.58f;
 
@@ -73,6 +74,7 @@ public class OppoPlayerController : GameObjectController {
         _pitch = data.Pitch;
         _velocity = data.Velocity;
         _movementState = data.MovementState;
+        _actionState = data.ActionState;
 
         // 첫 수신 또는 대규모 이동(리스폰 등)시 즉시 텔레포트
         if (!_hasReceivedState || (transform.position - _targetPosition).sqrMagnitude > 100f) {
@@ -116,7 +118,7 @@ public class OppoPlayerController : GameObjectController {
         _anim.SetFloat("MoveX", moveX * speedMult, 0.1f, Time.deltaTime);
         _anim.SetFloat("MoveY", moveY * speedMult, 0.1f, Time.deltaTime);
         _anim.SetFloat("MovingSpeed", isMoving ? 1f : 0f, 0.1f, Time.deltaTime);
-        _anim.SetBool("IsShooting", false);
+        _anim.SetBool("IsShooting", _actionState == 1);
     }
 
     private void ProcessAim() {

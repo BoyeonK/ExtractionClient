@@ -92,11 +92,11 @@
 - **`SpawnPlayerObjects(List<PlayerSpawnData>)`**: 복수 플레이어 일괄 스폰 (내부에서 `SpawnPlayerObject()` 순회 호출)
 - **`UpdatePlayerStates(List<PlayerStateData>)`**: 수신한 플레이어 상태 일괄 적용 (`_myObjectId` skip, `_oppoPlayers`에서 찾아 `ApplyState()` 호출, 미등록 objectId는 `C2DRequestSpawnByObjectId` 전송)
 - **`PlayerSpawnData`** 구조체 (`SceneManagerEx.cs`): `ObjectId`, `CharacterType`, `WeaponId`, `Position`, `Rotation` — Protobuf 타입 격리를 위해 핸들러에서 변환 후 전달
-- **`PlayerStateData`** 구조체 (`SceneManagerEx.cs`): `ObjectId`, `Position`, `Yaw`, `Pitch`, `Velocity`, `MovementState` — Protobuf 타입 격리를 위해 핸들러에서 변환 후 전달
+- **`PlayerStateData`** 구조체 (`SceneManagerEx.cs`): `ObjectId`, `Position`, `Yaw`, `Pitch`, `Velocity`, `MovementState`, `ActionState` — Protobuf 타입 격리를 위해 핸들러에서 변환 후 전달
 - **`OppoPlayerController.Setup(characterType)`**: `HB{characterType}OppoPlayer` 모델 인스턴스화, RigBuilder·MultiAimConstraint·Animator 바인딩. `PlayerController.Setup()`과 동일 패턴 (Camera/ViewPoint/CharacterController 제외)
 - **`OppoPlayerController.EquipWeapon(int weaponId)`**: `IngameScene.WeaponPrefabCache`에서 프리팹 조회 후 `WeaponSocket`에 인스턴스화. 기존 무기가 있으면 파괴 후 교체
-- **`OppoPlayerController.ApplyState(PlayerStateData)`**: 수신한 상태를 `_targetPosition`·`_yaw`·`_pitch`·`_velocity`·`_movementState`에 저장. 첫 수신 또는 대규모 이동(sqrMagnitude>100)시에만 즉시 텔레포트, 그 외에는 `ProcessMovement()`가 `Vector3.Lerp`+`LerpAngle`로 매 프레임 보간
-- **`OppoPlayerController.ProcessAnimation()`**: `_velocity`를 yaw 기준 로컬 좌표로 변환하여 Animator 파라미터(`MoveX`/`MoveY`/`MovingSpeed`) 구동. PlayerController와 동일 damping(0.1f) 적용
+- **`OppoPlayerController.ApplyState(PlayerStateData)`**: 수신한 상태를 `_targetPosition`·`_yaw`·`_pitch`·`_velocity`·`_movementState`·`_actionState`에 저장. 첫 수신 또는 대규모 이동(sqrMagnitude>100)시에만 즉시 텔레포트, 그 외에는 `ProcessMovement()`가 `Vector3.Lerp`+`LerpAngle`로 매 프레임 보간
+- **`OppoPlayerController.ProcessAnimation()`**: `_velocity`를 yaw 기준 로컬 좌표로 변환하여 Animator 파라미터(`MoveX`/`MoveY`/`MovingSpeed`) 구동. `_actionState == 1`이면 `IsShooting=true` 설정. PlayerController와 동일 damping(0.1f) 적용
 - **`OppoPlayerController.ProcessAim()`**: yaw+pitch 각도에서 방향 벡터를 계산하여 `_aimTarget`을 가슴 높이(yOffset=0.58f) + 100m 전방에 배치 → MultiAimConstraint가 상체 회전 처리
 
 ## UI 열림 상태 관리 (`_uiOpenCount`)

@@ -196,7 +196,7 @@ public class UDPManager {
         SendReliable((ushort)GameProtocol.PktId.C2DNotifyLoadingComplete, pkt);
     }
 
-    public void SendC2DUpdatePlayerState(uint objectId, UnityEngine.Vector3 position, float yaw, float pitch, UnityEngine.Vector3 velocity, uint movementState) {
+    public void SendC2DUpdatePlayerState(uint objectId, UnityEngine.Vector3 position, float yaw, float pitch, UnityEngine.Vector3 velocity, uint movementState, uint actionState) {
         C2DUpdatePlayerState pkt = new C2DUpdatePlayerState {
             State = new PlayerState {
                 MovementInfo = new GameObjectMovementInfo {
@@ -208,7 +208,8 @@ public class UDPManager {
                     State = movementState
                 },
                 Pitch = pitch,
-                Velocity = new GameProtocol.Vector3 { X = velocity.x, Y = velocity.y, Z = velocity.z }
+                Velocity = new GameProtocol.Vector3 { X = velocity.x, Y = velocity.y, Z = velocity.z },
+                ActionState = actionState
             }
         };
         SendUnreliable((ushort)GameProtocol.PktId.C2DUpdatePlayerState, pkt);

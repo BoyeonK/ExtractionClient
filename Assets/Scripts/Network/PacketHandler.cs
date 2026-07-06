@@ -724,7 +724,8 @@ public class PacketHandler {
                 Yaw           = yaw,
                 Pitch         = playerState.Pitch,
                 Velocity      = unityVel,
-                MovementState = movementInfo.State
+                MovementState = movementInfo.State,
+                ActionState   = playerState.ActionState
             });
         }
 

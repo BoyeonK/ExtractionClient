@@ -1,6 +1,6 @@
 # 프로젝트 진행 상황
 
-> 최종 수정: 2026-07-03
+> 최종 수정: 2026-07-07
 > 장르: 멀티플레이어 Extraction 게임 (알파 단계)
 > 엔진: Unity 6000.4.0f1 / URP 17.4.0
 
@@ -9,8 +9,6 @@
 ## 완료된 것들
 
 ### UI
-- [x] (2026-06-10 #2) IngameInventory 컨테이너 메타데이터 추가 — `_interactingContainerObjectId`·`_interactingContainerVolume` 필드 추가, `ApplyContainerSync()` 시그니처 확장, `ClearContainer()` 메서드 추가
-- [x] (2026-06-15 #2) UI 열림 시 커서 해제 + 마우스룩 중단 — `_uiOpenCount` 레퍼런스 카운팅, `IsAnyUIOpen` 프로퍼티, `OnUIOpened()`/`OnUIClosed()` 메서드 추가. `PlayerController.ProcessMouseLook()`에서 `IsAnyUIOpen` 체크 추가
 - [x] (2026-06-18 #0) 드래그&드롭 아이템 이동 — `IngameISlot`에 `SlotOwnerType` enum·드래그 핸들러·`OnDrop()` 서버 요청 분기 구현, `IngameLSlot`에 `equipmentSlotType` 추가, `IngameScene`에 드래그 상태 관리+서버 요청/응답 메서드 추가, `PacketHandler`에 D2CResponseInteractContainerObject·D2CResponseEquipItem·D2CResponseInteractItemDeny 핸들러 등록, `UDPManager`에 SendC2DRequestInteractContainerObject·SendC2DRequestEquipItem 추가
 
 ### 네트워크
@@ -21,6 +19,10 @@
 - [x] (2026-07-01 #2) Deny 패킷 분리 — `D2CResponseInteractItemDeny` → `D2CResponseInteractContainerObjectDeny`(PktId 25) + `D2CResponseEquipItemDeny`(PktId 26) 두 핸들러로 교체, `IngameScene` 메서드도 `HandleInteractContainerObjectDeny` / `HandleEquipItemDeny`로 분리
 - [x] (2026-07-03 #0) C2DRequestRecentInventoryInfo 패킷 추가 — Deny 수신 시 서버에 최신 인벤토리 재요청. `External_Protocol.proto`에 PktId 27 + 메시지 정의, `UDPManager`에 Send 함수, `IngameScene`에 `RequestRecentInventoryInfo()` 추가 (플레이어 인벤토리 항상 + 컨테이너 열림 시 컨테이너도 요청)
 - [x] (2026-07-03 #1) D2CResponseRecentContainerInfo 핸들러 구현 — PktId 28, `PacketHandler`에 핸들러 등록+구현, `IngameScene`에 `SyncContainerUI()` 추가. 컨테이너 닫힘 상태 시 응답 무시(`IsContainerOpen` 가드)
+
+### 플레이어/애니메이션
+- [x] (2026-07-07 #0) UI 열림 시 사격 애니메이션 차단 — `PlayerController.ProcessAnimation()`에서 `_ingameScene.IsAnyUIOpen` 체크 추가, UI 표시 중 좌클릭 사격 애니메이션 미재생
+- [x] (2026-07-07 #1) PlayerState에 action_state 필드 추가 — `External_Unity_Object.proto`에 `action_state` 필드(0=NONE, 1=SHOOTING) 추가, 송신 체인(`PlayerController.ActionState` → `IngameScene.SendPlayerState` → `UDPManager`) 및 수신 체인(`PacketHandler` → `PlayerStateData` → `OppoPlayerController`) 전체 연결, 다른 플레이어의 사격 애니메이션 동기화
 
 ### 버그 수정
 - [x] (2026-06-15 #1) IsContainerOpen 판정 버그 수정 — objectId=0인 컨테이너에서 `InteractingContainerObjectId != 0` 판정이 항상 false. `_isContainerOpen` bool 플래그 방식으로 교체

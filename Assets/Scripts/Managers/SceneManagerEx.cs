@@ -25,6 +25,7 @@ public struct PlayerStateData {
     public float Pitch;
     public UnityEngine.Vector3 Velocity;
     public uint MovementState;
+    public uint ActionState;
 }
 
 public class GameSceneContext {
