@@ -1,6 +1,6 @@
 # 프로젝트 진행 상황
 
-> 최종 수정: 2026-07-07
+> 최종 수정: 2026-07-13
 > 장르: 멀티플레이어 Extraction 게임 (알파 단계)
 > 엔진: Unity 6000.4.0f1 / URP 17.4.0
 
@@ -12,8 +12,6 @@
 - [x] (2026-06-18 #0) 드래그&드롭 아이템 이동 — `IngameISlot`에 `SlotOwnerType` enum·드래그 핸들러·`OnDrop()` 서버 요청 분기 구현, `IngameLSlot`에 `equipmentSlotType` 추가, `IngameScene`에 드래그 상태 관리+서버 요청/응답 메서드 추가, `PacketHandler`에 D2CResponseInteractContainerObject·D2CResponseEquipItem·D2CResponseInteractItemDeny 핸들러 등록, `UDPManager`에 SendC2DRequestInteractContainerObject·SendC2DRequestEquipItem 추가
 
 ### 네트워크
-- [x] (2026-06-15 #0) E/I키로 컨테이너 UI 닫기 — `IngameScene`에 `_isContainerOpen` 플래그·`IsContainerOpen` 프로퍼티·`TryCloseContainerUI()` 추가. E키는 `TryInteract()` 내 분기, I키는 `IngameScene.Init()`에서 리스너 등록
-- [x] (2026-06-15 #3) ContainerController 중복 상호작용 검사 — 서버 측에서 중복 요청을 무시하므로 클라이언트 측 수정 불필요 확인
 - [x] (2026-07-01 #0) C2DRequestEquipItem.my_inventory_version 직렬화 추가 — `UDPManager.SendC2DRequestEquipItem`에 `myInventoryVersion` 파라미터 추가, `IngameScene.RequestEquipItem`에서 컨테이너 케이스일 때 `_inventory.InventoryVersion` 전달
 - [x] (2026-07-01 #1) D2CResponseEquipItem.my_inventory_version 역직렬화 반영 — `PacketHandler.Handle_D2CResponseEquipItem`에서 추출 후 `ApplyEquipItem`에 전달, 컨테이너 케이스에서 `SetVersionByObjectId(PLAYER_OBJECT_ID, myInventoryVersion)` 추가 호출
 - [x] (2026-07-01 #2) Deny 패킷 분리 — `D2CResponseInteractItemDeny` → `D2CResponseInteractContainerObjectDeny`(PktId 25) + `D2CResponseEquipItemDeny`(PktId 26) 두 핸들러로 교체, `IngameScene` 메서드도 `HandleInteractContainerObjectDeny` / `HandleEquipItemDeny`로 분리
@@ -23,6 +21,9 @@
 ### 플레이어/애니메이션
 - [x] (2026-07-07 #0) UI 열림 시 사격 애니메이션 차단 — `PlayerController.ProcessAnimation()`에서 `_ingameScene.IsAnyUIOpen` 체크 추가, UI 표시 중 좌클릭 사격 애니메이션 미재생
 - [x] (2026-07-07 #1) PlayerState에 action_state 필드 추가 — `External_Unity_Object.proto`에 `action_state` 필드(0=NONE, 1=SHOOTING) 추가, 송신 체인(`PlayerController.ActionState` → `IngameScene.SendPlayerState` → `UDPManager`) 및 수신 체인(`PacketHandler` → `PlayerStateData` → `OppoPlayerController`) 전체 연결, 다른 플레이어의 사격 애니메이션 동기화
+
+### 데이터
+- [x] (2026-07-13 #0) WeaponSpec에 HRecoilMax 필드 추가 검증 — DB에서 Python 스크립트로 생성된 `ItemDBHelper.cs`에 `HRecoilMax` 필드가 올바르게 반영되었음을 확인 (AK-47: 50, M4A1: 40, M16: 50)
 
 ### 버그 수정
 - [x] (2026-06-15 #1) IsContainerOpen 판정 버그 수정 — objectId=0인 컨테이너에서 `InteractingContainerObjectId != 0` 판정이 항상 false. `_isContainerOpen` bool 플래그 방식으로 교체

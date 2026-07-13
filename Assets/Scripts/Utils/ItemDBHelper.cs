@@ -16,6 +16,7 @@ public struct WeaponSpec {
     public int Moa { get; set; }
     public int VRecoilMin { get; set; }
     public int VRecoilMax { get; set; }
+    public int HRecoilMax { get; set; }
     public int SpreadBase { get; set; }
     public int SpreadMax { get; set; }
     public int SpreadIncreasePerShot { get; set; }
@@ -41,9 +42,9 @@ public static class ItemDBHelper {
     };
 
     private static readonly Dictionary<int, WeaponSpec> _weaponSpecs = new() {
-        { 1, new WeaponSpec { BaseDamage = 4800, Rpm = 600, MaxAmmo = 30, Moa = 0, VRecoilMin = 200, VRecoilMax = 220, SpreadBase = 50, SpreadMax = 1000, SpreadIncreasePerShot = 120, SpreadRecoveryRate = 40, AmmoType = 6 } },
-        { 2, new WeaponSpec { BaseDamage = 4000, Rpm = 700, MaxAmmo = 30, Moa = 0, VRecoilMin = 150, VRecoilMax = 165, SpreadBase = 50, SpreadMax = 1000, SpreadIncreasePerShot = 100, SpreadRecoveryRate = 40, AmmoType = 5 } },
-        { 3, new WeaponSpec { BaseDamage = 4200, Rpm = 650, MaxAmmo = 30, Moa = 0, VRecoilMin = 200, VRecoilMax = 220, SpreadBase = 50, SpreadMax = 1000, SpreadIncreasePerShot = 120, SpreadRecoveryRate = 40, AmmoType = 5 } },
+        { 1, new WeaponSpec { BaseDamage = 4800, Rpm = 600, MaxAmmo = 30, Moa = 0, VRecoilMin = 200, VRecoilMax = 220, HRecoilMax = 50, SpreadBase = 50, SpreadMax = 1000, SpreadIncreasePerShot = 120, SpreadRecoveryRate = 40, AmmoType = 6 } },
+        { 2, new WeaponSpec { BaseDamage = 4000, Rpm = 700, MaxAmmo = 30, Moa = 0, VRecoilMin = 150, VRecoilMax = 165, HRecoilMax = 40, SpreadBase = 50, SpreadMax = 1000, SpreadIncreasePerShot = 100, SpreadRecoveryRate = 40, AmmoType = 5 } },
+        { 3, new WeaponSpec { BaseDamage = 4200, Rpm = 650, MaxAmmo = 30, Moa = 0, VRecoilMin = 200, VRecoilMax = 220, HRecoilMax = 50, SpreadBase = 50, SpreadMax = 1000, SpreadIncreasePerShot = 120, SpreadRecoveryRate = 40, AmmoType = 5 } },
     };
 
     private static readonly Dictionary<int, ArmorSpec> _armorSpecs = new() {
