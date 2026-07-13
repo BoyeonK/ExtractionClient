@@ -127,7 +127,22 @@
 - `_fireInterval`: `EquipWeapon()` 시 `60f / RPM`으로 계산
 - `_fireTimer`: 매 프레임 `deltaTime` 누적, `_fireInterval`로 cap
 - `IsShooting && _fireTimer >= _fireInterval` 시 `Fire()` 호출 + `_fireTimer -= _fireInterval` (차감 방식으로 프레임 오차 보정)
-- `Fire()`: 발사 로직 진입점 (히트스캔, 반동, 데미지 등 — 미구현)
+
+**WeaponSpec 캐시** (`EquipWeapon` 시 갱신):
+- `_vRecoilMin`, `_vRecoilMax`, `_hRecoilMax`, `_spreadBase`, `_spreadMax`, `_spreadIncreasePerShot` — WeaponSpec 정수값을 `/100f`로 변환하여 도(degree) 단위로 캐싱
+- `_currentSpread`: 현재 스프레드 각도. 무기 장착 시 `_spreadBase`로 초기화, 발사 시 `_spreadIncreasePerShot`만큼 증가 (`_spreadMax` cap). 회복 로직은 미구현
+
+**Fire() 발사 흐름**:
+1. 탄약 확인: `IsPrimaryWeaponApplyed` → 해당 매거진 슬롯의 `quantity` 체크. 없으면 `EmptyAmmoFire()` 후 return, 있으면 `quantity--`
+2. 히트스캔: `CalculateSpreadRay()`로 `_currentSpread` 각도 내 원뿔형 랜덤 오프셋 적용된 Ray 생성 → `Physics.Raycast(1000m)` → `ProcessHit()` 전달
+3. 수직 반동: `Random.Range(_vRecoilMin, _vRecoilMax)` → `xRotation -= 값` (위로) + clamp + viewPoint 갱신
+4. 수평 반동: `Random.Range(0, _hRecoilMax)` × 랜덤 좌/우 → `transform.Rotate(Vector3.up * 값)`
+5. 스프레드 증가: `_currentSpread += _spreadIncreasePerShot`, `_spreadMax`로 cap
+
+**스텁 메서드** (미구현):
+- `EmptyAmmoFire()`: 빈 탄창 처리 (사운드, UI 등)
+- `ProcessHit(RaycastHit, bool)`: 피격 처리 (데미지, 이펙트, 서버 검증 등)
+
 - 새 UI 추가 시: 열 때 `OnUIOpened()`, 닫을 때 `OnUIClosed()` 호출
 
 ## 상호작용 상태 관리

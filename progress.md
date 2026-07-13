@@ -9,7 +9,6 @@
 ## 완료된 것들
 
 ### 네트워크
-- [x] (2026-07-01 #2) Deny 패킷 분리 — `D2CResponseInteractItemDeny` → `D2CResponseInteractContainerObjectDeny`(PktId 25) + `D2CResponseEquipItemDeny`(PktId 26) 두 핸들러로 교체, `IngameScene` 메서드도 `HandleInteractContainerObjectDeny` / `HandleEquipItemDeny`로 분리
 - [x] (2026-07-03 #0) C2DRequestRecentInventoryInfo 패킷 추가 — Deny 수신 시 서버에 최신 인벤토리 재요청. `External_Protocol.proto`에 PktId 27 + 메시지 정의, `UDPManager`에 Send 함수, `IngameScene`에 `RequestRecentInventoryInfo()` 추가 (플레이어 인벤토리 항상 + 컨테이너 열림 시 컨테이너도 요청)
 - [x] (2026-07-03 #1) D2CResponseRecentContainerInfo 핸들러 구현 — PktId 28, `PacketHandler`에 핸들러 등록+구현, `IngameScene`에 `SyncContainerUI()` 추가. 컨테이너 닫힘 상태 시 응답 무시(`IsContainerOpen` 가드)
 
@@ -23,6 +22,7 @@
 
 ### 플레이어/사격
 - [x] (2026-07-13 #2) PlayerController에 RPM 기반 발사 타이머 구현 — `_fireTimer`/`_fireInterval` 도입, cap+차감 방식으로 RPM 정확도 보장, `Fire()` 메서드 뼈대 추가. `IsMoving`/`IsRunning`/`IsShooting` 프로퍼티로 중복 상태 계산 통합
+- [x] (2026-07-13 #3) Fire() 내부 구현 — 탄약 소모(매거진 quantity--), 스프레드 적용 히트스캔(`CalculateSpreadRay` 원뿔형 분포), 수직 반동(VRecoilMin~Max → xRotation), 수평 반동(0~HRecoilMax 랜덤 좌/우), 스프레드 증가(SpreadIncreasePerShot, SpreadMax cap). `EquipWeapon()`에서 WeaponSpec 캐싱+단위 변환(/100→도). `EmptyAmmoFire()`/`ProcessHit()` 스텁 추가
 
 ### 버그 수정
 - [x] (2026-06-15 #1) IsContainerOpen 판정 버그 수정 — objectId=0인 컨테이너에서 `InteractingContainerObjectId != 0` 판정이 항상 false. `_isContainerOpen` bool 플래그 방식으로 교체
@@ -47,7 +47,9 @@
 
 ## 다음 작업 우선순위 (제안)
 
-1. **Fire() 발사 로직 구현** — 히트스캔/투사체, 반동(VRecoil/HRecoil) 적용, 스프레드 처리
-2. **인벤토리 열기/닫기 키바인딩** — Tab키로 MyInventory 토글 등 추가 입력 연결 (컨테이너 E/I키 닫기는 완료)
+1. **스프레드 회복 로직** — 매 프레임 `_currentSpread -= SpreadRecoveryRate * deltaTime`, SpreadBase를 하한으로
+2. **ProcessHit() 구현** — 피격 대상에 따른 데미지 계산, 히트 이펙트, 서버 히트 검증
+3. **EmptyAmmoFire() 구현** — 빈 탄창 사운드, 재장전 유도 UI
+4. **인벤토리 열기/닫기 키바인딩** — Tab키로 MyInventory 토글 등 추가 입력 연결 (컨테이너 E/I키 닫기는 완료)
 3. **실제 맵 씬에서 IngameScene 상속 완성** — `IngameScene`을 상속하는 맵별 씬 컴포넌트 구현
 4. **설정값 실제 적용** — 해상도/창모드/FOV 변경이 `Screen.SetResolution()`, `Camera.fieldOfView` 등에 반영되도록 구현

@@ -28,6 +28,13 @@ public class PlayerController : GameObjectController {
     float _fireTimer = 0f;
     float _fireInterval = 0f; // 60f / RPM
 
+    // WeaponSpec 캐시 (EquipWeapon 시 갱신)
+    float _vRecoilMin, _vRecoilMax, _hRecoilMax;
+    float _spreadBase, _spreadMax, _spreadIncreasePerShot;
+
+    // 스프레드 상태
+    float _currentSpread = 0f;
+
     // Character Controller 설정값
     float walkSpeed = 1f;
     float runSpeed = 3.5f;
@@ -107,8 +114,16 @@ public class PlayerController : GameObjectController {
         _equippedWeaponGo.transform.localPosition = Vector3.zero;
         _equippedWeaponGo.transform.localRotation = Quaternion.identity;
 
-        if (ItemDBHelper.TryGetWeaponSpec(weaponId, out WeaponSpec spec))
+        if (ItemDBHelper.TryGetWeaponSpec(weaponId, out WeaponSpec spec)) {
             _fireInterval = 60f / spec.Rpm;
+            _vRecoilMin = spec.VRecoilMin / 100f;
+            _vRecoilMax = spec.VRecoilMax / 100f;
+            _hRecoilMax = spec.HRecoilMax / 100f;
+            _spreadBase = spec.SpreadBase / 100f;
+            _spreadMax = spec.SpreadMax / 100f;
+            _spreadIncreasePerShot = spec.SpreadIncreasePerShot / 100f;
+            _currentSpread = _spreadBase;
+        }
     }
 
     void Update() {
@@ -197,7 +212,62 @@ public class PlayerController : GameObjectController {
     }
 
     private void Fire() {
-        // TODO: 발사 로직 구현 (히트스캔, 반동, 데미지 등)
+        // 1. 탄약 확인
+        InventoryItem magazine = _ingameScene.Inventory.IsPrimaryWeaponApplyed
+            ? _ingameScene.Inventory.PrimaryWeaponMagazine
+            : _ingameScene.Inventory.SecondaryWeaponMagazine;
+
+        if (magazine == null || magazine.quantity <= 0) {
+            EmptyAmmoFire();
+            return;
+        }
+
+        magazine.quantity--;
+
+        // 2. 스프레드 적용 히트스캔
+        Ray spreadRay = CalculateSpreadRay();
+        bool hasHit = Physics.Raycast(spreadRay, out RaycastHit hit, 1000f);
+        ProcessHit(hit, hasHit);
+
+        // 3. 수직 반동 (xRotation 감소 = 위로)
+        float vRecoil = Random.Range(_vRecoilMin, _vRecoilMax);
+        xRotation -= vRecoil;
+        xRotation = Mathf.Clamp(xRotation, -80f, 90f);
+        _viewPoint.transform.localRotation = Quaternion.Euler(xRotation, 0f, 0f);
+
+        // 4. 수평 반동 (랜덤 좌/우)
+        float hRecoil = Random.Range(0f, _hRecoilMax);
+        float hDirection = Random.value > 0.5f ? 1f : -1f;
+        transform.Rotate(Vector3.up * (hRecoil * hDirection));
+
+        // 5. 스프레드 증가
+        _currentSpread = Mathf.Min(_currentSpread + _spreadIncreasePerShot, _spreadMax);
+    }
+
+    private Ray CalculateSpreadRay() {
+        Ray baseRay = _camera.ViewportPointToRay(new Vector3(0.5f, 0.5f, 0f));
+
+        if (_currentSpread <= 0f)
+            return baseRay;
+
+        float angle = Random.Range(0f, _currentSpread) * Mathf.Deg2Rad;
+        float rotation = Random.Range(0f, 360f) * Mathf.Deg2Rad;
+
+        Vector3 right = Vector3.Cross(baseRay.direction, Vector3.up).normalized;
+        Vector3 up = Vector3.Cross(right, baseRay.direction).normalized;
+
+        Vector3 offset = (right * Mathf.Cos(rotation) + up * Mathf.Sin(rotation)) * Mathf.Sin(angle);
+        Vector3 spreadDir = (baseRay.direction + offset).normalized;
+
+        return new Ray(baseRay.origin, spreadDir);
+    }
+
+    private void EmptyAmmoFire() {
+        // TODO: 빈 탄창 사운드, 재장전 유도 UI 등
+    }
+
+    private void ProcessHit(RaycastHit hit, bool hasHit) {
+        // TODO: 데미지 계산, 히트 이펙트, 서버 히트 검증 전송 등
     }
 
     private void ProcessAim() {
