@@ -126,7 +126,12 @@
 **발사 타이머** (`ProcessFire`):
 - `_fireInterval`: `EquipWeapon()` 시 `60f / RPM`으로 계산
 - `_fireTimer`: 매 프레임 `deltaTime` 누적, `_fireInterval`로 cap
-- `IsShooting && _fireTimer >= _fireInterval` 시 `Fire()` 호출 + `_fireTimer -= _fireInterval` (차감 방식으로 프레임 오차 보정)
+- `!_fireBlocked && IsShooting && _fireTimer >= _fireInterval` 시 `Fire()` 호출 + `_fireTimer -= _fireInterval` (차감 방식으로 프레임 오차 보정)
+
+**발사 차단** (`_fireBlocked`):
+- `_fireBlocked = true`: `EmptyAmmoFire()` 호출 시, UI 열림 전환 감지 시 (`!_wasUIOpen && IsAnyUIOpen`)
+- `_fireBlocked = false`: 마우스 재클릭 감지 시 (`!_wasMousePressed && mousePressed`, raw 버튼 상태 기반)
+- UI 닫힘 후 마우스 유지만으로는 block 해제되지 않음 — 반드시 마우스를 뗐다가 다시 눌러야 발사 재개
 
 **WeaponSpec 캐시** (`EquipWeapon` 시 갱신):
 - `_vRecoilMin`, `_vRecoilMax`, `_hRecoilMax`, `_spreadBase`, `_spreadMax`, `_spreadIncreasePerShot` — WeaponSpec 정수값을 `/100f`로 변환하여 도(degree) 단위로 캐싱
@@ -140,7 +145,7 @@
 5. 스프레드 증가: `_currentSpread += _spreadIncreasePerShot`, `_spreadMax`로 cap
 
 **스텁 메서드** (미구현):
-- `EmptyAmmoFire()`: 빈 탄창 처리 (사운드, UI 등)
+- `EmptyAmmoFire()`: 빈 탄창 처리 (사운드, UI 등). 호출 시 `_fireBlocked = true` 설정
 - `ProcessHit(RaycastHit, bool)`: 피격 처리 (데미지, 이펙트, 서버 검증 등)
 
 - 새 UI 추가 시: 열 때 `OnUIOpened()`, 닫을 때 `OnUIClosed()` 호출

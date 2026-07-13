@@ -23,9 +23,7 @@
 ### 플레이어/사격
 - [x] (2026-07-13 #2) PlayerController에 RPM 기반 발사 타이머 구현 — `_fireTimer`/`_fireInterval` 도입, cap+차감 방식으로 RPM 정확도 보장, `Fire()` 메서드 뼈대 추가. `IsMoving`/`IsRunning`/`IsShooting` 프로퍼티로 중복 상태 계산 통합
 - [x] (2026-07-13 #3) Fire() 내부 구현 — 탄약 소모(매거진 quantity--), 스프레드 적용 히트스캔(`CalculateSpreadRay` 원뿔형 분포), 수직 반동(VRecoilMin~Max → xRotation), 수평 반동(0~HRecoilMax 랜덤 좌/우), 스프레드 증가(SpreadIncreasePerShot, SpreadMax cap). `EquipWeapon()`에서 WeaponSpec 캐싱+단위 변환(/100→도). `EmptyAmmoFire()`/`ProcessHit()` 스텁 추가
-
-### 버그 수정
-- [x] (2026-06-15 #1) IsContainerOpen 판정 버그 수정 — objectId=0인 컨테이너에서 `InteractingContainerObjectId != 0` 판정이 항상 false. `_isContainerOpen` bool 플래그 방식으로 교체
+- [x] (2026-07-13 #4) 발사 차단(fireBlocked) 메커니즘 — `_fireBlocked`/`_wasMousePressed`/`_wasUIOpen` 도입. 빈 탄창 시 block, UI 열림 전환 시 block, 마우스 재클릭(release→press) 시 해제. EmptyAmmoFire 반복 호출 방지 및 UI 닫힘 후 의도치 않은 즉시 발사 방지
 
 ---
 

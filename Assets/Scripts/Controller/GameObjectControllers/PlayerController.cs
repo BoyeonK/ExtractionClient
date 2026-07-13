@@ -35,6 +35,11 @@ public class PlayerController : GameObjectController {
     // 스프레드 상태
     float _currentSpread = 0f;
 
+    // 발사 차단
+    bool _fireBlocked = false;
+    bool _wasMousePressed = false;
+    bool _wasUIOpen = false;
+
     // Character Controller 설정값
     float walkSpeed = 1f;
     float runSpeed = 3.5f;
@@ -203,9 +208,20 @@ public class PlayerController : GameObjectController {
     private void ProcessFire() {
         if (_fireInterval <= 0f) return;
 
+        // UI 열림 전환 감지 → block
+        if (!_wasUIOpen && _ingameScene.IsAnyUIOpen)
+            _fireBlocked = true;
+        _wasUIOpen = _ingameScene.IsAnyUIOpen;
+
+        // 마우스 재클릭 감지 (release→press) → block 해제
+        bool mousePressed = Mouse.current != null && Mouse.current.leftButton.isPressed;
+        if (!_wasMousePressed && mousePressed)
+            _fireBlocked = false;
+        _wasMousePressed = mousePressed;
+
         _fireTimer = Mathf.Min(_fireTimer + Time.deltaTime, _fireInterval);
 
-        if (IsShooting && _fireTimer >= _fireInterval) {
+        if (!_fireBlocked && IsShooting && _fireTimer >= _fireInterval) {
             _fireTimer -= _fireInterval;
             Fire();
         }
@@ -263,6 +279,7 @@ public class PlayerController : GameObjectController {
     }
 
     private void EmptyAmmoFire() {
+        _fireBlocked = true;
         // TODO: 빈 탄창 사운드, 재장전 유도 UI 등
     }
 
