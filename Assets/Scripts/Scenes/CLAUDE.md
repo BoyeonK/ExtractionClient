@@ -74,6 +74,7 @@
 - **`ApplyFullSync()`**: 전체 인벤토리 일괄 덮어쓰기 (version + slots + weapon + armor + magazine), 완료 후 `FindEmptySlotIdx()` 자동 호출
 - **`FindEmptySlotIdx()`**: `_inventorySlots` 순회하여 첫 번째 빈 슬롯 인덱스를 `_emptySlotIdx`에 갱신 후 반환
 - **`InitWeapon()`**: 초기 무기 장착. 주무기 우선, 없으면 보조무기로 폴백하여 `EquipWeapon()` 호출 + `_isPrimaryWeaponApplyed` 설정
+- **`CurrentWeapon`** (프로퍼티): `_isPrimaryWeaponApplyed`에 따라 현재 장착 중인 무기(`InventoryItem`) 반환. 사격 로직에서 `ItemDBHelper.TryGetWeaponSpec(CurrentWeapon.item_id, out spec)`으로 무기 스펙 조회 시 사용
 - **`ApplyWeapon(bool primary)`**: 주/보조무기 전환. `_isPrimaryWeaponApplyed` 상태와 무기 존재 여부를 검증 후 `IngameScene.PlayerController.EquipWeapon()` 호출
 - **`SetInventorySlot(index, item)`** / **`SetPrimaryWeapon()`** / **`SetSecondaryWeapon()`** / **`SetArmor()`** / **`SetPrimaryWeaponMagazine()`** / **`SetSecondaryWeaponMagazine()`**: 개별 슬롯 갱신
 - **`ApplyContainerSync(objectId, version, volume, slots)`**: 컨테이너 데이터 일괄 덮어쓰기 (메타데이터 + 슬롯 30개)
@@ -111,6 +112,22 @@
 - **`OnUIOpened()`**: `_uiOpenCount++`, 첫 UI가 열리면 `SetCursorLock(false)` (커서 해제)
 - **`OnUIClosed()`**: `_uiOpenCount--`, 모든 UI가 닫히면 `SetCursorLock(true)` (커서 잠금 복원). 0 미만 방어 내장
 - **`PlayerController.ProcessMouseLook()`**: `_ingameScene.IsAnyUIOpen`이 true이면 마우스룩 처리를 건너뜀 (이동·에임은 계속 동작)
+
+### PlayerController 상태 프로퍼티 및 발사 타이머
+
+`PlayerController`는 공통 입력 상태를 프로퍼티로 제공하여 중복 계산을 방지한다:
+
+| 프로퍼티 | 반환 | 사용처 |
+|----------|------|--------|
+| `IsMoving` | `_w \|\| _s \|\| _a \|\| _d` | `ProcessAnimation`, `MovementState` |
+| `IsRunning` | `IsMoving && _shift` | `ProcessAnimation`, `IsShooting` |
+| `IsShooting` | 좌클릭 && !UI열림 && !달리기 | `ProcessAnimation`, `ProcessFire`, `ActionState` |
+
+**발사 타이머** (`ProcessFire`):
+- `_fireInterval`: `EquipWeapon()` 시 `60f / RPM`으로 계산
+- `_fireTimer`: 매 프레임 `deltaTime` 누적, `_fireInterval`로 cap
+- `IsShooting && _fireTimer >= _fireInterval` 시 `Fire()` 호출 + `_fireTimer -= _fireInterval` (차감 방식으로 프레임 오차 보정)
+- `Fire()`: 발사 로직 진입점 (히트스캔, 반동, 데미지 등 — 미구현)
 - 새 UI 추가 시: 열 때 `OnUIOpened()`, 닫을 때 `OnUIClosed()` 호출
 
 ## 상호작용 상태 관리

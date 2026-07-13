@@ -8,12 +8,7 @@
 
 ## 완료된 것들
 
-### UI
-- [x] (2026-06-18 #0) 드래그&드롭 아이템 이동 — `IngameISlot`에 `SlotOwnerType` enum·드래그 핸들러·`OnDrop()` 서버 요청 분기 구현, `IngameLSlot`에 `equipmentSlotType` 추가, `IngameScene`에 드래그 상태 관리+서버 요청/응답 메서드 추가, `PacketHandler`에 D2CResponseInteractContainerObject·D2CResponseEquipItem·D2CResponseInteractItemDeny 핸들러 등록, `UDPManager`에 SendC2DRequestInteractContainerObject·SendC2DRequestEquipItem 추가
-
 ### 네트워크
-- [x] (2026-07-01 #0) C2DRequestEquipItem.my_inventory_version 직렬화 추가 — `UDPManager.SendC2DRequestEquipItem`에 `myInventoryVersion` 파라미터 추가, `IngameScene.RequestEquipItem`에서 컨테이너 케이스일 때 `_inventory.InventoryVersion` 전달
-- [x] (2026-07-01 #1) D2CResponseEquipItem.my_inventory_version 역직렬화 반영 — `PacketHandler.Handle_D2CResponseEquipItem`에서 추출 후 `ApplyEquipItem`에 전달, 컨테이너 케이스에서 `SetVersionByObjectId(PLAYER_OBJECT_ID, myInventoryVersion)` 추가 호출
 - [x] (2026-07-01 #2) Deny 패킷 분리 — `D2CResponseInteractItemDeny` → `D2CResponseInteractContainerObjectDeny`(PktId 25) + `D2CResponseEquipItemDeny`(PktId 26) 두 핸들러로 교체, `IngameScene` 메서드도 `HandleInteractContainerObjectDeny` / `HandleEquipItemDeny`로 분리
 - [x] (2026-07-03 #0) C2DRequestRecentInventoryInfo 패킷 추가 — Deny 수신 시 서버에 최신 인벤토리 재요청. `External_Protocol.proto`에 PktId 27 + 메시지 정의, `UDPManager`에 Send 함수, `IngameScene`에 `RequestRecentInventoryInfo()` 추가 (플레이어 인벤토리 항상 + 컨테이너 열림 시 컨테이너도 요청)
 - [x] (2026-07-03 #1) D2CResponseRecentContainerInfo 핸들러 구현 — PktId 28, `PacketHandler`에 핸들러 등록+구현, `IngameScene`에 `SyncContainerUI()` 추가. 컨테이너 닫힘 상태 시 응답 무시(`IsContainerOpen` 가드)
@@ -24,6 +19,10 @@
 
 ### 데이터
 - [x] (2026-07-13 #0) WeaponSpec에 HRecoilMax 필드 추가 검증 — DB에서 Python 스크립트로 생성된 `ItemDBHelper.cs`에 `HRecoilMax` 필드가 올바르게 반영되었음을 확인 (AK-47: 50, M4A1: 40, M16: 50)
+- [x] (2026-07-13 #1) IngameInventory에 CurrentWeapon 프로퍼티 추가 — `_isPrimaryWeaponApplyed`에 따라 현재 장착 무기 반환, 사격 로직에서 무기 스펙 조회용
+
+### 플레이어/사격
+- [x] (2026-07-13 #2) PlayerController에 RPM 기반 발사 타이머 구현 — `_fireTimer`/`_fireInterval` 도입, cap+차감 방식으로 RPM 정확도 보장, `Fire()` 메서드 뼈대 추가. `IsMoving`/`IsRunning`/`IsShooting` 프로퍼티로 중복 상태 계산 통합
 
 ### 버그 수정
 - [x] (2026-06-15 #1) IsContainerOpen 판정 버그 수정 — objectId=0인 컨테이너에서 `InteractingContainerObjectId != 0` 판정이 항상 false. `_isContainerOpen` bool 플래그 방식으로 교체
@@ -48,6 +47,7 @@
 
 ## 다음 작업 우선순위 (제안)
 
-1. **인벤토리 열기/닫기 키바인딩** — Tab키로 MyInventory 토글 등 추가 입력 연결 (컨테이너 E/I키 닫기는 완료)
-2. **실제 맵 씬에서 IngameScene 상속 완성** — `IngameScene`을 상속하는 맵별 씬 컴포넌트 구현
-3. **설정값 실제 적용** — 해상도/창모드/FOV 변경이 `Screen.SetResolution()`, `Camera.fieldOfView` 등에 반영되도록 구현
+1. **Fire() 발사 로직 구현** — 히트스캔/투사체, 반동(VRecoil/HRecoil) 적용, 스프레드 처리
+2. **인벤토리 열기/닫기 키바인딩** — Tab키로 MyInventory 토글 등 추가 입력 연결 (컨테이너 E/I키 닫기는 완료)
+3. **실제 맵 씬에서 IngameScene 상속 완성** — `IngameScene`을 상속하는 맵별 씬 컴포넌트 구현
+4. **설정값 실제 적용** — 해상도/창모드/FOV 변경이 `Screen.SetResolution()`, `Camera.fieldOfView` 등에 반영되도록 구현

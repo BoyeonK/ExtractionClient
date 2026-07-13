@@ -23,7 +23,11 @@ public class PlayerController : GameObjectController {
     // 장착 무기 정보 연동
     Transform _weaponSocketTr;
     GameObject _equippedWeaponGo;
-    
+
+    // 발사 타이머
+    float _fireTimer = 0f;
+    float _fireInterval = 0f; // 60f / RPM
+
     // Character Controller 설정값
     float walkSpeed = 1f;
     float runSpeed = 3.5f;
@@ -35,6 +39,11 @@ public class PlayerController : GameObjectController {
 
     bool _w = false, _a = false, _s = false, _d = false, _shift = false, _jump = false;
     Vector3 _velocity;
+
+    bool IsMoving => _w || _s || _a || _d;
+    bool IsRunning => IsMoving && _shift;
+    bool IsShooting => Mouse.current != null && Mouse.current.leftButton.isPressed
+                       && !_ingameScene.IsAnyUIOpen && !IsRunning;
 
     public override void Init() {
         base.Init();
@@ -97,12 +106,16 @@ public class PlayerController : GameObjectController {
         _equippedWeaponGo = Object.Instantiate(weaponPrefab, _weaponSocketTr);
         _equippedWeaponGo.transform.localPosition = Vector3.zero;
         _equippedWeaponGo.transform.localRotation = Quaternion.identity;
+
+        if (ItemDBHelper.TryGetWeaponSpec(weaponId, out WeaponSpec spec))
+            _fireInterval = 60f / spec.Rpm;
     }
 
     void Update() {
         ProcessMovement();
         ProcessMouseLook();
-        ProcessAnimation(); 
+        ProcessAnimation();
+        ProcessFire();
         ProcessAim();
     }
 
@@ -162,19 +175,29 @@ public class PlayerController : GameObjectController {
         float inputY = (_w ? 1f : 0f) - (_s ? 1f : 0f);
         Vector2 animDir = new Vector2(inputX, inputY).normalized;
 
-        bool isMoving = animDir.sqrMagnitude > 0;
-        bool isRunning = isMoving && _shift;
-        bool isShootingInput = Mouse.current != null && Mouse.current.leftButton.isPressed && !_ingameScene.IsAnyUIOpen;
-        bool actualShooting = isShootingInput && !isRunning;
+        _anim.SetBool("IsShooting", IsShooting);
 
-        _anim.SetBool("IsShooting", actualShooting);
-
-        float speedMult = isRunning ? 2f : 1f;
+        float speedMult = IsRunning ? 2f : 1f;
         _anim.SetFloat("MoveX", animDir.x * speedMult, 0.1f, Time.deltaTime);
         _anim.SetFloat("MoveY", animDir.y * speedMult, 0.1f, Time.deltaTime);
 
-        float moveSpeed = isMoving ? 1f : 0f;
+        float moveSpeed = IsMoving ? 1f : 0f;
         _anim.SetFloat("MovingSpeed", moveSpeed, 0.1f, Time.deltaTime);
+    }
+
+    private void ProcessFire() {
+        if (_fireInterval <= 0f) return;
+
+        _fireTimer = Mathf.Min(_fireTimer + Time.deltaTime, _fireInterval);
+
+        if (IsShooting && _fireTimer >= _fireInterval) {
+            _fireTimer -= _fireInterval;
+            Fire();
+        }
+    }
+
+    private void Fire() {
+        // TODO: 발사 로직 구현 (히트스캔, 반동, 데미지 등)
     }
 
     private void ProcessAim() {
@@ -207,21 +230,12 @@ public class PlayerController : GameObjectController {
     // xRotation은 3인칭 카메라의 피치를 나타내며, 네트워크에서는 -5도 보정하여 전송
     public float Pitch => (xRotation - 5f);
     public Vector3 Velocity => _controller != null ? _controller.velocity : Vector3.zero;
-    public uint ActionState {
-        get {
-            if (Mouse.current == null) return 0;
-            bool isMoving = _w || _s || _a || _d;
-            bool isRunning = isMoving && _shift;
-            bool isShooting = Mouse.current.leftButton.isPressed && !_ingameScene.IsAnyUIOpen && !isRunning;
-            return isShooting ? 1u : 0u;
-        }
-    }
+    public uint ActionState => IsShooting ? 1u : 0u;
     public uint MovementState {
         get {
             if (_controller == null) return 0;
             if (!_controller.isGrounded) return 4; // JUMP/FALL
-            bool isMoving = _w || _s || _a || _d;
-            if (!isMoving) return 0;              // IDLE
+            if (!IsMoving) return 0;              // IDLE
             return _shift ? 2u : 1u;              // RUN : WALK
         }
     }

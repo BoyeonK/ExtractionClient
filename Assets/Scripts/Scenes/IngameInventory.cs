@@ -33,6 +33,7 @@ public class IngameInventory {
     public InventoryItem[] InteractingContainerSlots => _interactingContainerSlots;
     public InventoryItem PrimaryWeapon => _primaryWeapon;
     public InventoryItem SecondaryWeapon => _secondaryWeapon;
+    public InventoryItem CurrentWeapon => _isPrimaryWeaponApplyed ? _primaryWeapon : _secondaryWeapon;
     public InventoryItem Armor => _armor;
     public InventoryItem PrimaryWeaponMagazine => _primaryWeaponMagazine;
     public InventoryItem SecondaryWeaponMagazine => _secondaryWeaponMagazine;
