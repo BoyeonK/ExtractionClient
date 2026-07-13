@@ -134,8 +134,8 @@
 - UI 닫힘 후 마우스 유지만으로는 block 해제되지 않음 — 반드시 마우스를 뗐다가 다시 눌러야 발사 재개
 
 **WeaponSpec 캐시** (`EquipWeapon` 시 갱신):
-- `_vRecoilMin`, `_vRecoilMax`, `_hRecoilMax`, `_spreadBase`, `_spreadMax`, `_spreadIncreasePerShot` — WeaponSpec 정수값을 `/100f`로 변환하여 도(degree) 단위로 캐싱
-- `_currentSpread`: 현재 스프레드 각도. 무기 장착 시 `_spreadBase`로 초기화, 발사 시 `_spreadIncreasePerShot`만큼 증가 (`_spreadMax` cap). 회복 로직은 미구현
+- `_vRecoilMin`, `_vRecoilMax`, `_hRecoilMax`, `_spreadBase`, `_spreadMax`, `_spreadIncreasePerShot`, `_spreadRecoveryRate` — WeaponSpec 정수값을 `/100f`로 변환하여 도(degree) 단위로 캐싱
+- `_currentSpread`: 현재 스프레드 각도. 무기 장착 시 `_spreadBase`로 초기화, 발사 시 `_spreadIncreasePerShot`만큼 증가 (`_spreadMax` cap), 매 프레임 `_spreadRecoveryRate * deltaTime`만큼 회복 (`_spreadBase` 하한)
 
 **Fire() 발사 흐름**:
 1. 탄약 확인: `IsPrimaryWeaponApplyed` → 해당 매거진 슬롯의 `quantity` 체크. 없으면 `EmptyAmmoFire()` 후 return, 있으면 `quantity--`

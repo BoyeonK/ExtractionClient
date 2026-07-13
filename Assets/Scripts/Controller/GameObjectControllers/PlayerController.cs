@@ -30,7 +30,7 @@ public class PlayerController : GameObjectController {
 
     // WeaponSpec 캐시 (EquipWeapon 시 갱신)
     float _vRecoilMin, _vRecoilMax, _hRecoilMax;
-    float _spreadBase, _spreadMax, _spreadIncreasePerShot;
+    float _spreadBase, _spreadMax, _spreadIncreasePerShot, _spreadRecoveryRate;
 
     // 스프레드 상태
     float _currentSpread = 0f;
@@ -127,6 +127,7 @@ public class PlayerController : GameObjectController {
             _spreadBase = spec.SpreadBase / 100f;
             _spreadMax = spec.SpreadMax / 100f;
             _spreadIncreasePerShot = spec.SpreadIncreasePerShot / 100f;
+            _spreadRecoveryRate = spec.SpreadRecoveryRate / 100f;
             _currentSpread = _spreadBase;
         }
     }
@@ -220,6 +221,7 @@ public class PlayerController : GameObjectController {
         _wasMousePressed = mousePressed;
 
         _fireTimer = Mathf.Min(_fireTimer + Time.deltaTime, _fireInterval);
+        _currentSpread = Mathf.Max(_currentSpread - _spreadRecoveryRate * Time.deltaTime, _spreadBase);
 
         if (!_fireBlocked && IsShooting && _fireTimer >= _fireInterval) {
             _fireTimer -= _fireInterval;
