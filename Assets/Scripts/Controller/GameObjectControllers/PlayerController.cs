@@ -35,6 +35,11 @@ public class PlayerController : GameObjectController {
     // 스프레드 상태
     float _currentSpread = 0f;
 
+    // 반동 보간 상태
+    Vector2 _recoilTarget = Vector2.zero;   // 목표 반동 (x=수직, y=수평)
+    Vector2 _recoilCurrent = Vector2.zero;  // 현재까지 적용된 반동
+    float _recoilApplySpeed = 15f;          // 반동 올라가는 속도
+
     // 발사 차단
     bool _fireBlocked = false;
     bool _wasMousePressed = false;
@@ -135,6 +140,7 @@ public class PlayerController : GameObjectController {
     void Update() {
         ProcessMovement();
         ProcessMouseLook();
+        ProcessRecoil();
         ProcessAnimation();
         ProcessFire();
         ProcessAim();
@@ -160,6 +166,30 @@ public class PlayerController : GameObjectController {
         _viewPoint.transform.localRotation = Quaternion.Euler(xRotation, 0f, 0f);
 
         transform.Rotate(Vector3.up * mouseX);
+    }
+
+    private void ProcessRecoil() {
+        if (_recoilTarget == _recoilCurrent) return;
+
+        // 목표까지 Lerp로 보간
+        Vector2 prev = _recoilCurrent;
+        _recoilCurrent = Vector2.Lerp(_recoilCurrent, _recoilTarget, _recoilApplySpeed * Time.deltaTime);
+
+        // 이번 프레임에 적용할 반동 델타
+        Vector2 delta = _recoilCurrent - prev;
+
+        // 수직 반동 적용 (xRotation 감소 = 위로)
+        xRotation -= delta.x;
+        xRotation = Mathf.Clamp(xRotation, -80f, 90f);
+        _viewPoint.transform.localRotation = Quaternion.Euler(xRotation, 0f, 0f);
+
+        // 수평 반동 적용
+        transform.Rotate(Vector3.up * delta.y);
+
+        // 목표에 충분히 도달하면 스냅
+        if ((_recoilTarget - _recoilCurrent).sqrMagnitude < 0.0001f) {
+            _recoilCurrent = _recoilTarget;
+        }
     }
 
     private void ProcessMovement() {
@@ -235,28 +265,24 @@ public class PlayerController : GameObjectController {
             ? _ingameScene.Inventory.PrimaryWeaponMagazine
             : _ingameScene.Inventory.SecondaryWeaponMagazine;
 
-        if (magazine == null || magazine.quantity <= 0) {
-            EmptyAmmoFire();
-            return;
-        }
+        // 테스트용 주석처리
+        // if (magazine == null || magazine.quantity <= 0) {
+        //     EmptyAmmoFire();
+        //     return;
+        // }
 
-        magazine.quantity--;
+        // magazine.quantity--; // 테스트용 주석처리
 
         // 2. 스프레드 적용 히트스캔
         Ray spreadRay = CalculateSpreadRay();
         bool hasHit = Physics.Raycast(spreadRay, out RaycastHit hit, 1000f);
         ProcessHit(hit, hasHit);
 
-        // 3. 수직 반동 (xRotation 감소 = 위로)
+        // 3. 반동 목표값 누적 (실제 적용은 ProcessRecoil에서 보간)
         float vRecoil = Random.Range(_vRecoilMin, _vRecoilMax);
-        xRotation -= vRecoil;
-        xRotation = Mathf.Clamp(xRotation, -80f, 90f);
-        _viewPoint.transform.localRotation = Quaternion.Euler(xRotation, 0f, 0f);
-
-        // 4. 수평 반동 (랜덤 좌/우)
         float hRecoil = Random.Range(0f, _hRecoilMax);
         float hDirection = Random.value > 0.5f ? 1f : -1f;
-        transform.Rotate(Vector3.up * (hRecoil * hDirection));
+        _recoilTarget += new Vector2(vRecoil, hRecoil * hDirection);
 
         // 5. 스프레드 증가
         _currentSpread = Mathf.Min(_currentSpread + _spreadIncreasePerShot, _spreadMax);

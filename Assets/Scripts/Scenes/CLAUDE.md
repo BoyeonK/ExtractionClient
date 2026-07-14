@@ -140,9 +140,13 @@
 **Fire() 발사 흐름**:
 1. 탄약 확인: `IsPrimaryWeaponApplyed` → 해당 매거진 슬롯의 `quantity` 체크. 없으면 `EmptyAmmoFire()` 후 return, 있으면 `quantity--`
 2. 히트스캔: `CalculateSpreadRay()`로 `_currentSpread` 각도 내 원뿔형 랜덤 오프셋 적용된 Ray 생성 → `Physics.Raycast(1000m)` → `ProcessHit()` 전달
-3. 수직 반동: `Random.Range(_vRecoilMin, _vRecoilMax)` → `xRotation -= 값` (위로) + clamp + viewPoint 갱신
-4. 수평 반동: `Random.Range(0, _hRecoilMax)` × 랜덤 좌/우 → `transform.Rotate(Vector3.up * 값)`
-5. 스프레드 증가: `_currentSpread += _spreadIncreasePerShot`, `_spreadMax`로 cap
+3. 반동 목표 누적: `_recoilTarget += new Vector2(vRecoil, hRecoil * hDirection)` — 즉시 적용하지 않고 목표값만 설정
+4. 스프레드 증가: `_currentSpread += _spreadIncreasePerShot`, `_spreadMax`로 cap
+
+**반동 보간** (`ProcessRecoil`, `Update()`에서 `ProcessMouseLook()` 직후 호출):
+- `_recoilCurrent`를 `Vector2.Lerp(_recoilCurrent, _recoilTarget, _recoilApplySpeed * dt)`로 매 프레임 목표까지 보간
+- 이번 프레임의 델타(`_recoilCurrent - prev`)만큼 `xRotation`(수직) 및 `transform.Rotate`(수평)에 적용
+- `_recoilApplySpeed`(기본 15)로 반동 올라가는 체감 속도 조절 — 높을수록 즉시에 가깝고, 낮출수록 부드러움
 
 **스텁 메서드** (미구현):
 - `EmptyAmmoFire()`: 빈 탄창 처리 (사운드, UI 등). 호출 시 `_fireBlocked = true` 설정

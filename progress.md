@@ -1,15 +1,12 @@
 # 프로젝트 진행 상황
 
-> 최종 수정: 2026-07-13
+> 최종 수정: 2026-07-15
 > 장르: 멀티플레이어 Extraction 게임 (알파 단계)
 > 엔진: Unity 6000.4.0f1 / URP 17.4.0
 
 ---
 
 ## 완료된 것들
-
-### 네트워크
-- [x] (2026-07-03 #1) D2CResponseRecentContainerInfo 핸들러 구현 — PktId 28, `PacketHandler`에 핸들러 등록+구현, `IngameScene`에 `SyncContainerUI()` 추가. 컨테이너 닫힘 상태 시 응답 무시(`IsContainerOpen` 가드)
 
 ### 플레이어/애니메이션
 - [x] (2026-07-07 #0) UI 열림 시 사격 애니메이션 차단 — `PlayerController.ProcessAnimation()`에서 `_ingameScene.IsAnyUIOpen` 체크 추가, UI 표시 중 좌클릭 사격 애니메이션 미재생
@@ -24,6 +21,7 @@
 - [x] (2026-07-13 #3) Fire() 내부 구현 — 탄약 소모(매거진 quantity--), 스프레드 적용 히트스캔(`CalculateSpreadRay` 원뿔형 분포), 수직 반동(VRecoilMin~Max → xRotation), 수평 반동(0~HRecoilMax 랜덤 좌/우), 스프레드 증가(SpreadIncreasePerShot, SpreadMax cap). `EquipWeapon()`에서 WeaponSpec 캐싱+단위 변환(/100→도). `EmptyAmmoFire()`/`ProcessHit()` 스텁 추가
 - [x] (2026-07-13 #4) 발사 차단(fireBlocked) 메커니즘 — `_fireBlocked`/`_wasMousePressed`/`_wasUIOpen` 도입. 빈 탄창 시 block, UI 열림 전환 시 block, 마우스 재클릭(release→press) 시 해제. EmptyAmmoFire 반복 호출 방지 및 UI 닫힘 후 의도치 않은 즉시 발사 방지
 - [x] (2026-07-13 #5) 스프레드 회복 로직 — `ProcessFire()`에서 매 프레임 `_currentSpread -= _spreadRecoveryRate * deltaTime`, `_spreadBase` 하한. `_spreadRecoveryRate`를 `EquipWeapon()`에서 캐싱
+- [x] (2026-07-15 #0) 반동 보간(Smooth Recoil) 구현 — `Fire()`에서 즉시 적용하던 수직/수평 반동을 `_recoilTarget`에 목표만 누적, `ProcessRecoil()`에서 매 프레임 `Vector2.Lerp`로 보간 적용. 1프레임 즉시 튀김 → 여러 프레임에 걸친 부드러운 반동으로 개선
 
 ---
 
