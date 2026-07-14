@@ -8,12 +8,7 @@
 
 ## 완료된 것들
 
-### 플레이어/애니메이션
-- [x] (2026-07-07 #0) UI 열림 시 사격 애니메이션 차단 — `PlayerController.ProcessAnimation()`에서 `_ingameScene.IsAnyUIOpen` 체크 추가, UI 표시 중 좌클릭 사격 애니메이션 미재생
-- [x] (2026-07-07 #1) PlayerState에 action_state 필드 추가 — `External_Unity_Object.proto`에 `action_state` 필드(0=NONE, 1=SHOOTING) 추가, 송신 체인(`PlayerController.ActionState` → `IngameScene.SendPlayerState` → `UDPManager`) 및 수신 체인(`PacketHandler` → `PlayerStateData` → `OppoPlayerController`) 전체 연결, 다른 플레이어의 사격 애니메이션 동기화
-
 ### 데이터
-- [x] (2026-07-13 #0) WeaponSpec에 HRecoilMax 필드 추가 검증 — DB에서 Python 스크립트로 생성된 `ItemDBHelper.cs`에 `HRecoilMax` 필드가 올바르게 반영되었음을 확인 (AK-47: 50, M4A1: 40, M16: 50)
 - [x] (2026-07-13 #1) IngameInventory에 CurrentWeapon 프로퍼티 추가 — `_isPrimaryWeaponApplyed`에 따라 현재 장착 무기 반환, 사격 로직에서 무기 스펙 조회용
 
 ### 플레이어/사격
@@ -22,6 +17,11 @@
 - [x] (2026-07-13 #4) 발사 차단(fireBlocked) 메커니즘 — `_fireBlocked`/`_wasMousePressed`/`_wasUIOpen` 도입. 빈 탄창 시 block, UI 열림 전환 시 block, 마우스 재클릭(release→press) 시 해제. EmptyAmmoFire 반복 호출 방지 및 UI 닫힘 후 의도치 않은 즉시 발사 방지
 - [x] (2026-07-13 #5) 스프레드 회복 로직 — `ProcessFire()`에서 매 프레임 `_currentSpread -= _spreadRecoveryRate * deltaTime`, `_spreadBase` 하한. `_spreadRecoveryRate`를 `EquipWeapon()`에서 캐싱
 - [x] (2026-07-15 #0) 반동 보간(Smooth Recoil) 구현 — `Fire()`에서 즉시 적용하던 수직/수평 반동을 `_recoilTarget`에 목표만 누적, `ProcessRecoil()`에서 매 프레임 `Vector2.Lerp`로 보간 적용. 1프레임 즉시 튀김 → 여러 프레임에 걸친 부드러운 반동으로 개선
+
+### 문서/설정
+- [x] (2026-07-15 #1) CLAUDE.md 구조 개편 — `Scenes/CLAUDE.md`(204줄)에서 PlayerController/OppoPlayerController 관련 내용을 `Controller/CLAUDE.md`(70줄)로 분리. Scenes 144줄로 축소. 루트 CLAUDE.md 2개에 참조 추가
+- [x] (2026-07-15 #2) 상위 CLAUDE.md 로드 제외 설정 — `.claude/settings.json`에 `claudeMdExcludes` 추가, 클라이언트 세션에서 서버 컨텍스트(`Extraction/CLAUDE.md`) 로드 방지
+- [x] (2026-07-15 #3) CLAUDE.md 과도한 서술 정리 — 코드에서 바로 확인 가능한 필드 테이블·getter/setter 나열·상수값 등 제거. 설계 의도·규칙·흐름·함정만 잔류. 전체 471줄 → 269줄(−43%)
 
 ---
 

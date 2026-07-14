@@ -17,6 +17,7 @@ This file provides guidance to Claude Code (claude.ai/code) when working with co
 - 네트워크 (HTTP/UDP/패킷): `Assets/Scripts/Network/CLAUDE.md`
 - UI 시스템: `Assets/Scripts/UI/CLAUDE.md`
 - 씬 구성: `Assets/Scripts/Scenes/CLAUDE.md`
+- 컨트롤러 (Player/Oppo/Interactable): `Assets/Scripts/Controller/CLAUDE.md`
 - 입력 시스템: `Assets/Scripts/Managers/CLAUDE.md`
 
 ---
