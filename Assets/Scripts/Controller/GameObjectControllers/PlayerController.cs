@@ -40,6 +40,12 @@ public class PlayerController : GameObjectController {
     Vector2 _recoilCurrent = Vector2.zero;  // 현재까지 적용된 반동
     float _recoilApplySpeed = 15f;          // 반동 올라가는 속도
 
+    // 시점 분리: 마우스 에임 + 반동 오프셋
+    float _aimPitch = 0f;                   // 마우스로 제어하는 순수 피치
+    float _aimYaw = 0f;                     // 마우스로 제어하는 순수 요
+    float _recoilPitch = 0f;               // 반동에 의한 피치 오프셋
+    float _recoilYaw = 0f;                 // 반동에 의한 요 오프셋
+
     // 발사 차단
     bool _fireBlocked = false;
     bool _wasMousePressed = false;
@@ -52,7 +58,6 @@ public class PlayerController : GameObjectController {
     float gravity = -9.81f;
 
     float mouseSensitivity = 1f;
-    float xRotation = 0f;
 
     bool _w = false, _a = false, _s = false, _d = false, _shift = false, _jump = false;
     Vector3 _velocity;
@@ -141,6 +146,7 @@ public class PlayerController : GameObjectController {
         ProcessMovement();
         ProcessMouseLook();
         ProcessRecoil();
+        ApplyViewRotation();
         ProcessAnimation();
         ProcessFire();
         ProcessAim();
@@ -150,46 +156,39 @@ public class PlayerController : GameObjectController {
         if (_viewPoint == null) return;
         if (_ingameScene.IsAnyUIOpen) return;
 
-        // Mouse Delta는 순수 픽셀 이동량
-        float mouseX = 0f;
-        float mouseY = 0f;
-
         if (Mouse.current != null) {
             Vector2 mouseDelta = Mouse.current.delta.ReadValue();
-
-            mouseX = mouseDelta.x * mouseSensitivity;
-            mouseY = mouseDelta.y * mouseSensitivity;
+            _aimPitch -= mouseDelta.y * mouseSensitivity;
+            _aimPitch = Mathf.Clamp(_aimPitch, -80f + _recoilPitch, 90f + _recoilPitch);
+            _aimYaw += mouseDelta.x * mouseSensitivity;
         }
-
-        xRotation -= mouseY;
-        xRotation = Mathf.Clamp(xRotation, -80f, 90f);
-        _viewPoint.transform.localRotation = Quaternion.Euler(xRotation, 0f, 0f);
-
-        transform.Rotate(Vector3.up * mouseX);
     }
 
     private void ProcessRecoil() {
         if (_recoilTarget == _recoilCurrent) return;
 
         // 목표까지 Lerp로 보간
-        Vector2 prev = _recoilCurrent;
         _recoilCurrent = Vector2.Lerp(_recoilCurrent, _recoilTarget, _recoilApplySpeed * Time.deltaTime);
 
-        // 이번 프레임에 적용할 반동 델타
-        Vector2 delta = _recoilCurrent - prev;
-
-        // 수직 반동 적용 (xRotation 감소 = 위로)
-        xRotation -= delta.x;
-        xRotation = Mathf.Clamp(xRotation, -80f, 90f);
-        _viewPoint.transform.localRotation = Quaternion.Euler(xRotation, 0f, 0f);
-
-        // 수평 반동 적용
-        transform.Rotate(Vector3.up * delta.y);
+        // 반동 오프셋 갱신 (실제 회전 적용은 ApplyViewRotation에서)
+        _recoilPitch = _recoilCurrent.x;
+        _recoilYaw = _recoilCurrent.y;
 
         // 목표에 충분히 도달하면 스냅
         if ((_recoilTarget - _recoilCurrent).sqrMagnitude < 0.0001f) {
             _recoilCurrent = _recoilTarget;
         }
+    }
+
+    private void ApplyViewRotation() {
+        if (_viewPoint == null) return;
+
+        // 피치: 마우스 에임 + 반동 오프셋 합산 후 클램프
+        float finalPitch = Mathf.Clamp(_aimPitch - _recoilPitch, -80f, 90f);
+        _viewPoint.transform.localRotation = Quaternion.Euler(finalPitch, 0f, 0f);
+
+        // 요: 마우스 에임 + 반동 오프셋 합산
+        transform.rotation = Quaternion.Euler(0f, _aimYaw + _recoilYaw, 0f);
     }
 
     private void ProcessMovement() {
@@ -342,8 +341,8 @@ public class PlayerController : GameObjectController {
     // 네트워크 상태 프로퍼티
     public uint ObjectId => (uint)_objectId;
     public float Yaw => transform.eulerAngles.y;
-    // xRotation은 3인칭 카메라의 피치를 나타내며, 네트워크에서는 -5도 보정하여 전송
-    public float Pitch => (xRotation - 5f);
+    // 최종 피치(마우스+반동 합산)를 네트워크에 전송, -5도 보정
+    public float Pitch => (Mathf.Clamp(_aimPitch - _recoilPitch, -80f, 90f) - 5f);
     public Vector3 Velocity => _controller != null ? _controller.velocity : Vector3.zero;
     public uint ActionState => IsShooting ? 1u : 0u;
     public uint MovementState {

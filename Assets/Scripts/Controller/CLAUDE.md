@@ -29,9 +29,13 @@ GameObjectController (MonoBehaviour)
 3. 반동 목표 누적: `_recoilTarget`에만 추가, 즉시 적용하지 않음
 4. 스프레드 증가
 
-### 반동 보간 (`ProcessRecoil`)
+### 시점 시스템 (View Separation)
 
-`Update()`에서 `ProcessMouseLook()` 직후 호출. `_recoilCurrent`를 `Lerp`로 `_recoilTarget`까지 보간하고, 매 프레임 델타만큼 카메라에 적용. `_recoilApplySpeed`(기본 15)로 체감 속도 조절.
+마우스 에임과 반동을 별도 변수로 분리하여 간섭 방지:
+- **`_aimPitch` / `_aimYaw`**: 마우스 입력에 의한 순수 에임 각도. 즉시 반영, Lerp 없음
+- **`_recoilPitch` / `_recoilYaw`**: 반동에 의한 오프셋. `ProcessRecoil()`에서 Lerp 보간(`_recoilApplySpeed` 기본 15)
+- **`ApplyViewRotation()`**: 두 값을 합산(`_aimPitch - _recoilPitch`, `_aimYaw + _recoilYaw`)하여 한 프레임에 **1회만** 회전 적용
+- **피치 클램프**: `ProcessMouseLook()`에서 `_aimPitch`를 `[-80 + _recoilPitch, 90 + _recoilPitch]`로 클램프 — 반동 누적 시에도 마우스 조작 범위 보장
 
 ### 스텁 메서드 (미구현)
 

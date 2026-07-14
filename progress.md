@@ -17,6 +17,7 @@
 - [x] (2026-07-13 #4) 발사 차단(fireBlocked) 메커니즘 — `_fireBlocked`/`_wasMousePressed`/`_wasUIOpen` 도입. 빈 탄창 시 block, UI 열림 전환 시 block, 마우스 재클릭(release→press) 시 해제. EmptyAmmoFire 반복 호출 방지 및 UI 닫힘 후 의도치 않은 즉시 발사 방지
 - [x] (2026-07-13 #5) 스프레드 회복 로직 — `ProcessFire()`에서 매 프레임 `_currentSpread -= _spreadRecoveryRate * deltaTime`, `_spreadBase` 하한. `_spreadRecoveryRate`를 `EquipWeapon()`에서 캐싱
 - [x] (2026-07-15 #0) 반동 보간(Smooth Recoil) 구현 — `Fire()`에서 즉시 적용하던 수직/수평 반동을 `_recoilTarget`에 목표만 누적, `ProcessRecoil()`에서 매 프레임 `Vector2.Lerp`로 보간 적용. 1프레임 즉시 튀김 → 여러 프레임에 걸친 부드러운 반동으로 개선
+- [x] (2026-07-15 #4) 시점 분리(View Separation) 리팩터링 — 마우스 에임(`_aimPitch`/`_aimYaw`)과 반동 오프셋(`_recoilPitch`/`_recoilYaw`)을 별도 변수로 분리, `ApplyViewRotation()`에서 합산 후 1회만 회전 적용. 프레임 내 반대 방향 경쟁으로 인한 떨림 해소. 피치 클램프에 반동 오프셋 반영하여 반동 누적 시 마우스 조작 불능 버그 수정
 
 ### 문서/설정
 - [x] (2026-07-15 #1) CLAUDE.md 구조 개편 — `Scenes/CLAUDE.md`(204줄)에서 PlayerController/OppoPlayerController 관련 내용을 `Controller/CLAUDE.md`(70줄)로 분리. Scenes 144줄로 축소. 루트 CLAUDE.md 2개에 참조 추가
