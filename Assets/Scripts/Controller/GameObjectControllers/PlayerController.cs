@@ -311,7 +311,29 @@ public class PlayerController : GameObjectController {
     }
 
     private void ProcessHit(RaycastHit hit, bool hasHit) {
-        // TODO: 데미지 계산, 히트 이펙트, 서버 히트 검증 전송 등
+        // 현재 장착 총기의 blueprintId
+        InventoryItem currentWeapon = _ingameScene.Inventory.IsPrimaryWeaponApplyed
+            ? _ingameScene.Inventory.PrimaryWeapon
+            : _ingameScene.Inventory.SecondaryWeapon;
+        uint weaponDbid = currentWeapon != null ? (uint)currentWeapon.item_id : 0;
+
+        // 피격 대상 object_id 추출
+        uint hitObjectId = 0xFFFFFFFF;
+        if (hasHit) {
+            var hitController = hit.collider.GetComponentInParent<GameObjectController>();
+            if (hitController != null)
+                hitObjectId = (uint)hitController.GetObjectId();
+        }
+
+        // 서버에 발사 패킷 전송
+        Managers.Network.UDP.SendC2DRequestWeaponFire(
+            weaponDbid,
+            hasHit,
+            hasHit ? hit.point : UnityEngine.Vector3.zero,
+            hitObjectId
+        );
+
+        // TODO: 로컬 히트 이펙트 (탄착 파티클 등)
     }
 
     private void ProcessAim() {

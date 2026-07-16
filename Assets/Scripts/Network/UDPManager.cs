@@ -264,4 +264,16 @@ public class UDPManager {
         };
         SendReliable((ushort)GameProtocol.PktId.C2DRequestRecentInventoryInfo, pkt);
     }
+
+    public void SendC2DRequestWeaponFire(uint weaponDbid, bool hasHitPoint, UnityEngine.Vector3 hitPoint, uint hitObjectId) {
+        C2DRequestWeaponFire pkt = new C2DRequestWeaponFire {
+            FireSequence = Handler.NextFireSequence(),
+            WeaponDbid = weaponDbid,
+            HitObjectId = hitObjectId
+        };
+        if (hasHitPoint) {
+            pkt.HitPoint = new GameProtocol.Vector3 { X = hitPoint.x, Y = hitPoint.y, Z = hitPoint.z };
+        }
+        SendUnreliable((ushort)GameProtocol.PktId.C2DRequestWeaponFire, pkt);
+    }
 }

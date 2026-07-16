@@ -376,6 +376,17 @@ public class IngameScene : BaseScene {
         RequestRecentInventoryInfo();
     }
 
+    public void HandleWeaponFireBroadcast(uint shooterObjectId, bool hasHitPoint, Vector3 hitPoint) {
+        if (!_oppoPlayers.TryGetValue(shooterObjectId, out OppoPlayerController shooter))
+            return;
+
+        // TODO: 발사자 총구 이펙트 (머즐 플래시, 총성 등)
+
+        if (hasHitPoint) {
+            // TODO: 탄착 이펙트 재생 (hitPoint 좌표에)
+        }
+    }
+
     private void RequestRecentInventoryInfo() {
         Managers.Network.udpManager.SendC2DRequestRecentInventoryInfo(PLAYER_OBJECT_ID);
         if (IsContainerOpen)

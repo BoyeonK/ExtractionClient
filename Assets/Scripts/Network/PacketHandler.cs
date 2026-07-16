@@ -42,6 +42,7 @@ public class PacketHandler {
     // ── 송신 시퀀스 ────────────────────────────────────
     private uint   _rSeqNum = 0;  // reliable 채널
     private ushort _uSeqNum = 0;  // unreliable 채널
+    private uint   _fireSequence = 0;  // 발사 시퀀스 (서버와 동기화)
 
     // ── 수신 ACK 상태 (서버 reliable 패킷에 대한 우리 측 ACK, 다음 송신에 piggybacked) ──
     private uint _recvAckRSeqNum  = 0;
@@ -106,17 +107,21 @@ public class PacketHandler {
         _handlers.Add((ushort)PktId.D2CResponseInteractContainerObjectDeny, Handle_D2CResponseInteractContainerObjectDeny);
         _handlers.Add((ushort)PktId.D2CResponseEquipItemDeny, Handle_D2CResponseEquipItemDeny);
         _handlers.Add((ushort)PktId.D2CResponseRecentContainerInfo, Handle_D2CResponseRecentContainerInfo);
+        _handlers.Add((ushort)PktId.D2CBroadcastWeaponFire, Handle_D2CBroadcastWeaponFire);
     }
 
     // ==========================================
     // 세션 초기화
     // ==========================================
 
+    public uint NextFireSequence() => _fireSequence++;
+
     public void SetSessionVariable(ushort sessionId, uint securityKey) {
         _sessionId   = sessionId;
         _securityKey = securityKey;
         _rSeqNum     = 1;
         _uSeqNum     = 1;
+        _fireSequence = 0;
     }
 
     public void Reset() {
@@ -128,6 +133,7 @@ public class PacketHandler {
         _recvAckBitfield     = 0;
         _hasReceivedReliable = false;
         _timestampEcho       = 0;
+        _fireSequence        = 0;
         _srtt                = 0f;
         _rttvar              = 0f;
         _rttInitialized      = false;
@@ -999,6 +1005,34 @@ public class PacketHandler {
 
             ingameScene.Inventory.ApplyContainerSync(containerObjectId, containerVersion, containerVolume, containerSlots);
             ingameScene.SyncContainerUI();
+        });
+    }
+
+    private void Handle_D2CBroadcastWeaponFire(ReadOnlySpan<byte> payloadSpan) {
+        D2CBroadcastWeaponFire pkt = null;
+
+        try {
+            pkt = D2CBroadcastWeaponFire.Parser.ParseFrom(payloadSpan);
+        }
+        catch (InvalidProtocolBufferException e) {
+            Managers.ExecuteAtMainThread(() => { Util.LogError($"D2CBroadcastWeaponFire 파싱 실패: {e.Message}"); });
+            return;
+        }
+        catch (Exception e) {
+            Managers.ExecuteAtMainThread(() => { Util.LogError($"D2CBroadcastWeaponFire 처리 중 알 수 없는 에러: {e.Message}"); });
+            return;
+        }
+
+        uint shooterObjectId = pkt.ShooterObjectId;
+        bool hasHitPoint = pkt.HitPoint != null;
+        float hitX = pkt.HitPoint?.X ?? 0f;
+        float hitY = pkt.HitPoint?.Y ?? 0f;
+        float hitZ = pkt.HitPoint?.Z ?? 0f;
+
+        Managers.ExecuteAtMainThread(() => {
+            if (Managers.Scene.CurrentScene is not IngameScene ingameScene) return;
+            ingameScene.HandleWeaponFireBroadcast(shooterObjectId, hasHitPoint,
+                new UnityEngine.Vector3(hitX, hitY, hitZ));
         });
     }
 }

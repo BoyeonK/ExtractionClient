@@ -11,6 +11,8 @@ public class GameObjectController : MonoBehaviour {
 		SetRotation(data.Rotation);
 	}
 
+	public int GetObjectId() => _objectId;
+
 	public void SetObjectId(int objectId) {
 		_objectId = objectId;
 	}
