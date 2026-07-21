@@ -108,6 +108,7 @@ public class PacketHandler {
         _handlers.Add((ushort)PktId.D2CResponseEquipItemDeny, Handle_D2CResponseEquipItemDeny);
         _handlers.Add((ushort)PktId.D2CResponseRecentContainerInfo, Handle_D2CResponseRecentContainerInfo);
         _handlers.Add((ushort)PktId.D2CBroadcastWeaponFire, Handle_D2CBroadcastWeaponFire);
+        _handlers.Add((ushort)PktId.D2CNotifyHealthChange, Handle_D2CNotifyHealthChange);
     }
 
     // ==========================================
@@ -1033,6 +1034,31 @@ public class PacketHandler {
             if (Managers.Scene.CurrentScene is not IngameScene ingameScene) return;
             ingameScene.HandleWeaponFireBroadcast(shooterObjectId, hasHitPoint,
                 new UnityEngine.Vector3(hitX, hitY, hitZ));
+        });
+    }
+
+    private void Handle_D2CNotifyHealthChange(ReadOnlySpan<byte> payloadSpan) {
+        D2CNotifyHealthChange pkt = null;
+
+        try {
+            pkt = D2CNotifyHealthChange.Parser.ParseFrom(payloadSpan);
+        }
+        catch (InvalidProtocolBufferException e) {
+            Managers.ExecuteAtMainThread(() => { Util.LogError($"D2CNotifyHealthChange 파싱 실패: {e.Message}"); });
+            return;
+        }
+        catch (Exception e) {
+            Managers.ExecuteAtMainThread(() => { Util.LogError($"D2CNotifyHealthChange 처리 중 알 수 없는 에러: {e.Message}"); });
+            return;
+        }
+
+        int healthPoint = pkt.HealthPoint;
+        int shieldPoint = pkt.ShieldPoint;
+        int reason = (int)pkt.Reason;
+
+        Managers.ExecuteAtMainThread(() => {
+            if (Managers.Scene.CurrentScene is not IngameScene ingameScene) return;
+            ingameScene.HandleHealthChange(healthPoint, shieldPoint, reason);
         });
     }
 }

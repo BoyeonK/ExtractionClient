@@ -20,10 +20,6 @@ public class IngameScene : BaseScene {
     private int _characterType = -1;
     private uint _myObjectId = 0;
 
-    // ── HP ──
-    private float _maxHp = 100f;
-    private float _currentHp = 100f;
-
     private GameObject _characterGo;
     private PlayerController _playerController;
     public PlayerController PlayerController => _playerController;
@@ -205,6 +201,19 @@ public class IngameScene : BaseScene {
         if (_ingameInventoryUI == null) return;
         _ingameInventoryUI.SyncMyInventory();
         _ingameInventoryUI.SyncEquipment();
+        SyncHealthBarMax();
+    }
+
+    private void SyncHealthBarMax() {
+        if (_ingameHealthBarUI == null) return;
+
+        _ingameHealthBarUI.SetMaxHP(100000f);
+
+        InventoryItem armor = _inventory.Armor;
+        if (armor != null && ItemDBHelper.TryGetArmorSpec(armor.item_id, out ArmorSpec armorSpec))
+            _ingameHealthBarUI.SetMaxShield(armorSpec.MaxShieldPoint);
+        else
+            _ingameHealthBarUI.SetMaxShield(0f);
     }
 
     public void SyncContainerUI() {
@@ -374,6 +383,13 @@ public class IngameScene : BaseScene {
     public void HandleEquipItemDeny(uint denyReasonMask) {
         Util.LogError($"[EquipItemDeny] denyReasonMask=0x{denyReasonMask:X}");
         RequestRecentInventoryInfo();
+    }
+
+    public void HandleHealthChange(int healthPoint, int shieldPoint, int reason) {
+        if (_ingameHealthBarUI != null) {
+            _ingameHealthBarUI.SetHP(healthPoint);
+            _ingameHealthBarUI.SetArmor(shieldPoint);
+        }
     }
 
     public void HandleWeaponFireBroadcast(uint shooterObjectId, bool hasHitPoint, Vector3 hitPoint) {
