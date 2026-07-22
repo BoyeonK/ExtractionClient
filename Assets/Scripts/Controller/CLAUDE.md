@@ -4,8 +4,8 @@
 
 ```
 GameObjectController (MonoBehaviour)
-├── PlayerController
-├── OppoPlayerController
+├── PlayerController         : ICombatTarget
+├── OppoPlayerController     : ICombatTarget
 └── InteractableGameObjectController
       └── ContainerController
             └── TestItemBoxController
@@ -13,6 +13,18 @@ GameObjectController (MonoBehaviour)
 
 - **`InteractableGameObjectController`**: `_onInteract` 델리게이트 패턴. `Interact()` 호출 시 구독된 액션 실행
 - **`ContainerController`**: `_onInteract`에 `RequestOpenContainer` 구독
+
+## ICombatTarget 인터페이스
+
+`Assets/Scripts/Controller/ICombatTarget.cs`
+
+```csharp
+public interface ICombatTarget {
+    int GetObjectId();
+}
+```
+
+히트스캔 피격 판정 시 `GetComponentInParent<ICombatTarget>()`으로 탐색. `ICombatTarget`을 구현하지 않은 오브젝트(컨테이너, 지형 등)는 null → `hitObjectId = 0xFFFFFFFF`(미피격)으로 처리된다. 새 전투 대상 오브젝트 추가 시 반드시 이 인터페이스를 구현할 것. `GetObjectId()`는 `GameObjectController`에 이미 구현되어 있으므로 상속 계층 내 클래스는 별도 구현 불필요.
 
 ## PlayerController
 

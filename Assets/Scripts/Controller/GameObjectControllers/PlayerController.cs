@@ -3,7 +3,7 @@ using UnityEngine.Animations.Rigging;
 using UnityEngine.InputSystem;
 
 [RequireComponent(typeof(CharacterController))]
-public class PlayerController : GameObjectController {
+public class PlayerController : GameObjectController, ICombatTarget {
     CharacterController _controller;
     
     // 카메라 및 Raycast
@@ -320,13 +320,13 @@ public class PlayerController : GameObjectController {
         // 피격 대상 object_id 추출
         uint hitObjectId = 0xFFFFFFFF;
         if (hasHit) {
-            var hitController = hit.collider.GetComponentInParent<GameObjectController>();
-            if (hitController != null)
-                hitObjectId = (uint)hitController.GetObjectId();
+            var combatTarget = hit.collider.GetComponentInParent<ICombatTarget>();
+            if (combatTarget != null)
+                hitObjectId = (uint)combatTarget.GetObjectId();
         }
 
         // 서버에 발사 패킷 전송
-        Managers.Network.UDP.SendC2DRequestWeaponFire(
+        Managers.Network.udpManager.SendC2DRequestWeaponFire(
             weaponDbid,
             hasHit,
             hasHit ? hit.point : UnityEngine.Vector3.zero,

@@ -2,7 +2,7 @@ using UnityEngine;
 using UnityEngine.Animations.Rigging;
 using UnityEngine.InputSystem;
 
-public class OppoPlayerController : GameObjectController {
+public class OppoPlayerController : GameObjectController, ICombatTarget {
     // 사옹할 모델 및 애니메이션 및 Rig
     RigBuilder _rigBuilder;
     MultiAimConstraint _constraint;
