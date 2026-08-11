@@ -55,6 +55,14 @@
 - `_isContainerOpen`: objectId가 0일 수 있으므로 별도 bool 플래그 사용
 - Deny 수신 시 `RequestRecentInventoryInfo()`로 재동기화
 
+### 귀환(Recall) 상태 관리
+
+`IngameScene`이 `_recallRequested`를 중앙 보유. **스팟별이 아닌 씬 단위 플래그**여야 다른 스팟으로 이동해 재요청하는 경로가 막힌다.
+
+- 2단계 흐름: `RequestRecall()` → `HandleRecallResponse()`(승인/거부) → `HandleRecallResult()`(서버 5초 검사 후 최종 성공/취소)
+- 승인 시점에는 잠금을 유지한다. 해제는 거부·취소·워치독 만료 시에만
+- **TEMP 워치독**: 전송 시점부터 `RECALL_TIMEOUT`(10초) 타이머를 돌려 응답 유실 시 잠금 해제. 결과를 추측하지 않고 로컬 잠금만 풀므로 판정 권한은 서버에 유지. `HandleRecallResult` 실처리 완료 전까지는 제거 금지
+
 ### 드래그 + 서버 요청/응답
 
 - 드래그: `BeginDrag`/`UpdateDragPosition`/`EndDrag` → 고스트 제어

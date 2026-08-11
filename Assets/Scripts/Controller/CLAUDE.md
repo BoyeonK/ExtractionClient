@@ -7,12 +7,16 @@ GameObjectController (MonoBehaviour)
 ├── PlayerController         : ICombatTarget
 ├── OppoPlayerController     : ICombatTarget
 └── InteractableGameObjectController
-      └── ContainerController
-            └── TestItemBoxController
+      ├── ContainerController
+      │     └── TestItemBoxController
+      └── RecallSpotController
 ```
 
 - **`InteractableGameObjectController`**: `_onInteract` 델리게이트 패턴. `Interact()` 호출 시 구독된 액션 실행
 - **`ContainerController`**: `_onInteract`에 `RequestOpenContainer` 구독
+- **`RecallSpotController`**: `_onInteract`에 `RequestRecall` 구독. 서버 스폰(`ObjectData`) 대상이 아니라 **맵 씬에 직접 배치**하고 `[SerializeField] _recallSpotIndex`로 맵별 귀환 영역 테이블 인덱스를 부여한다. `_objectId`는 사용하지 않음
+  - 상호작용 판정이 `hit.collider.transform.position` 기준 2m 고정이므로(`PlayerController.CheckInteractable`), 스팟은 **작은 프롭**(단말기 등)으로 배치할 것. 넓은 트리거 존은 조준·거리 판정이 성립하지 않는다
+  - 중복 요청 차단은 스팟이 아닌 `IngameScene._recallRequested`가 담당 (스팟별로 두면 다른 스팟에서 재요청 가능)
 
 ## ICombatTarget 인터페이스
 

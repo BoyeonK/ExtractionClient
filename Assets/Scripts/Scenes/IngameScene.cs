@@ -9,11 +9,21 @@ public class IngameScene : BaseScene {
     public bool _itemLoaded = false;
     private bool _weaponInitialized = false;
     private bool _isContainerOpen = false;
+    private bool _recallRequested = false;
     private int _uiOpenCount = 0;
     public bool IsAnyUIOpen => _uiOpenCount > 0;
 
     private const float PLAYER_STATE_INTERVAL = 0.1f;
     private float _playerStateTimer = 0f;
+
+    // TEMP: 귀환 응답 워치독
+    //       "귀환이 실패하면 서버가 반드시 알린다"는 전제가 깨졌을 때(통지 유실,
+    //       SESSION_LOST/SERVER_INTERNAL처럼 통지 경로 자체가 불안한 사유, UDP 끊김)
+    //       _recallRequested가 영구히 잠겨 그 판 탈출이 불가능해지는 것을 막는 임시 안전장치.
+    //       결과를 추측하지 않고 로컬 잠금만 해제하므로 판정 권한은 서버에 그대로 있다.
+    //       서버 통지 신뢰성이 검증되면 이 블록과 OnUpdate()의 TEMP 블록을 함께 제거할 것.
+    private const float RECALL_TIMEOUT = 10f;   // 서버 검사 5초 + 왕복·지터 여유
+    private float _recallTimer = 0f;
 
     private bool _isGetResponseSpawnMe = false;
     private Vector3 _spawnPoint;
@@ -244,6 +254,45 @@ public class IngameScene : BaseScene {
         Managers.Network.udpManager.SendC2DRequestOpenContainer(containerObjectId);
     }
 
+    // ── Recall ──
+
+    // 귀환 요청은 판당 1회만 유효하다. 스팟별이 아닌 씬 단위로 막아야
+    // 다른 스팟으로 이동해 재요청하는 경로가 생기지 않는다.
+    public void RequestRecall(uint recallSpotIndex) {
+        if (_recallRequested) return;
+        _recallRequested = true;
+        _recallTimer = 0f;   // TEMP: 워치독 시작 (승인 응답·최종 결과 양쪽을 함께 커버)
+        Managers.Network.udpManager.SendC2DRequestRecall(recallSpotIndex);
+    }
+
+    public void HandleRecallResponse(bool result, uint recallSpotIndex) {
+        // 거부 사유는 서버가 내려주지 않는다. 플래그만 되돌려 재시도를 허용한다.
+        if (!result) {
+            _recallRequested = false;
+            return;
+        }
+
+        // 승인 시점에는 잠금을 유지한다. 서버가 1초 간격 5회 검사 후
+        // D2CNotifyRecallResult로 최종 결과를 통보한다.
+        Util.Log($"귀환 승인 (spotIndex={recallSpotIndex})");
+    }
+
+    // 승인된 귀환의 최종 결과. reason은 RecallResultReason
+    // (0=UNKNOWN, 1=SUCCESS, 2=OUT_OF_ZONE, 3=PLAYER_DEAD, 4=SESSION_LOST, 5=SERVER_INTERNAL)
+    public void HandleRecallResult(bool result, uint recallSpotIndex, int reason) {
+        if (result) {
+            // TEMP: 귀환 성공 — 탈출 연출·씬 전환 미구현. 로그만 남기고 잠금을 해제한다.
+            //       씬 전환이 붙으면 성공 시에는 잠금을 유지하는 쪽이 맞다(이미 맵을 떠나므로).
+            Util.Log($"TEMP: 귀환 성공 (spotIndex={recallSpotIndex}, reason={reason})");
+        }
+        else {
+            // TEMP: 귀환 취소 — reason별 분기 미구현. 현재는 사유와 무관하게 재시도를 허용한다.
+            Util.Log($"TEMP: 귀환 취소 (spotIndex={recallSpotIndex}, reason={reason})");
+        }
+
+        _recallRequested = false;
+    }
+
     // ── Drag ──
 
     private const uint PLAYER_OBJECT_ID = 0xFFFFFFFF;
@@ -440,6 +489,15 @@ public class IngameScene : BaseScene {
         if (_playerStateTimer >= PLAYER_STATE_INTERVAL) {
             _playerStateTimer = 0f;
             SendPlayerState();
+        }
+
+        // TEMP: 귀환 응답 워치독 — 상단 RECALL_TIMEOUT 주석 참조. 제거 시 함께 삭제할 것
+        if (_recallRequested) {
+            _recallTimer += Time.deltaTime;
+            if (_recallTimer >= RECALL_TIMEOUT) {
+                _recallRequested = false;
+                Util.LogWarning($"귀환 응답 미수신 ({RECALL_TIMEOUT}초) — 요청 잠금 해제");
+            }
         }
 
         // 인터랙션 UI 업데이트
