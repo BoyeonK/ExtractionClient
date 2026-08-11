@@ -276,4 +276,12 @@ public class UDPManager {
         }
         SendUnreliable((ushort)GameProtocol.PktId.C2DRequestWeaponFire, pkt);
     }
+
+    // 귀환은 일회성 결정이므로 유실되면 안 된다 — reliable
+    public void SendC2DRequestRecall(uint recallSpotIndex) {
+        C2DRequestRecall pkt = new C2DRequestRecall {
+            RecallSpotIndex = recallSpotIndex
+        };
+        SendReliable((ushort)GameProtocol.PktId.C2DRequestRecall, pkt);
+    }
 }

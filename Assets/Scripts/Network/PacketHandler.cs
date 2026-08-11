@@ -109,6 +109,7 @@ public class PacketHandler {
         _handlers.Add((ushort)PktId.D2CResponseRecentContainerInfo, Handle_D2CResponseRecentContainerInfo);
         _handlers.Add((ushort)PktId.D2CBroadcastWeaponFire, Handle_D2CBroadcastWeaponFire);
         _handlers.Add((ushort)PktId.D2CNotifyHealthChange, Handle_D2CNotifyHealthChange);
+        _handlers.Add((ushort)PktId.D2CResponseRecall, Handle_D2CResponseRecall);
     }
 
     // ==========================================
@@ -1059,6 +1060,32 @@ public class PacketHandler {
         Managers.ExecuteAtMainThread(() => {
             if (Managers.Scene.CurrentScene is not IngameScene ingameScene) return;
             ingameScene.HandleHealthChange(healthPoint, shieldPoint, reason);
+        });
+    }
+
+    private void Handle_D2CResponseRecall(ReadOnlySpan<byte> payloadSpan) {
+        D2CResponseRecall pkt = null;
+
+        try {
+            pkt = D2CResponseRecall.Parser.ParseFrom(payloadSpan);
+        }
+        catch (InvalidProtocolBufferException e) {
+            Managers.ExecuteAtMainThread(() => { Util.LogError($"D2CResponseRecall 파싱 실패: {e.Message}"); });
+            return;
+        }
+        catch (Exception e) {
+            Managers.ExecuteAtMainThread(() => { Util.LogError($"D2CResponseRecall 처리 중 알 수 없는 에러: {e.Message}"); });
+            return;
+        }
+
+        bool result          = pkt.Result;
+        uint recallSpotIndex = pkt.RecallSpotIndex;
+
+        Managers.ExecuteAtMainThread(() => {
+            if (Managers.Scene.CurrentScene is not IngameScene) return;
+            Util.Log($"D2CResponseRecall 수신 (result={result}, spotIndex={recallSpotIndex})");
+            // TODO : 귀환 승인/거부 처리 (승인 시 귀환 연출·씬 전환, 거부 시 UI 피드백)
+            //        IngameScene.HandleRecallResponse(result, recallSpotIndex) 구현 후 연결
         });
     }
 }

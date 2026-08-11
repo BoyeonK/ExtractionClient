@@ -38,6 +38,8 @@ enum PktId {
     C2D_REQUEST_WEAPON_FIRE = 29;
     D2C_BROADCAST_WEAPON_FIRE = 30;
     D2C_NOTIFY_HEALTH_CHANGE = 31;
+    C2D_REQUEST_RECALL = 32;
+    D2C_RESPONSE_RECALL = 33;
 }
 
 message C2DChannelOpen {
@@ -238,4 +240,13 @@ message D2CNotifyHealthChange {
     int32              health_point = 1;  // 현재 HP (절대값)
     int32              shield_point = 2;  // 현재 쉴드 (절대값)
     HealthChangeReason reason       = 3;  // 변화 원인
+}
+
+message C2DRequestRecall {
+    uint32 recall_spot_index = 1;  // 귀환 스팟 인덱스 (맵별 귀환 영역 테이블의 인덱스)
+}
+
+message D2CResponseRecall {
+    bool   result            = 1;  // true=귀환 승인, false=거부
+    uint32 recall_spot_index = 2;  // 요청 인덱스 에코 (어느 요청에 대한 응답인지 대조용)
 }
