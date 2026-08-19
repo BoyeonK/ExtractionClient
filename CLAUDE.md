@@ -30,7 +30,6 @@ This file provides guidance to Claude Code (claude.ai/code) when working with co
 |--------|--------|------|
 | `Managers.Input` | `InputManager` | 키 입력 이벤트 등록/해제 |
 | `Managers.Network` | `NetworkManager` | HTTP + UDP 네트워크 오케스트레이션 |
-| `Managers.Pool` | `PoolManager` | 오브젝트 풀링 |
 | `Managers.Resource` | `ResourceManager` | 프리팹 로드/인스턴스화/파괴 |
 | `Managers.UI` | `UIManager` | UI 생성, 표시, 캐싱 |
 | `Managers.Scene` | `SceneManagerEx` | 씬 전환 |

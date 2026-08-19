@@ -21,9 +21,6 @@ public class Managers : MonoBehaviour {
     NetworkManager _network = new NetworkManager();
     public static NetworkManager Network { get { return Instance._network; } }
 
-    PoolManager _pool = new PoolManager();
-    public static PoolManager Pool { get { return Instance._pool; } }
-
     ResourceManager _resource = new ResourceManager();
     public static ResourceManager Resource { get { return Instance._resource; } }
 
@@ -93,7 +90,6 @@ public class Managers : MonoBehaviour {
     }
 
     void InitSubManagers() {
-        _pool.Init();
         _sound.Init();
         _ui.Init();
         _setting.Init();
@@ -104,7 +100,6 @@ public class Managers : MonoBehaviour {
         Input.Clear();
         Scene.Clear();
         UI.Clear();
-        Pool.Clear();
     }
 
     // 애플리케이션이 종료될 때 싱글톤 인스턴스가 파괴되는 것을 방지하기 위한 플래그를 설정
