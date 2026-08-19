@@ -33,7 +33,7 @@ UIManager가 아닌 씬 자체에 존재하는 MonoBehaviour UI 오브젝트. `I
 | `IngameInventoryUI` | `Init(IngameScene)` | 인게임 인벤토리 그리드 + 장비 슬롯. `SyncMyInventory()`·`SyncEquipment()`·`SyncContainer()`로 `IngameInventory` 데이터→UI 동기화 |
 | `IngameDragGhost` | `Init()` | 드래그 중 아이템 고스트 이미지 |
 | `InteractUI` | `Init(IngameScene)` | 상호작용 안내 텍스트 — `Show(text)`로 텍스트 설정+활성화, `Hide()`로 비활성화. `IngameScene.OnUpdate()`에서 `_canInteract` 상태에 따라 호출 |
-| `IngameHealthBarUI` | 없음 | HP/방어구 게이지. **`Init()`이 없어 Fill 이미지가 바인딩되지 않는 미완성 상태** — `TODO:` 참조. 위 세 클래스처럼 `Init()` + `transform.Find`로 맞출 것 |
+| `IngameHealthBarUI` | `Init()` | HP/방어구 게이지. Fill 이미지의 `fillAmount`를 조작하므로 **대상 Image의 Type이 `Filled`여야 한다** — `Simple`이면 대입이 조용히 무시된다. 최대치는 `SetMaxHP`/`SetMaxShield`로 별도 주입하며, 최대 실드가 0이면(방어구 해제) 바를 비운다 |
 
 ## 씬 내장 UI (`LobbySceneUI/`)
 

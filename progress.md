@@ -1,6 +1,6 @@
 # 프로젝트 진행 상황
 
-> 최종 수정: 2026-08-19
+> 최종 수정: 2026-08-20
 > 장르: 멀티플레이어 Extraction 게임 (알파 단계)
 > 엔진: Unity 6000.4.0f1 / URP 17.4.0
 
@@ -9,14 +9,14 @@
 ## 완료된 것들
 
 ### 네트워크/UI
-- [x] (2026-08-12 #0) 귀환(Recall) 프로토콜 뼈대 구현 — `External_Protocol.proto`에 `C2DRequestRecall`/`D2CResponseRecall` 메시지 및 `PktId` 32·33 추가, `PacketHandler`에 `Handle_D2CResponseRecall` 등록·구현(파싱·로깅까지), `UDPManager.SendC2DRequestRecall()` 추가. 귀환은 일회성 비가역 결정이므로 reliable 전송 선택. 승인/거부 실처리와 호출부는 미연결
 - [x] (2026-08-12 #1) 귀환 상호작용 파이프라인 연결 — `RecallSpotController` 신규(`InteractableGameObjectController` 상속, `_interactText="귀환하기"`, `[SerializeField] _recallSpotIndex`). `IngameScene.RequestRecall()`/`HandleRecallResponse()` 추가, `Handle_D2CResponseRecall`을 씬으로 연결. 중복 요청 차단은 스팟별이 아닌 씬 단위 `_recallRequested` 플래그가 담당
 - [x] (2026-08-12 #2) D2CNotifyRecallResult 프로토콜 및 핸들러 추가 — `PktId` 34 + `RecallResultReason` enum(SUCCESS/OUT_OF_ZONE/PLAYER_DEAD/SESSION_LOST/SERVER_INTERNAL) 정의. `Handle_D2CNotifyRecallResult` 등록·구현 후 `IngameScene.HandleRecallResult()`로 연결. 성공/취소 분기는 TEMP 로그 + 플래그 해제까지만 구현
 - [x] (2026-08-12 #3) 귀환 응답 워치독 추가 (TEMP) — 전송 시점부터 `RECALL_TIMEOUT`(10초) 타이머를 돌려 응답 유실 시 `_recallRequested`를 해제. 서버 통지가 유실되면 그 판 탈출이 영구 불가해지는 것을 막는 임시 안전장치로, 결과를 추측하지 않고 로컬 잠금만 푼다
 - [x] (2026-08-19 #1) timestampEcho를 모든 수신 패킷에서 갱신 (server-sync T1) — `UpdateTimestampEcho()` 신설 후 `FLAG_RELIABLE` 분기 밖에서 전 패킷 호출, `UpdateRecvAckState()`는 ACK 상태만 담당하도록 축소. 서버의 끊김 판정이 이 값 하나로 바뀌면서, unreliable만 오가는 구간(하트비트·상태 동기화)이 6초 이어지면 세션이 강제 이탈되던 문제를 해소. 역행 방지를 위해 더 큰 값일 때만 갱신. 갱신 스레드는 기존 `ExecuteAtMainThread` 위임 유지 — 송신 경로가 전부 메인 스레드라 워커 스레드 직접 대입은 이득이 없음. 송신 측(`BuildPacketInto`)은 원래부터 채널 구분 없이 에코를 싣고 있어 무수정
 - [x] (2026-08-19 #2) 재전송 한도 폐기 + 수신 워치독 도입 (server-sync T2) — ACK 실패 횟수로 연결 생사를 판정하던 방식을 폐기. `MAX_RETRY`와 `CollectRetransmits`의 `out shouldDisconnect` 제거로 연결이 살아있다고 보는 동안 무한 재시도. 판정은 `PacketHandler.LastRecvSec`(서명 검증 통과분만 기록) 기준 `RECV_TIMEOUT_SEC`(10초) 무수신으로 단독 이관. 워치독 시드는 `SetSessionVariable`에서 — 0으로 두면 `Time.realtimeSinceStartup`과 비교되어 접속 즉시 오탐. RTO 백오프는 미도입(버퍼 재사용으로 CPU/GC 비용 0, 실사용 in-flight 0~2개). 재전송 한도가 겸하던 in-flight 상한이 사라져 슬롯 덮어쓰기 경고를 런타임 에러 로그로 승격
 - [x] (2026-08-19 #4) D2CNotifyHealthChange.attacker_object_id 반영 (server-sync T11) — 핸들러 파싱 + `HandleHealthChange()` 시그니처 확장. `NO_ATTACKER_OBJECT_ID`를 `PLAYER_OBJECT_ID`와 **별도 상수로** 신설 — 값은 같아도 의미가 다르고(가해자 없음 vs 내 인벤토리), `0`은 실재 objectId라 미설정으로 읽으면 오귀속이 된다. `_currentHealthPoint`/`_currentShieldPoint` 신설로 서버 절대값 보관(T12가 이어받음), 교전 상대 추적은 `_lastAttackerObjectId` + `ATTACKER_TRACK_DURATION`(5초) 만료 창으로 `LastAttackerObjectId`/`HasRecentAttacker` 노출(T10 킬 피드·T15 킬러 표기에서 재사용). 피격 방향 각도 산출은 표시 UI가 없어 `OPTION:` 보류, `reason`은 `REASON_ITEM_HEAL` 발생 경로가 아직 없어 enum 승격 없이 `int` 유지
-- [x] (2026-08-19 #5) 실드 재생 로컬 예측 (server-sync T12) — **구현 완료 / 런타임 미검증**. 전용 통보 패킷이 없어 클라가 서버 공식 그대로 예측: `UpdateShieldRegen()`이 `(재생량 × 경과ms)`를 누적해 1000마다 1 회복(실수 보간 아닌 정수 회복이라 서버와 어긋나지 않음), 중단 조건은 사망·방어구 미착용·상한 도달. 리셋 3곳 — 피격 수신(서버 절대값 + 누적기 0) / 방어구 착용·해제·교체 전부(`ResetShieldPrediction()`) / 스폰 시 필드 초기값. 계획 외 수정 2건: `_currentHealthPoint` 초기값을 `MAX_HEALTH_POINT`로(0이면 첫 피격 전까지 사망 오판으로 재생이 아예 안 돎, 이 과정에서 하드코딩 `100000f`를 상수화), `SyncHealthBarMax()`를 `SyncInventoryUI()`의 UI null 가드 앞으로 이동(전투 예측이 UI 오브젝트 존재 여부에 묶여 있었음). 게이지 미연결로 재생 실측은 Editor 작업 후
+- [x] (2026-08-19 #5) 실드 재생 로컬 예측 (server-sync T12) — **구현 완료 / 런타임 미검증**. 전용 통보 패킷이 없어 클라가 서버 공식 그대로 예측: `UpdateShieldRegen()`이 `(재생량 × 경과ms)`를 누적해 1000마다 1 회복(실수 보간 아닌 정수 회복이라 서버와 어긋나지 않음), 중단 조건은 사망·방어구 미착용·상한 도달. 리셋 3곳 — 피격 수신(서버 절대값 + 누적기 0) / 방어구 착용·해제·교체 전부(`ResetShieldPrediction()`) / 스폰 시 필드 초기값. 계획 외 수정 2건: `_currentHealthPoint` 초기값을 `MAX_HEALTH_POINT`로(0이면 첫 피격 전까지 사망 오판으로 재생이 아예 안 돎, 이 과정에서 하드코딩 `100000f`를 상수화), `SyncHealthBarMax()`를 `SyncInventoryUI()`의 UI null 가드 앞으로 이동(전투 예측이 UI 오브젝트 존재 여부에 묶여 있었음). 이 시점엔 게이지가 미연결이라 실측 불가 → 아래 `(2026-08-20 #0)`에서 해소
+- [x] (2026-08-20 #0) 체력 게이지 연결 + 표시 버그 2건 수정 (server-sync T12 마무리) — `IngameHealthBarUI.Init()`(`HealthBarBg/HealthBarFill`, `ArmorBarBg/ArmorBarFill`) 신설 후 `IngameScene.Init()`에서 호출해 영구 null 상태를 해소. 연결 과정에서 발견한 2건도 수정: ① **초기 게이지 값이 한 번도 안 밀렸다** — `SetHP`/`SetArmor` 호출부가 피격·재생 틱뿐이라 첫 피격 전까지 프리팹에 저장된 `fillAmount`가 그대로 보였다. `SyncHealthBarMax()`에서 최대치 직후 현재값도 밀도록 추가(최대치 → 현재값 순서여야 `SetArmor`가 최대 실드 0 가드에 안 걸림) ② **최대 실드가 0이 될 때 실드 바가 안 비워졌다** — `SetArmor()`의 `_maxShield <= 0f` 조기 반환 탓에 벗기 직전 `fillAmount`가 남았다. 반환 대신 `fillAmount = 0`으로 교체. 조건은 '방어구 교체'가 아니라 최대 실드가 0이 되는 것이며(해제 / 스펙 미등록 방어구 / equip 분기에 빈 슬롯이 소스), **정상 교체는 새 방어구 최대치가 들어와 원래부터 문제없다**
 
 ### 문서/설정
 - [x] (2026-08-19 #0) 서버 변경분 클라이언트 반영 작업 리스트 문서화 — `External_Protocol.proto`의 `[작업사항]` 주석(서버 2026-08-12 이후 변경분)을 클라 코드 현재 상태와 대조해 `server-sync-todo.md` 신규 작성. T1~T17을 0~3순위로 분류하고 각 항목에 `파일:줄번호` 레퍼런스·근거·판단 필요 지점을 명시. 조사 과정에서 파생 버그 2건(`timestampEcho` 갱신 범위, `IngameHealthBarUI` 필드 바인딩 누락) 발견. 코드 변경 없음
@@ -30,8 +30,8 @@
 > proto의 `[작업사항]` 주석을 추적한 임시 문서이며, 전 항목 반영 후 이 파일로 이관하고 삭제할 것.
 > 아래 목록과의 대응: 2번(귀환 최종 결과 실처리) = T15, 5번(워치독 제거 검토) = T15에 종속
 
-0. **`IngameHealthBarUI` Fill 이미지 연결 (Editor 작업)** — 코드에 `TODO:`로 대기 중. 이게 되기 전까지 T11·T12의 결과를 화면으로 확인할 방법이 없다. 계층 구조 확인 후 `Init()` + `transform.Find` 연결 → T12 실측(초당 100 상승, 피격 시 서버값 점프, 방어구 교체 시 0)
-1. **서버 변경분 반영 (`server-sync-todo.md`)** — T1·T2·T11 완료, T12는 구현 완료·미검증. 다음은 T4(objectId 레지스트리) → T3(핸들러 등록) → T5~T10(신규 패킷 배선) → T13·T14 순
+0. **T11·T12 실측** — 코드는 다 붙었고 인게임 확인만 남았다. 매치 진입 직후 HP 만피·실드 0 → 방어구 착용 후 초당 100(=1%) 상승 → 피격 시 서버값 점프(`[HealthChange]` 로그와 대조) → 방어구 해제 시 0. 전제: `HealthBarFill`/`ArmorBarFill`의 Image Type이 `Filled`여야 한다(`Simple`이면 `fillAmount` 대입이 조용히 무시됨)
+1. **서버 변경분 반영 (`server-sync-todo.md`)** — T1·T2·T11·T12 완료. 다음은 T4(objectId 레지스트리) → T3(핸들러 등록) → T5~T10(신규 패킷 배선) → T13·T14 순
 2. **귀환 최종 결과 실처리 + 연결 끊김 처리** — `HandleRecallResult`의 TODO를 실제 처리로 교체. 성공 시 탈출 연출·씬 전환 + 잠금 유지(이미 맵을 떠나므로 해제하면 전환 지연 중 재요청 가능). 취소 시 `reason`별 분기(`OUT_OF_ZONE`·`SERVER_INTERNAL`은 재시도 허용, `PLAYER_DEAD`·`SESSION_LOST`는 각 흐름에 위임). **연결 끊김도 같은 출구가 필요하다** — 현재 `UDPManager.Disconnect()`는 소켓만 정리해 플레이어가 인게임 씬에 그대로 남는다. 매치 종료 화면을 만들 때 함께 처리할 것
 3. **귀환 스팟 씬 배치** — 맵 씬에 귀환 단말기 오브젝트 배치, `RecallSpotController` 부착 후 인스펙터에서 `_recallSpotIndex`를 서버 테이블 값에 맞춤. 조준 레이가 맞아야 하므로 트리거가 아닌 일반 콜라이더 사용
 4. **귀환 진행 중 UI 피드백** — 승인~결과 사이 5초 구간 표시(카운트다운 등). `InteractText`는 매 프레임 재조회되므로 `virtual` 프로퍼티화하면 동적 텍스트 전환 가능
@@ -48,7 +48,6 @@
 ## 메모
 
 ### 알려진 버그 (2026-08-19 조사 중 발견, 미수정)
-- **`IngameHealthBarUI._hpFillImage` / `_armorFillImage`가 영구 null** — 코드에 `TODO:`로 표기됨. **원인 진단이 처음과 다르다**: `[SerializeField]` 누락이 아니라 **`Init()` 자체가 없는 것**이다. 같은 폴더의 `InteractUI`·`IngameDragGhost`·`IngameInventoryUI`는 전부 `Init()` 안에서 `transform.Find`로 바인딩하는데 이 클래스만 빠졌고, `IngameScene.Init()`도 `GetComponent`만 하고 `Init()`을 호출하지 않는다. `IngameSceneUI` 폴더에 `[SerializeField]`는 하나도 없으므로 인스펙터 방식이 아닌 `Find` 방식으로 맞출 것. 계층 구조 확인이 필요해 Editor 작업으로 보류. `server-sync-todo.md` T12
 - **디스폰된 플레이어의 유령 재스폰 가능성** (`IngameScene.cs:163-173`) — `UpdatePlayerStates()`가 미등록 objectId를 보면 `C2DRequestSpawnByObjectId`를 쏘므로, 디스폰 직후 잔여 상태 패킷이 도착하면 다시 스폰된다. `D2CDespawnPlayerObject` 구현 시 함께 처리할 것. `server-sync-todo.md` T7
 
 ### 서버 변경분 반영 관련 (2026-08-19 조사)

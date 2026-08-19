@@ -97,6 +97,7 @@ public class IngameScene : BaseScene {
         GameObject healthBarObj = GameObject.Find("IngameHealthBarUI");
         if (healthBarObj != null) {
             _ingameHealthBarUI = healthBarObj.GetComponent<IngameHealthBarUI>();
+            _ingameHealthBarUI.Init();
         }
 
         Managers.Input.AddKeyListener(Key.I, TryCloseContainerUI, InputManager.KeyState.Down);
@@ -229,6 +230,11 @@ public class IngameScene : BaseScene {
         if (_ingameHealthBarUI == null) return;
         _ingameHealthBarUI.SetMaxHP(MAX_HEALTH_POINT);
         _ingameHealthBarUI.SetMaxShield(_maxShieldPoint);
+
+        // 최대치만 넣으면 첫 피격 전까지 프리팹에 저장된 fillAmount가 그대로 보인다.
+        // 최대치 → 현재값 순서라 SetArmor가 최대 실드 0에 걸리지 않는다.
+        _ingameHealthBarUI.SetHP(_currentHealthPoint);
+        _ingameHealthBarUI.SetArmor(_currentShieldPoint);
     }
 
     public void SyncContainerUI() {
