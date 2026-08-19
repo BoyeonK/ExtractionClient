@@ -62,24 +62,27 @@ ACK 실패 횟수로 연결 생사를 판정하던 방식을 폐기하고, 수�
 
 **다섯 개를 미리 몰아 등록하지 않는다.** 구현 없이 빈 스텁으로 등록하면 패킷이 조용히 삼켜져 처리된 것처럼 보인다. 미등록으로 두면 `PacketHandler.cs`의 디스패치가 `등록되지 않은 패킷 ID` 경고를 남겨 아직 안 붙었다는 게 드러난다. 각 담당 작업에서 구현과 같이 등록할 것.
 
-### [ ] T4. objectId → GameObject 레지스트리 신설 (T5/T6 선행)
-`Assets/Scripts/Scenes/IngameScene.cs`
+### [x] T4. objectId → GameObject 레지스트리 신설 — 완료 (2026-08-20)
+`Assets/Scripts/Scenes/IngameScene.cs`, `Assets/Scripts/Network/PacketHandler.cs`
 
-현재 스폰된 비플레이어 오브젝트를 objectId로 되찾을 수단이 **전혀 없다**. `ResourceManager.InstantiateFromObjectDataStruct`(`Assets/Scripts/Managers/ResourceManager.cs:35`)는 컨트롤러에 `_objectId`만 심고 어디에도 등록하지 않는다. `_oppoPlayers`와 같은 패턴으로 씬이 보유할 것.
+- `_sceneObjects`(`Dictionary<uint, GameObjectController>`) 신설 — `_oppoPlayers`와 같은 패턴
+- **실제 작업은 딕셔너리 추가가 아니라 스폰 경로 일원화였다.** `Handle_D2CResponseSpawnByObjectId`가 씬을 거치지 않고 `Managers.Resource.InstantiateFromObjectDataStruct()`를 직접 호출하고 있었다. 그대로 뒀다면 등록되지 않은 오브젝트가 생겨 레지스트리에 구멍이 났을 것
+- `IngameScene.SpawnObject(ObjectData)`를 **유일한 스폰 경로**로 삼고 호출부 3곳을 전부 라우팅: `Init()`의 정적 오브젝트, `SpawnMeAndRequestPlayerObjects()`의 동적 오브젝트, 지연 스폰 응답 핸들러
+- 중복 검사·`_despawnedObjectIds` 차단·`ObjectPaths` 매핑 검사가 이 함수 하나에 모인다
 
-### [ ] T5. `D2CNotifySpawnObject`(36) 처리 — 신규
+### [x] T5. `D2CNotifySpawnObject`(36) 처리 — 완료 (2026-08-20)
 게임 도중 생긴 오브젝트가 질의 없이 서버 push로 도착한다(시신 컨테이너 + 런타임 스폰 오브젝트 전부).
 
-- 페이로드가 `D2CResponseSpawnByObjectId`와 **동일** → `Handle_D2CResponseSpawnByObjectId`(`PacketHandler.cs:562`)의 `UnityGameObject` → `ObjectData` 변환부를 공용 함수로 분리해 재사용
-- 같은 objectId가 중복 도착할 수 있으므로 이미 있으면 무시(T4 레지스트리로 판정)
+- 페이로드가 `D2CResponseSpawnByObjectId`와 동일해 `UnityGameObject` → `ObjectData` 변환부를 `PacketHandler.ToObjectData()`로 분리해 양쪽이 재사용
+- 처리는 T4의 `SpawnObject()` 재사용 — 중복 도착·디스폰 차단이 자동으로 따라온다
+- **매핑 없는 `object_type`을 명확한 에러 로그로 처리.** 원래는 빈 경로로 로드에 실패해 `Failed to load prefab : `만 남았다. 시신 컨테이너(type 3)가 프리팹 제작 전까지 이 경로를 타므로 타입 번호와 objectId를 찍는다. `Define.ObjectPaths`의 `Undefined`는 키는 있으나 경로가 null이라 함께 걸러낸다
 
-### [ ] T6. `D2CNotifyDespawnObject`(39) 처리 — 신규
+### [x] T6. `D2CNotifyDespawnObject`(39) 처리 — 완료 (2026-08-20)
 비플레이어 오브젝트 파괴 통보. 사유 필드 없음(현재 제거 경로가 '파괴' 하나뿐).
 
-- objectId로 오브젝트 제거 (T4 레지스트리 + `Managers.Resource.Destroy`)
-- 그 컨테이너 UI가 열려 있었다면 닫기
-- **`_despawnedObjectIds`에 등록 + 비플레이어 스폰 경로에 가드를 얹을 것** — T7이 만든 공용 목록을 그대로 쓴다. 늦게 도착한 스폰 응답이 파괴된 오브젝트를 되살리는 레이스가 플레이어와 동일하게 존재한다
-- **판단 필요**: 이미 사라진 컨테이너에 `C2DCloseContainer`를 보낼지. 현재 `IngameScene.CloseContainer()`(`:244`)는 무조건 전송한다 — `_despawnedObjectIds`로 판정 가능
+- `IngameScene.DespawnObject(objectId)` — `_despawnedObjectIds` 등록 → 레지스트리에서 제거 → `Managers.Resource.Destroy`
+- **판단 확정: 이미 사라진 컨테이너에 `C2DCloseContainer`를 보내지 않는다.** 서버가 이미 파괴한 오브젝트라 처리 대상이 없고 실패 응답만 유발할 여지가 있다. `CloseContainer()`에서 서버 통보를 분리해 `CloseContainerLocal()` 신설, 파괴 경로는 이쪽만 호출
+- 차단 가드는 T4의 `SpawnObject()`가 이미 들고 있어 별도 작업이 없었다
 
 ### [x] T7. `D2CDespawnPlayerObject`(35) 처리 — 완료 (2026-08-20)
 `Assets/Scripts/Network/PacketHandler.cs`, `Assets/Scripts/Scenes/IngameScene.cs`
@@ -92,7 +95,7 @@ ACK 실패 횟수로 연결 생사를 판정하던 방식을 폐기하고, 수�
 
 **`_despawnedObjectIds` 설계 — 만료 없는 씬 수명 `HashSet<uint>`**
 
-- **전제: 서버는 한 게임 안에서 objectId를 재사용하지 않는다.** proto에 명시된 보장이 아니라 구두 전제이므로 서버 확인 필요. 이 전제가 깨지면 해당 오브젝트가 끝까지 안 보이며, 증상이 원인에서 가장 먼 곳에 나타난다
+- **전제 확인 완료 (2026-08-20)**: objectId는 한 게임 안에서 **단조 증가**하며 재사용되지 않고, 죽은 오브젝트가 살아나지도 않는다. proto에 문서화된 보장은 아니므로 서버 계약이 바뀌면 이 설계를 다시 볼 것
 - 만료 창을 두지 않은 이유: 창을 몇 초로 잡든 그보다 늦게 도착한 패킷이 뚫는다. 특히 재전송 한도를 없앤 뒤(T2) reliable 패킷이 아주 늦게 도착하는 경로가 넓어졌다. 영구 목록은 도착 시점과 무관하게 정확하다
 - 비용은 논점이 아니다 — 한 판에 쌓여야 플레이어 수십 + 파괴 오브젝트 수백, 매치 최대 15분이라 무한 증가도 아니다
 - 씬 인스턴스 필드라 매치가 바뀌면 자연히 비므로 별도 초기화가 없다
@@ -159,13 +162,14 @@ ACK 실패 횟수로 연결 생사를 판정하던 방식을 폐기하고, 수�
 
 **남은 것**: Editor에서 Image Type을 `Filled`로 변경 + Fill Method·Origin 설정. **코드 작업 아님** — 후순위로 미뤄둠(`progress.md` 우선순위 4번). 이후 시각 검증: 매치 진입 직후 HP 만피·실드 0 → 방어구 착용 후 초당 100(=1%) 상승 → 피격 시 서버값 점프(`[HealthChange]` 로그와 대조) → 방어구 해제 시 0.
 
-### [ ] T13. `object_type = 3` (Corpse) 매핑 — **판단 필요**
+### [ ] T13. `object_type = 3` (Corpse) 매핑 — **프리팹 대기**
 `Assets/Scripts/Utils/Define.cs:29-40`
 
-- `Define.ObjectType`에 `Corpse` 추가 + `ObjectPaths` 항목 추가
+- **결정 (2026-08-20): 시신 컨테이너 프리팹을 새로 만든다. 제작은 나중에 추가 예정** — 기존 컨테이너 재사용 아님
+- `Define.ObjectType`에 `Corpse` 추가 + `ObjectPaths` 항목 추가. **프리팹이 생기기 전까지 `ObjectPaths` 항목은 넣을 수 없다**(없는 경로를 넣으면 로드 실패만 남는다)
 - 시신은 플레이어 사망 시 그 자리에 스폰되는 동적 오브젝트. 사망자의 인벤토리·장착·탄창이 전부 이 컨테이너로 옮겨진다
 - 스폰은 T5 경로로 통보되고, 열고 집는 조작은 일반 컨테이너와 동일(`C2DRequestOpenContainer` / `C2DRequestInteractContainerObject`) → 프리팹에 `ContainerController`가 붙어야 한다
-- **프리팹 제작은 `Assets/Scripts` 밖이라 먼저 문의 필요**. 기존 컨테이너 프리팹 재사용으로 갈지 결정할 것
+- **T5와의 관계**: 프리팹이 없는 동안 시신 스폰 패킷이 오면 인스턴스화가 실패한다. T5에서 매핑 없는 `object_type`을 명확한 경고로 처리해 원인이 드러나게 할 것
 
 ### [ ] T14. 비플레이어 전투 대상에 `ICombatTarget` 구현 — **정보 필요**
 `Assets/Scripts/Controller/ICombatTarget.cs`

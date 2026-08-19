@@ -114,6 +114,8 @@ public class PacketHandler {
         _handlers.Add((ushort)PktId.D2CResponseRecall, Handle_D2CResponseRecall);
         _handlers.Add((ushort)PktId.D2CNotifyRecallResult, Handle_D2CNotifyRecallResult);
         _handlers.Add((ushort)PktId.D2CDespawnPlayerObject, Handle_D2CDespawnPlayerObject);
+        _handlers.Add((ushort)PktId.D2CNotifySpawnObject, Handle_D2CNotifySpawnObject);
+        _handlers.Add((ushort)PktId.D2CNotifyDespawnObject, Handle_D2CNotifyDespawnObject);
     }
 
     // ==========================================
@@ -579,7 +581,16 @@ public class PacketHandler {
             return;
         }
 
-        UnityGameObject obj = pkt.GameObject;
+        ObjectData data = ToObjectData(pkt.GameObject);
+
+        Managers.ExecuteAtMainThread(() => {
+            if (Managers.Scene.CurrentScene is not IngameScene ingameScene) return;
+            ingameScene.SpawnObject(data);
+        });
+    }
+
+    // D2CResponseSpawnByObjectId와 D2CNotifySpawnObject가 같은 페이로드를 쓴다
+    private ObjectData ToObjectData(UnityGameObject obj) {
         TransformInfo tf = obj?.Transform;
         GameProtocol.Vector3 pos = tf?.Position;
 
@@ -591,17 +602,12 @@ public class PacketHandler {
                 rotation = Quaternion.Euler(0f, tf.YawAngle, 0f);
         }
 
-        ObjectData data = new ObjectData {
+        return new ObjectData {
             ObjectId   = obj?.ObjectId ?? 0,
             ObjectType = obj?.ObjectType ?? 0,
             Position   = new UnityEngine.Vector3(pos?.X ?? 0f, pos?.Y ?? 0f, pos?.Z ?? 0f),
             Rotation   = rotation
         };
-
-        Managers.ExecuteAtMainThread(() => {
-            if (Managers.Scene.CurrentScene is not IngameScene) return;
-            Managers.Resource.InstantiateFromObjectDataStruct(data);
-        });
     }
 
     private void Handle_D2CSpawnPlayerObject(ReadOnlySpan<byte> payloadSpan) {
@@ -1140,6 +1146,52 @@ public class PacketHandler {
         Managers.ExecuteAtMainThread(() => {
             if (Managers.Scene.CurrentScene is not IngameScene ingameScene) return;
             ingameScene.DespawnPlayerObject(objectId, reason);
+        });
+    }
+
+    private void Handle_D2CNotifySpawnObject(ReadOnlySpan<byte> payloadSpan) {
+        D2CNotifySpawnObject pkt = null;
+
+        try {
+            pkt = D2CNotifySpawnObject.Parser.ParseFrom(payloadSpan);
+        }
+        catch (InvalidProtocolBufferException e) {
+            Managers.ExecuteAtMainThread(() => { Util.LogError($"D2CNotifySpawnObject 파싱 실패: {e.Message}"); });
+            return;
+        }
+        catch (Exception e) {
+            Managers.ExecuteAtMainThread(() => { Util.LogError($"D2CNotifySpawnObject 처리 중 알 수 없는 에러: {e.Message}"); });
+            return;
+        }
+
+        ObjectData data = ToObjectData(pkt.GameObject);
+
+        Managers.ExecuteAtMainThread(() => {
+            if (Managers.Scene.CurrentScene is not IngameScene ingameScene) return;
+            ingameScene.SpawnObject(data);
+        });
+    }
+
+    private void Handle_D2CNotifyDespawnObject(ReadOnlySpan<byte> payloadSpan) {
+        D2CNotifyDespawnObject pkt = null;
+
+        try {
+            pkt = D2CNotifyDespawnObject.Parser.ParseFrom(payloadSpan);
+        }
+        catch (InvalidProtocolBufferException e) {
+            Managers.ExecuteAtMainThread(() => { Util.LogError($"D2CNotifyDespawnObject 파싱 실패: {e.Message}"); });
+            return;
+        }
+        catch (Exception e) {
+            Managers.ExecuteAtMainThread(() => { Util.LogError($"D2CNotifyDespawnObject 처리 중 알 수 없는 에러: {e.Message}"); });
+            return;
+        }
+
+        uint objectId = pkt.ObjectId;
+
+        Managers.ExecuteAtMainThread(() => {
+            if (Managers.Scene.CurrentScene is not IngameScene ingameScene) return;
+            ingameScene.DespawnObject(objectId);
         });
     }
 }

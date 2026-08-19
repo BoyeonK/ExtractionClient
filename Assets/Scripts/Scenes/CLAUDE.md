@@ -59,12 +59,19 @@
 - `UpdatePlayerStates()`: 미등록 objectId 수신 시 `C2DRequestSpawnByObjectId` 전송 (지연 스폰 대응)
 - `PlayerSpawnData`/`PlayerStateData` 구조체(`SceneManagerEx.cs`): Protobuf 타입 격리를 위한 중간 변환 타입
 
+## 비플레이어 오브젝트 관리
+
+- `_sceneObjects`: objectId → `GameObjectController` 매핑
+- **`SpawnObject(ObjectData)`가 유일한 스폰 경로다.** 정적·동적 초기 스폰, 지연 스폰 응답(`D2CResponseSpawnByObjectId`), 런타임 스폰 통보(`D2CNotifySpawnObject`)가 전부 여기로 모인다. 새 스폰 경로가 생겨도 `Managers.Resource.InstantiateFromObjectDataStruct()`를 직접 부르지 말 것 — 레지스트리 등록과 차단 검사를 건너뛰게 된다
+- `DespawnObject(objectId)`: 차단 목록 등록 → 레지스트리 제거 → 파괴. 파괴된 컨테이너를 열어둔 상태였다면 `CloseContainerLocal()`로 UI만 닫고 **`C2DCloseContainer`는 보내지 않는다**(서버가 이미 없앤 오브젝트)
+- `Define.ObjectPaths`에 매핑이 없는 `object_type`은 에러 로그로 드러낸다. `Undefined`는 키가 있어도 경로가 null이므로 함께 걸러낸다
+
 ### 디스폰과 유령 재스폰 차단 (`_despawnedObjectIds`)
 
 디스폰된 objectId를 만료 없이 씬 수명 내내 보관하는 `HashSet<uint>`. **플레이어·비플레이어 공용**이며(objectId 공간이 공용) 새 스폰 경로를 추가할 때마다 여기에 가드를 얹어야 한다.
 
 - **차단 지점은 "요청"과 "응답" 두 곳이다.** 요청 억제(`UpdatePlayerStates`)만으로는 부족하다 — 이미 보낸 `C2DRequestSpawnByObjectId`의 응답이 디스폰보다 늦게 도착하면 `SpawnPlayerObject()`가 그대로 되살린다. 스폰을 실제로 수행하는 함수에도 반드시 가드를 둘 것
-- **전제: 서버는 한 게임 안에서 objectId를 재사용하지 않는다.** proto에 명시된 보장이 아니므로, 이 전제가 흔들리면 설계를 다시 봐야 한다(증상은 "특정 오브젝트가 끝까지 안 보임")
+- **전제: objectId는 한 게임 안에서 단조 증가하며 재사용되지 않고, 죽은 오브젝트가 살아나지도 않는다** (2026-08-20 서버 확인). proto에 문서화된 보장은 아니므로, 서버 계약이 바뀌면 설계를 다시 봐야 한다(증상은 "특정 오브젝트가 끝까지 안 보임")
 - 만료 창을 쓰지 않는다. 창보다 늦게 오는 패킷이 뚫으며, 재전송 한도가 없어(`Network/CLAUDE.md`) reliable 패킷이 아주 늦게 도착할 수 있다
 - 씬 인스턴스 필드라 매치가 바뀌면 자연히 비워진다 — 별도 초기화 불필요
 

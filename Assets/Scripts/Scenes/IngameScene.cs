@@ -72,8 +72,8 @@ public class IngameScene : BaseScene {
     protected override void Init() {
         base.Init();
         foreach (ObjectData data in Managers.Scene.NextSceneStaticContext.ObjectDatas)
-            Managers.Resource.InstantiateFromObjectDataStruct(data);
-        
+            SpawnObject(data);
+
         Managers.Scene.ResetLoadSceneOp();
 
         GameObject inventoryObj = GameObject.Find("IngameInventoryUI");
@@ -133,7 +133,7 @@ public class IngameScene : BaseScene {
         SetCursorLock(true);
 
         foreach (ObjectData data in Managers.Scene.SceneDynamicContext.ObjectDatas)
-            Managers.Resource.InstantiateFromObjectDataStruct(data);
+            SpawnObject(data);
 
         Managers.Scene.SceneDynamicContext.Clear();
         Managers.Network.udpManager.SendC2DRequestSpawnPlayerObjects();
@@ -179,6 +179,45 @@ public class IngameScene : BaseScene {
     // 씬 수명 내내 들고 간다 — 만료 창을 두면 그보다 늦게 도착한 패킷이 그대로 뚫는다.
     // 플레이어·비플레이어 공용 목록이다(objectId 공간이 공용).
     private HashSet<uint> _despawnedObjectIds = new HashSet<uint>();
+
+    // ── 비플레이어 오브젝트 ──
+
+    private Dictionary<uint, GameObjectController> _sceneObjects = new Dictionary<uint, GameObjectController>();
+
+    // 비플레이어 오브젝트의 유일한 스폰 경로. 정적·동적 초기 스폰, 지연 스폰 응답,
+    // 런타임 스폰 통보가 전부 여기로 모여야 레지스트리와 차단 검사에 구멍이 생기지 않는다.
+    public void SpawnObject(ObjectData data) {
+        if (_sceneObjects.ContainsKey(data.ObjectId)) return;
+        if (_despawnedObjectIds.Contains(data.ObjectId)) return;
+
+        // Undefined는 키가 있어도 경로가 null이라 두 경우를 함께 걸러낸다
+        if (!Define.ObjectPaths.TryGetValue(data.ObjectType, out string path) || string.IsNullOrEmpty(path)) {
+            Util.LogError($"매핑되지 않은 objectType={data.ObjectType} (objectId={data.ObjectId}) — Define.ObjectPaths 항목이 필요하다");
+            return;
+        }
+
+        GameObject go = Managers.Resource.InstantiateFromObjectDataStruct(data);
+        if (go == null) return;
+
+        GameObjectController controller = go.GetComponent<GameObjectController>();
+        if (controller != null)
+            _sceneObjects[data.ObjectId] = controller;
+    }
+
+    public void DespawnObject(uint objectId) {
+        _despawnedObjectIds.Add(objectId);
+
+        // 파괴된 컨테이너를 열어둔 상태였다면 UI만 닫는다.
+        // 서버가 이미 없앤 오브젝트이므로 C2DCloseContainer는 보내지 않는다.
+        if (_isContainerOpen && _inventory.InteractingContainerObjectId == objectId)
+            CloseContainerLocal();
+
+        if (!_sceneObjects.TryGetValue(objectId, out GameObjectController controller))
+            return;
+
+        _sceneObjects.Remove(objectId);
+        Managers.Resource.Destroy(controller.gameObject);
+    }
 
     public void DespawnPlayerObject(uint objectId, int reason) {
         // 스폰 응답보다 디스폰이 먼저 도착할 수 있으므로 등록은 조회 성공 여부와 무관하다
@@ -275,6 +314,11 @@ public class IngameScene : BaseScene {
 
     public void CloseContainer() {
         Managers.Network.udpManager.SendC2DCloseContainer();
+        CloseContainerLocal();
+    }
+
+    // 서버 통보 없이 로컬 상태만 정리한다. 컨테이너가 이미 파괴된 경우에 쓴다.
+    private void CloseContainerLocal() {
         _inventory.ClearContainer();
         _isContainerOpen = false;
         if (_ingameInventoryUI != null)
