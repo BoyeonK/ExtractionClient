@@ -19,10 +19,9 @@
 - [x] (2026-08-12 #1) 귀환 상호작용 파이프라인 연결 — `RecallSpotController` 신규(`InteractableGameObjectController` 상속, `_interactText="귀환하기"`, `[SerializeField] _recallSpotIndex`). `IngameScene.RequestRecall()`/`HandleRecallResponse()` 추가, `Handle_D2CResponseRecall`을 씬으로 연결. 중복 요청 차단은 스팟별이 아닌 씬 단위 `_recallRequested` 플래그가 담당
 - [x] (2026-08-12 #2) D2CNotifyRecallResult 프로토콜 및 핸들러 추가 — `PktId` 34 + `RecallResultReason` enum(SUCCESS/OUT_OF_ZONE/PLAYER_DEAD/SESSION_LOST/SERVER_INTERNAL) 정의. `Handle_D2CNotifyRecallResult` 등록·구현 후 `IngameScene.HandleRecallResult()`로 연결. 성공/취소 분기는 TEMP 로그 + 플래그 해제까지만 구현
 - [x] (2026-08-12 #3) 귀환 응답 워치독 추가 (TEMP) — 전송 시점부터 `RECALL_TIMEOUT`(10초) 타이머를 돌려 응답 유실 시 `_recallRequested`를 해제. 서버 통지가 유실되면 그 판 탈출이 영구 불가해지는 것을 막는 임시 안전장치로, 결과를 추측하지 않고 로컬 잠금만 푼다
+- [x] (2026-08-19 #1) timestampEcho를 모든 수신 패킷에서 갱신 (server-sync T1) — `UpdateTimestampEcho()` 신설 후 `FLAG_RELIABLE` 분기 밖에서 전 패킷 호출, `UpdateRecvAckState()`는 ACK 상태만 담당하도록 축소. 서버의 끊김 판정이 이 값 하나로 바뀌면서, unreliable만 오가는 구간(하트비트·상태 동기화)이 6초 이어지면 세션이 강제 이탈되던 문제를 해소. 역행 방지를 위해 더 큰 값일 때만 갱신. 갱신 스레드는 기존 `ExecuteAtMainThread` 위임 유지 — 송신 경로가 전부 메인 스레드라 워커 스레드 직접 대입은 이득이 없음. 송신 측(`BuildPacketInto`)은 원래부터 채널 구분 없이 에코를 싣고 있어 무수정
 
 ### 문서/설정
-- [x] (2026-07-15 #2) 상위 CLAUDE.md 로드 제외 설정 — `.claude/settings.local.json`에 `claudeMdExcludes` 추가, 클라이언트 세션에서 서버 컨텍스트(`Extraction/CLAUDE.md`) 로드 방지. 머신 종속 경로이므로 `.local`에 배치
-- [x] (2026-07-15 #3) CLAUDE.md 과도한 서술 정리 — 코드에서 바로 확인 가능한 필드 테이블·getter/setter 나열·상수값 등 제거. 설계 의도·규칙·흐름·함정만 잔류. 전체 471줄 → 269줄(−43%)
 - [x] (2026-08-19 #0) 서버 변경분 클라이언트 반영 작업 리스트 문서화 — `External_Protocol.proto`의 `[작업사항]` 주석(서버 2026-08-12 이후 변경분)을 클라 코드 현재 상태와 대조해 `server-sync-todo.md` 신규 작성. T1~T17을 0~3순위로 분류하고 각 항목에 `파일:줄번호` 레퍼런스·근거·판단 필요 지점을 명시. 조사 과정에서 파생 버그 2건(`timestampEcho` 갱신 범위, `IngameHealthBarUI` 필드 바인딩 누락) 발견. 코드 변경 없음
 
 ---
@@ -33,7 +32,7 @@
 > proto의 `[작업사항]` 주석을 추적한 임시 문서이며, 전 항목 반영 후 이 파일로 이관하고 삭제할 것.
 > 아래 목록과의 대응: 2번(귀환 최종 결과 실처리) = T15, 5번(워치독 제거 검토) = T15에 종속
 
-1. **서버 변경분 반영 (`server-sync-todo.md`)** — 그중 T1(`timestampEcho`를 모든 수신 패킷에서 갱신)은 방치하면 세션이 강제 이탈되므로 **다른 어떤 항목보다 먼저**. 이어서 T3~T10(신규 패킷 6종 배선), T11~T14 순
+1. **서버 변경분 반영 (`server-sync-todo.md`)** — T1(timestampEcho) 완료. 다음은 T3~T10(신규 패킷 6종 배선) → T11~T14 순. T2(클라 재전송 한도 정책)는 결정 대기 중이며 신규 패킷 배선보다 뒤여도 무방
 2. **귀환 최종 결과 실처리 (TEMP 해소)** — `HandleRecallResult`의 TEMP 로그를 실제 처리로 교체. 성공 시 탈출 연출·씬 전환 + 잠금 유지(이미 맵을 떠나므로 해제하면 전환 지연 중 재요청 가능). 취소 시 `reason`별 분기(`OUT_OF_ZONE`·`SERVER_INTERNAL`은 재시도 허용, `PLAYER_DEAD`·`SESSION_LOST`는 각 흐름에 위임)
 3. **귀환 스팟 씬 배치** — 맵 씬에 귀환 단말기 오브젝트 배치, `RecallSpotController` 부착 후 인스펙터에서 `_recallSpotIndex`를 서버 테이블 값에 맞춤. 조준 레이가 맞아야 하므로 트리거가 아닌 일반 콜라이더 사용
 4. **귀환 진행 중 UI 피드백** — 승인~결과 사이 5초 구간 표시(카운트다운 등). `InteractText`는 매 프레임 재조회되므로 `virtual` 프로퍼티화하면 동적 텍스트 전환 가능
@@ -50,13 +49,13 @@
 ## 메모
 
 ### 알려진 버그 (2026-08-19 조사 중 발견, 미수정)
-- **`timestampEcho`가 reliable 패킷 수신 시에만 갱신됨** (`PacketHandler.cs:303-307`) — `UpdateRecvAckState` 안에서 설정되므로 서버가 unreliable로만 보내는 구간이 6초 이어지면 서버가 세션을 `DISCONNECTED`로 강제 이탈시킨다(인벤토리 소실 포함). 서버의 끊김 판정이 이 값 하나로 바뀌면서 치명화됨. `server-sync-todo.md` T1
 - **`IngameHealthBarUI._hpFillImage` / `_armorFillImage`가 영구 null** (`IngameHealthBarUI.cs:5-6`) — `[SerializeField]` 없는 private 필드라 인스펙터 바인딩이 안 된다. HP/실드 게이지가 실제로는 전혀 갱신되지 않는 상태. `server-sync-todo.md` T12
 - **디스폰된 플레이어의 유령 재스폰 가능성** (`IngameScene.cs:163-173`) — `UpdatePlayerStates()`가 미등록 objectId를 보면 `C2DRequestSpawnByObjectId`를 쏘므로, 디스폰 직후 잔여 상태 패킷이 도착하면 다시 스폰된다. `D2CDespawnPlayerObject` 구현 시 함께 처리할 것. `server-sync-todo.md` T7
 
 ### 서버 변경분 반영 관련 (2026-08-19 조사)
 - **`ExternalProtocol.cs`는 이미 새 proto 기준으로 재생성되어 있다** — `.gitignore` 대상이라 git diff에 안 잡히지만 `PktId` 35~40, `D2CNotifyWeaponChanged`, `C2DRequestSwitchWeapon`, `D2CNotifyHealthChange.AttackerObjectId` 스텁이 전부 존재. protoc 재실행 불필요
 - **`0xFFFFFFFF`가 '없음', `0`은 실재 objectId** — `D2CNotifyHealthChange.attacker_object_id`, `D2CNotifyPlayerKilled.killer_object_id` 모두 proto3 기본값 0을 미설정으로 해석하면 오귀속이 된다
+- **UDP 송신 경로는 전부 메인 스레드다** — 하트비트·재전송 모두 `Managers.Update()` → `UDPManager.OnUpdate()`에서 나가고, 워커 스레드는 미리 만들어진 바이트만 큐에서 꺼내 보낸다. 따라서 메인 스레드가 멈추면 수신 측 상태를 아무리 최신으로 유지해도 내보낼 주체가 없다. 수신 상태 갱신을 워커 스레드로 옮기는 최적화는 이 이유로 이득이 없다(T1에서 검토 후 기각)
 - **남의 방어구·실드·HP는 어떤 패킷으로도 오지 않는다 (의도된 설계)** — `blueprint_id` 하나가 `ArmorSpec` 전체와 동치라 수치 노출이 되기 때문. 구 `D2CNotifyEquipmentChanged`의 `armor_id`가 삭제된 이유
 
 ### 귀환(Recall) 설계 확정 사항

@@ -19,14 +19,16 @@
 
 ## 0순위 — 안 하면 세션이 끊긴다
 
-### [ ] T1. `timestampEcho`를 모든 수신 패킷에서 갱신
-`Assets/Scripts/Network/PacketHandler.cs:303-307`
+### [x] T1. `timestampEcho`를 모든 수신 패킷에서 갱신 — 완료 (2026-08-19)
+`Assets/Scripts/Network/PacketHandler.cs`
 
-`_timestampEcho`가 **`FLAG_RELIABLE` 패킷을 받을 때만** 갱신된다(`UpdateRecvAckState` 안에서 설정). 서버가 unreliable로만 보내는 구간(`D2CUpdatePlayerStates`, `D2CHeartBeat`, `D2CBroadcastWeaponFire`)이 6초 이어지면 서버가 그 세션을 `DISCONNECTED`로 강제 이탈시킨다(인벤토리 소실 포함).
+`_timestampEcho`가 **`FLAG_RELIABLE` 패킷을 받을 때만** 갱신되던 문제. 서버가 unreliable로만 보내는 구간(`D2CUpdatePlayerStates`, `D2CHeartBeat`, `D2CBroadcastWeaponFire`)이 6초 이어지면 세션이 강제 이탈된다.
 
-- `header.timestamp` 저장을 reliable 분기 **밖**으로 분리
-- 서버 시계 도메인 값이므로 가공 금지, 받은 값 그대로 에코
-- proto 공통 사항 (2) 참고. `timestampEcho == 0` 제외는 서버의 과도기 임시 조치이므로 의존 금지
+- `UpdateTimestampEcho()` 신설, reliable 분기 밖에서 전 패킷 호출. `UpdateRecvAckState()`는 ACK 상태만 담당하도록 축소
+- 역행 방지: 더 큰 값일 때만 갱신 (세션 최대 15분이라 랩어라운드 미고려)
+- 갱신 스레드는 기존 방식대로 `ExecuteAtMainThread` 위임 유지. 송신 경로가 전부 메인 스레드라 워커 스레드 직접 대입은 이득이 없음
+- 송신 측은 원래부터 `BuildPacketInto`에서 전 패킷에 에코를 싣고 있었음 — 수정 불필요
+- 서버 규칙은 `Network/CLAUDE.md`에 기록
 
 ### [ ] T2. 클라 측 재전송 한도 정책 재검토 — **판단 필요**
 `Assets/Scripts/Network/PacketHandler.cs:59` (`MAX_RETRY = 7`), `Assets/Scripts/Network/UDPManager.cs:129`

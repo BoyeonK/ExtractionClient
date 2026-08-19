@@ -21,6 +21,9 @@
 - **서명/검증**: `xxHash64(패킷 전체 + securityKey)` — securityKey는 핸들러 내부 상태
 - **플래그**: `FLAG_HAS_ACK=0x01` / `FLAG_RELIABLE=0x02` / `FLAG_FRAGMENTED=0x04`(예약)
 - ACK: 모든 송신 패킷 헤더에 piggybacked
+- **`timestampEcho`는 서버의 끊김 판정 유일 근거** — 클라가 마지막으로 되돌려준 서버 timestamp가 6초 이상 갱신되지 않으면 서버가 세션을 `DISCONNECTED`로 강제 이탈시킨다(인벤토리 소실 포함). 따라서 수신 timestamp 보관은 **채널을 가리지 않는다**. reliable 수신 시에만 갱신하도록 되돌리지 말 것 — 인게임 정상 구간에서 서버가 보내는 것 대부분이 unreliable이라 그 즉시 끊긴다
+  - 서버 시계 도메인 값이므로 가공 금지. 역행 방지를 위해 더 큰 값일 때만 갱신한다(세션 최대 15분이라 랩어라운드는 고려 대상 아님)
+  - `timestampEcho == 0`인 세션을 판정에서 제외하는 것은 서버의 과도기 임시 조치다. 0을 계속 보내면 RTT 측정도 무력화되므로 의존 금지
 - 직렬화: Google.Protobuf (`GameProtocol` 네임스페이스)
   - `External_Protocol.proto`: `PktId` enum + 모든 C2D/D2C 메시지
   - `External_Unity_Object.proto`: 공유 오브젝트 타입

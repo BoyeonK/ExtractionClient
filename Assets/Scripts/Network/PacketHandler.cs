@@ -302,9 +302,11 @@ public class PacketHandler {
         // 서버가 보낸 reliable 패킷 → 우리 측 ACK 상태 갱신 (다음 송신에 piggybacked)
         if ((header.flags & UDPFlags.FLAG_RELIABLE) != 0) {
             uint serverRSeq = header.rSeqNum;
-            uint serverTs   = header.timestamp;
-            Managers.ExecuteAtMainThread(() => UpdateRecvAckState(serverRSeq, serverTs));
+            Managers.ExecuteAtMainThread(() => UpdateRecvAckState(serverRSeq));
         }
+
+        uint serverTs = header.timestamp;
+        Managers.ExecuteAtMainThread(() => UpdateTimestampEcho(serverTs));
 
         // 서버가 우리 timestamp를 에코해 준 경우 → RTT 샘플 수집
         if (header.timestampEcho != 0) {
@@ -342,9 +344,14 @@ public class PacketHandler {
             slot.inUse = false;
     }
 
+    // 메인 스레드 전용: 서버 timestamp 보관 (다음 송신의 timestampEcho)
+    private void UpdateTimestampEcho(uint serverTs) {
+        if (serverTs > _timestampEcho)
+            _timestampEcho = serverTs;
+    }
+
     // 메인 스레드 전용: 서버 reliable 패킷 수신 기록 → 다음 송신에 piggybacked할 ACK 갱신
-    private void UpdateRecvAckState(uint serverRSeq, uint serverTs) {
-        _timestampEcho       = serverTs;
+    private void UpdateRecvAckState(uint serverRSeq) {
         _hasReceivedReliable = true;
 
         if (serverRSeq > _recvAckRSeqNum) {
