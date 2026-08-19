@@ -119,21 +119,23 @@ public class UDPManager {
     }
 
     private const float HEARTBEAT_INTERVAL_SEC = 3f;
+    private const float RECV_TIMEOUT_SEC       = 10f;
     private float _lastHeartbeatSec = 0f;
 
     // 메인 스레드 — 재전송 대상을 큐에 삽입 (실제 송신은 워커 스레드)
     public void OnUpdate() {
         if (_socket == null) return;
-        float nowMs = Time.realtimeSinceStartup * 1000f;
-        var retransmits = Handler.CollectRetransmits(nowMs, out bool shouldDisconnect);
-        if (shouldDisconnect) {
-            Util.LogError("[UDP] 재전송 한도 초과. 연결 종료.");
+
+        float nowSec = Time.realtimeSinceStartup;
+        if (nowSec - Handler.LastRecvSec >= RECV_TIMEOUT_SEC) {
+            Util.LogError($"[UDP] 서버 무응답 {RECV_TIMEOUT_SEC}초 경과. 연결 종료.");
             Disconnect();
             return;
         }
-        foreach (var (data, length) in retransmits) SendPacket(data, length);
 
-        float nowSec = Time.realtimeSinceStartup;
+        foreach (var (data, length) in Handler.CollectRetransmits(nowSec * 1000f))
+            SendPacket(data, length);
+
         if (nowSec - _lastHeartbeatSec >= HEARTBEAT_INTERVAL_SEC) {
             _lastHeartbeatSec = nowSec;
             SendC2DHeartBeat();

@@ -44,9 +44,9 @@ public class UI_Register : UI_Scene {
         string id = _idField.text;
         string password = _passwordField.text;
         string password2 = _passwordField2.text;
-        //TODO : 입력값 유효성 검사
+        // TODO: 입력값 유효성 검사
         if(string.IsNullOrEmpty(id) || string.IsNullOrEmpty(password) || string.IsNullOrEmpty(password2)) {
-            // TODO : 입력값이 유효하지 않다는 메시지 띄우기
+            // TODO: 입력값이 유효하지 않다는 메시지 띄우기
             return;
         }
 

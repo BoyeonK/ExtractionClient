@@ -30,10 +30,18 @@
 - 송신 측은 원래부터 `BuildPacketInto`에서 전 패킷에 에코를 싣고 있었음 — 수정 불필요
 - 서버 규칙은 `Network/CLAUDE.md`에 기록
 
-### [ ] T2. 클라 측 재전송 한도 정책 재검토 — **판단 필요**
-`Assets/Scripts/Network/PacketHandler.cs:59` (`MAX_RETRY = 7`), `Assets/Scripts/Network/UDPManager.cs:129`
+### [x] T2. 재전송 한도 폐기 + 수신 워치독 도입 — 완료 (2026-08-19)
+`Assets/Scripts/Network/PacketHandler.cs`, `Assets/Scripts/Network/UDPManager.cs`
 
-서버는 이제 reliable 재전송에 횟수 제한이 없고, 끊김 판정 근거는 오직 `timestampEcho`다. 클라만 7회 실패로 `Disconnect()`를 호출하면 일시적 패킷 손실에 스스로 판을 버리게 된다. 한도 상향 / 제거 / 유지 중 결정 필요.
+ACK 실패 횟수로 연결 생사를 판정하던 방식을 폐기하고, 수신 여부 단독 판정으로 교체.
+
+- `MAX_RETRY` 제거. `CollectRetransmits`의 `out shouldDisconnect`도 함께 제거 — 연결이 살아있다고 보는 동안에는 무한 재시도
+- RTO는 기존 RTT 기반 값 고정. 백오프 미도입 — `_retransmitCache`·`byte[]` 재사용으로 CPU/GC 비용이 사실상 0이고 실사용 in-flight가 0~2개라 대역폭 부담이 없다
+- `PacketHandler.LastRecvSec` 신설(서명 검증 통과분만 기록, T1의 per-패킷 훅에 합류). `UDPManager.OnUpdate`에서 `RECV_TIMEOUT_SEC`(10초) 초과 시 `Disconnect()`
+- 워치독 시드는 `SetSessionVariable`. 0으로 두면 접속 즉시 오탐
+- in-flight 32개 초과 시 슬롯 덮어쓰기 경고를 런타임 에러 로그로 승격 — 재전송 한도가 겸하던 상한이 사라져 유실이 무증상이 되기 때문
+
+**남은 것**: 끊김 판정 후 처리가 없다. `Disconnect()`는 소켓만 정리하고 플레이어는 인게임 씬에 그대로 남는다. 안내 UI·씬 전환은 T15(귀환 성공 후 매치 종료 화면)와 묶어 처리할 것.
 
 ---
 

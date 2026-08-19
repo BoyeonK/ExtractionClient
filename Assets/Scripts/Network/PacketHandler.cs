@@ -52,11 +52,13 @@ public class PacketHandler {
     // ── 타임스탬프 에코 (서버의 timestamp를 그대로 돌려줌) ──
     private uint _timestampEcho = 0;
 
+    // ── 수신 워치독 (서명 검증을 통과한 패킷의 마지막 수신 시각) ──
+    public float LastRecvSec { get; private set; } = 0f;
+
     // ── Reliable 재전송 링 버퍼 ────────────────────────
     private const float MIN_RTO_MS     = 50f;    // RTO 하한 (ms)
     private const float MAX_RTO_MS     = 1000f;  // RTO 상한 (ms)
     private const float MIN_RTT_MS     = 20f;    // RTT 하한 (ms)
-    private const int   MAX_RETRY      = 7;      // 최대 재전송 횟수
     private const int   WINDOW_SIZE    = 32;     // ACK bitfield 32비트와 일치
     private const int   MAX_PACKET_SIZE = 1400;  // 이더넷 MTU 기준 안전 최대치
 
@@ -125,6 +127,7 @@ public class PacketHandler {
         _rSeqNum     = 1;
         _uSeqNum     = 1;
         _fireSequence = 0;
+        LastRecvSec  = Time.realtimeSinceStartup;
     }
 
     public void Reset() {
@@ -136,6 +139,7 @@ public class PacketHandler {
         _recvAckBitfield     = 0;
         _hasReceivedReliable = false;
         _timestampEcho       = 0;
+        LastRecvSec          = 0f;
         _fireSequence        = 0;
         _srtt                = 0f;
         _rttvar              = 0f;
@@ -202,10 +206,8 @@ public class PacketHandler {
         int slotIndex = (int)(_rSeqNum % WINDOW_SIZE);
         ref PendingSlot slot = ref _pendingSlots[slotIndex];
 
-#if UNITY_EDITOR || DEVELOPMENT_BUILD
         if (slot.inUse)
-            Util.LogWarning($"[PacketHandler] 슬롯 {slotIndex} 덮어쓰기 — in-flight 패킷 32개 초과");
-#endif
+            Util.LogError($"[PacketHandler] reliable 패킷 유실 — in-flight {WINDOW_SIZE}개 초과로 seq {slot.seqNum}(재전송 {slot.retryCount}회) 덮어씀");
 
         slot.inUse      = true;
         slot.seqNum     = _rSeqNum;
@@ -229,8 +231,7 @@ public class PacketHandler {
     // 재전송 큐 관리 (메인 스레드에서 호출)
     // ==========================================
 
-    public List<(byte[] data, int length)> CollectRetransmits(float nowMs, out bool shouldDisconnect) {
-        shouldDisconnect = false;
+    public List<(byte[] data, int length)> CollectRetransmits(float nowMs) {
         _retransmitCache.Clear();
 
         float rto = CurrentRto;
@@ -238,11 +239,6 @@ public class PacketHandler {
             ref PendingSlot slot = ref _pendingSlots[i];
             if (!slot.inUse) continue;
             if (nowMs - slot.sentAtMs < rto) continue;
-
-            if (slot.retryCount >= MAX_RETRY) {
-                shouldDisconnect = true;
-                return _retransmitCache;
-            }
 
             slot.retryCount++;
             slot.sentAtMs = nowMs;
@@ -306,7 +302,7 @@ public class PacketHandler {
         }
 
         uint serverTs = header.timestamp;
-        Managers.ExecuteAtMainThread(() => UpdateTimestampEcho(serverTs));
+        Managers.ExecuteAtMainThread(() => OnPacketReceived(serverTs));
 
         // 서버가 우리 timestamp를 에코해 준 경우 → RTT 샘플 수집
         if (header.timestampEcho != 0) {
@@ -344,10 +340,11 @@ public class PacketHandler {
             slot.inUse = false;
     }
 
-    // 메인 스레드 전용: 서버 timestamp 보관 (다음 송신의 timestampEcho)
-    private void UpdateTimestampEcho(uint serverTs) {
+    // 메인 스레드 전용: 서버 timestamp 보관(다음 송신의 timestampEcho) + 수신 워치독 갱신
+    private void OnPacketReceived(uint serverTs) {
         if (serverTs > _timestampEcho)
             _timestampEcho = serverTs;
+        LastRecvSec = Time.realtimeSinceStartup;
     }
 
     // 메인 스레드 전용: 서버 reliable 패킷 수신 기록 → 다음 송신에 piggybacked할 ACK 갱신

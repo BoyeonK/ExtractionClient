@@ -9,20 +9,20 @@
 ## 완료된 것들
 
 ### 플레이어/사격
-- [x] (2026-07-15 #4) 시점 분리(View Separation) 리팩터링 — 마우스 에임(`_aimPitch`/`_aimYaw`)과 반동 오프셋(`_recoilPitch`/`_recoilYaw`)을 별도 변수로 분리, `ApplyViewRotation()`에서 합산 후 1회만 회전 적용. 프레임 내 반대 방향 경쟁으로 인한 떨림 해소. 피치 클램프에 반동 오프셋 반영하여 반동 누적 시 마우스 조작 불능 버그 수정
 - [x] (2026-07-22 #2) ICombatTarget 인터페이스 도입 — 히트스캔 피격 대상 식별을 `GameObjectController` 대신 `ICombatTarget` 인터페이스 기반으로 전환. `PlayerController`/`OppoPlayerController`에 구현 추가, `ProcessHit()`의 `GetComponentInParent` 타입 교체. 비전투 오브젝트(Container 등) 오판정 방지
 
 ### 네트워크/UI
-- [x] (2026-07-22 #0) D2CNotifyHealthChange 핸들러 구현 — PacketHandler에 핸들러 등록+파싱, IngameScene.HandleHealthChange()로 전달, IngameHealthBarUI를 max/current 분리 구조로 리팩터링, SyncHealthBarMax()로 장비 변경 시 최대값 자동 갱신
 - [x] (2026-07-22 #1) IngameScene 미사용 HP 필드 제거 — 서버 주도 HP 관리 전환에 따라 `_maxHp`/`_currentHp` 삭제
 - [x] (2026-08-12 #0) 귀환(Recall) 프로토콜 뼈대 구현 — `External_Protocol.proto`에 `C2DRequestRecall`/`D2CResponseRecall` 메시지 및 `PktId` 32·33 추가, `PacketHandler`에 `Handle_D2CResponseRecall` 등록·구현(파싱·로깅까지), `UDPManager.SendC2DRequestRecall()` 추가. 귀환은 일회성 비가역 결정이므로 reliable 전송 선택. 승인/거부 실처리와 호출부는 미연결
 - [x] (2026-08-12 #1) 귀환 상호작용 파이프라인 연결 — `RecallSpotController` 신규(`InteractableGameObjectController` 상속, `_interactText="귀환하기"`, `[SerializeField] _recallSpotIndex`). `IngameScene.RequestRecall()`/`HandleRecallResponse()` 추가, `Handle_D2CResponseRecall`을 씬으로 연결. 중복 요청 차단은 스팟별이 아닌 씬 단위 `_recallRequested` 플래그가 담당
 - [x] (2026-08-12 #2) D2CNotifyRecallResult 프로토콜 및 핸들러 추가 — `PktId` 34 + `RecallResultReason` enum(SUCCESS/OUT_OF_ZONE/PLAYER_DEAD/SESSION_LOST/SERVER_INTERNAL) 정의. `Handle_D2CNotifyRecallResult` 등록·구현 후 `IngameScene.HandleRecallResult()`로 연결. 성공/취소 분기는 TEMP 로그 + 플래그 해제까지만 구현
 - [x] (2026-08-12 #3) 귀환 응답 워치독 추가 (TEMP) — 전송 시점부터 `RECALL_TIMEOUT`(10초) 타이머를 돌려 응답 유실 시 `_recallRequested`를 해제. 서버 통지가 유실되면 그 판 탈출이 영구 불가해지는 것을 막는 임시 안전장치로, 결과를 추측하지 않고 로컬 잠금만 푼다
 - [x] (2026-08-19 #1) timestampEcho를 모든 수신 패킷에서 갱신 (server-sync T1) — `UpdateTimestampEcho()` 신설 후 `FLAG_RELIABLE` 분기 밖에서 전 패킷 호출, `UpdateRecvAckState()`는 ACK 상태만 담당하도록 축소. 서버의 끊김 판정이 이 값 하나로 바뀌면서, unreliable만 오가는 구간(하트비트·상태 동기화)이 6초 이어지면 세션이 강제 이탈되던 문제를 해소. 역행 방지를 위해 더 큰 값일 때만 갱신. 갱신 스레드는 기존 `ExecuteAtMainThread` 위임 유지 — 송신 경로가 전부 메인 스레드라 워커 스레드 직접 대입은 이득이 없음. 송신 측(`BuildPacketInto`)은 원래부터 채널 구분 없이 에코를 싣고 있어 무수정
+- [x] (2026-08-19 #2) 재전송 한도 폐기 + 수신 워치독 도입 (server-sync T2) — ACK 실패 횟수로 연결 생사를 판정하던 방식을 폐기. `MAX_RETRY`와 `CollectRetransmits`의 `out shouldDisconnect` 제거로 연결이 살아있다고 보는 동안 무한 재시도. 판정은 `PacketHandler.LastRecvSec`(서명 검증 통과분만 기록) 기준 `RECV_TIMEOUT_SEC`(10초) 무수신으로 단독 이관. 워치독 시드는 `SetSessionVariable`에서 — 0으로 두면 `Time.realtimeSinceStartup`과 비교되어 접속 즉시 오탐. RTO 백오프는 미도입(버퍼 재사용으로 CPU/GC 비용 0, 실사용 in-flight 0~2개). 재전송 한도가 겸하던 in-flight 상한이 사라져 슬롯 덮어쓰기 경고를 런타임 에러 로그로 승격
 
 ### 문서/설정
 - [x] (2026-08-19 #0) 서버 변경분 클라이언트 반영 작업 리스트 문서화 — `External_Protocol.proto`의 `[작업사항]` 주석(서버 2026-08-12 이후 변경분)을 클라 코드 현재 상태와 대조해 `server-sync-todo.md` 신규 작성. T1~T17을 0~3순위로 분류하고 각 항목에 `파일:줄번호` 레퍼런스·근거·판단 필요 지점을 명시. 조사 과정에서 파생 버그 2건(`timestampEcho` 갱신 범위, `IngameHealthBarUI` 필드 바인딩 누락) 발견. 코드 변경 없음
+- [x] (2026-08-19 #3) 미완성 코드 주석 마커 카테고리화 — `TODO:`(미구현) / `TEMP:`(테스트용으로 막아둔 것) / `OPTION:`(없어도 무방한 개선) 3분류를 정의하고 기존 주석 23개를 재분류·표기 통일(`//TODO :` 등 혼재 → `// MARKER: `). 귀환 성공·취소 처리는 테스트 목적이 아닌 미구현이므로 TEMP→TODO로 이동. 코드와 어긋난 TODO 2건(`UI_Login`의 로그인 시도, `LobbyScene`의 게임 씬 로드 — 둘 다 이미 구현되어 있었음) 삭제. 규칙 표는 루트 `CLAUDE.md` 컨벤션 5번에 추가
 
 ---
 
@@ -32,8 +32,8 @@
 > proto의 `[작업사항]` 주석을 추적한 임시 문서이며, 전 항목 반영 후 이 파일로 이관하고 삭제할 것.
 > 아래 목록과의 대응: 2번(귀환 최종 결과 실처리) = T15, 5번(워치독 제거 검토) = T15에 종속
 
-1. **서버 변경분 반영 (`server-sync-todo.md`)** — T1(timestampEcho) 완료. 다음은 T3~T10(신규 패킷 6종 배선) → T11~T14 순. T2(클라 재전송 한도 정책)는 결정 대기 중이며 신규 패킷 배선보다 뒤여도 무방
-2. **귀환 최종 결과 실처리 (TEMP 해소)** — `HandleRecallResult`의 TEMP 로그를 실제 처리로 교체. 성공 시 탈출 연출·씬 전환 + 잠금 유지(이미 맵을 떠나므로 해제하면 전환 지연 중 재요청 가능). 취소 시 `reason`별 분기(`OUT_OF_ZONE`·`SERVER_INTERNAL`은 재시도 허용, `PLAYER_DEAD`·`SESSION_LOST`는 각 흐름에 위임)
+1. **서버 변경분 반영 (`server-sync-todo.md`)** — T1·T2 완료. 다음은 T4(objectId 레지스트리) → T3(핸들러 등록) → T5~T10(신규 패킷 배선) → T11~T14 순
+2. **귀환 최종 결과 실처리 + 연결 끊김 처리** — `HandleRecallResult`의 TODO를 실제 처리로 교체. 성공 시 탈출 연출·씬 전환 + 잠금 유지(이미 맵을 떠나므로 해제하면 전환 지연 중 재요청 가능). 취소 시 `reason`별 분기(`OUT_OF_ZONE`·`SERVER_INTERNAL`은 재시도 허용, `PLAYER_DEAD`·`SESSION_LOST`는 각 흐름에 위임). **연결 끊김도 같은 출구가 필요하다** — 현재 `UDPManager.Disconnect()`는 소켓만 정리해 플레이어가 인게임 씬에 그대로 남는다. 매치 종료 화면을 만들 때 함께 처리할 것
 3. **귀환 스팟 씬 배치** — 맵 씬에 귀환 단말기 오브젝트 배치, `RecallSpotController` 부착 후 인스펙터에서 `_recallSpotIndex`를 서버 테이블 값에 맞춤. 조준 레이가 맞아야 하므로 트리거가 아닌 일반 콜라이더 사용
 4. **귀환 진행 중 UI 피드백** — 승인~결과 사이 5초 구간 표시(카운트다운 등). `InteractText`는 매 프레임 재조회되므로 `virtual` 프로퍼티화하면 동적 텍스트 전환 가능
 5. **TEMP 귀환 워치독 제거 검토** — 서버 통지 신뢰성이 검증되면 `RECALL_TIMEOUT`/`_recallTimer` 및 `OnUpdate()`의 TEMP 블록 제거. 2번이 끝나기 전까지는 워치독이 정상 경로까지 떠받치므로 먼저 제거하지 말 것

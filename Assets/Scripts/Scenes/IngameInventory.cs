@@ -109,13 +109,13 @@ public class IngameInventory {
             if (_primaryWeapon == null) return;
             _isPrimaryWeaponApplyed = true;
             GetIngameScene().PlayerController.EquipWeapon(_primaryWeapon.item_id);
-            // TODO : 추후 서버에 무기전환요청 패킷 보내어 응답으로서 전환 시행하기
+            // TODO: 서버에 무기 전환 요청을 보내고 응답으로 전환 시행
         } else {
             if (!_isPrimaryWeaponApplyed) return;
             if (_secondaryWeapon == null) return;
             _isPrimaryWeaponApplyed = false;
             GetIngameScene().PlayerController.EquipWeapon(_secondaryWeapon.item_id);
-            // TODO : 추후 서버에 무기전환요청 패킷 보내어 응답으로서 전환 시행하기
+            // TODO: 서버에 무기 전환 요청을 보내고 응답으로 전환 시행
         }
     }
 

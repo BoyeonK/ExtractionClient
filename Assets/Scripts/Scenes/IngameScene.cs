@@ -281,12 +281,12 @@ public class IngameScene : BaseScene {
     // (0=UNKNOWN, 1=SUCCESS, 2=OUT_OF_ZONE, 3=PLAYER_DEAD, 4=SESSION_LOST, 5=SERVER_INTERNAL)
     public void HandleRecallResult(bool result, uint recallSpotIndex, int reason) {
         if (result) {
-            // TEMP: 귀환 성공 — 탈출 연출·씬 전환 미구현. 로그만 남기고 잠금을 해제한다.
+            // TODO: 귀환 성공 — 탈출 연출·씬 전환 미구현. 로그만 남기고 잠금을 해제한다.
             //       씬 전환이 붙으면 성공 시에는 잠금을 유지하는 쪽이 맞다(이미 맵을 떠나므로).
             Util.Log($"TEMP: 귀환 성공 (spotIndex={recallSpotIndex}, reason={reason})");
         }
         else {
-            // TEMP: 귀환 취소 — reason별 분기 미구현. 현재는 사유와 무관하게 재시도를 허용한다.
+            // TODO: 귀환 취소 — reason별 분기 미구현. 현재는 사유와 무관하게 재시도를 허용한다.
             Util.Log($"TEMP: 귀환 취소 (spotIndex={recallSpotIndex}, reason={reason})");
         }
 

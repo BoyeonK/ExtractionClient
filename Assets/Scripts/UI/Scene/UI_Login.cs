@@ -39,13 +39,12 @@ public class UI_Login : UI_Scene {
         string id = _idField.text;
         string password = _passwordField.text;
 
-        //TODO : 입력값 유효성 검사
+        // TODO: 입력값 유효성 검사
         if (string.IsNullOrEmpty(id) || string.IsNullOrEmpty(password)) {
-            // TODO : 입력값이 유효하지 않다는 메시지 띄우기
+            // TODO: 입력값이 유효하지 않다는 메시지 띄우기
             return;
         }
 
-        // TODO : 로그인 시도
         _isTryingLogin = true;
         _scene.TryLogin(id, password);
     }

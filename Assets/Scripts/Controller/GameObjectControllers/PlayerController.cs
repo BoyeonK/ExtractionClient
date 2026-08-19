@@ -264,13 +264,13 @@ public class PlayerController : GameObjectController, ICombatTarget {
             ? _ingameScene.Inventory.PrimaryWeaponMagazine
             : _ingameScene.Inventory.SecondaryWeaponMagazine;
 
-        // 테스트용 주석처리
+        // TEMP: 탄약 확인 비활성화
         // if (magazine == null || magazine.quantity <= 0) {
         //     EmptyAmmoFire();
         //     return;
         // }
 
-        // magazine.quantity--; // 테스트용 주석처리
+        // magazine.quantity--; // TEMP: 탄약 차감 비활성화
 
         // 2. 스프레드 적용 히트스캔
         Ray spreadRay = CalculateSpreadRay();

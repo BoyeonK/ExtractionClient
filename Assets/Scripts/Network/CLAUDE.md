@@ -14,7 +14,11 @@
 - `Poll(1ms)` 기반 루프, 수신 데이터는 모두 `Managers.ExecuteAtMainThread`로 메인 스레드 전달
 - 송신: `SendReliable(packetId, IMessage)` / `SendUnreliable(packetId, IMessage)`
 - `Disconnect()` 순서: `_isRunning = false` → 스레드 Join → `_socket.Close()` → `Handler.Reset()`
-- 재전송 7회 초과 시 `Disconnect()`. 3초마다 `C2DHeartBeat` 자동 전송
+- 3초마다 `C2DHeartBeat` 자동 전송
+- **연결 유지 판정은 수신 여부 단독** — 서명 검증을 통과한 패킷을 10초(`RECV_TIMEOUT_SEC`) 이상 못 받으면 `Disconnect()`. 서버가 하트비트에 응답하므로 정상 수신 간격은 3초 이하이고, 10초는 3회 연속 무응답에 해당한다
+  - 재전송 횟수 한도는 없다. 연결이 살아있다고 보는 동안에는 계속 재시도한다 — ACK 실패는 "그 패킷이 도착했는가"이지 "상대가 살아있는가"가 아니다
+  - 워치독 시작 시각은 `SetSessionVariable`에서 시드한다. 0으로 두면 `Time.realtimeSinceStartup`과 비교되어 접속 즉시 오탐이 난다
+  - 재전송 한도가 사라지면서 in-flight 32개 초과를 막던 장치도 없어졌다. 초과 시 `MakeReliablePacket`이 미ACK 슬롯을 덮어쓰고 그 패킷은 유실되므로 에러 로그로 남긴다
 
 ## 패킷 형식 (`PacketHandler`)
 - **헤더**: `UDPHeader` 35바이트, `LayoutKind.Sequential Pack=1`

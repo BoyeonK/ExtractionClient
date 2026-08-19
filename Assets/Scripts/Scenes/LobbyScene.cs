@@ -84,7 +84,7 @@ public class LobbyScene : BaseScene {
         Managers.Input.AddKeyListener(Key.Tab, OnTabInput, InputManager.KeyState.Up);
         InitDragGhost();
 
-        // TODO : 최초 실행인지, 한 게임 종료 후 재실행인지에 따라 분기 처리
+        // TODO: 최초 실행인지, 한 게임 종료 후 재실행인지에 따라 분기 처리
         _lobbyState = LobbyState.BeforeConnect;
         Managers.UI.ShowSceneUI<UI_TestStart>();
 
@@ -556,7 +556,6 @@ public class LobbyScene : BaseScene {
     private void OnMatchingSuccess() {
         _matchProgressUI.StopMatching();
         Util.Log("[Matching] 매칭 성공. 게임 씬 로드 예정");
-        // TODO: 게임 씬 로드
     }
 
     private void EnterMatchingState() {

@@ -47,6 +47,13 @@ This file provides guidance to Claude Code (claude.ai/code) when working with co
 2. **프리팹은 `Resources/Prefabs/` 하위에 위치** — `ResourceManager` 경로는 이 폴더 기준 상대경로
 3. **서버 URL은 `Gitignores.baseUrl`에서** — 하드코딩 절대 금지
 4. **새 UDP 패킷 타입 추가 시**: `Assets/Scripts/Network/CLAUDE.md`의 절차를 따를 것
+5. **미완성 코드 주석 마커** — 아래 세 가지만 사용한다. 새로 남길 때도 이 중 하나를 고를 것
+
+| 마커 | 의미 | 해소 조건 |
+|------|------|-----------|
+| `TODO:` | 아직 구현되지 않은 것 | 구현하면 제거 |
+| `TEMP:` | 테스트를 위해 의도적으로 값을 제한하거나 코드를 막아둔 것 | 테스트가 끝나면 원복 |
+| `OPTION:` | 없어도 동작에 문제가 없고 여유가 생기면 구현할 개선 항목 | 상시 보류 가능 |
 
 ---
 

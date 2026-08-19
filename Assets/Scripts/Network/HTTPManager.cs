@@ -114,7 +114,7 @@ public class HTTPManager {
 
             VersionResponse resData = JsonUtility.FromJson<VersionResponse>(responseText);
             if (resData != null && resData.success && resData.data != null) {
-                //TODO : resData.data를 보고 분기처리, 결과에 따라선 true를 반환하지 못할 수도 있음
+                // TODO: resData.data를 보고 분기처리, 결과에 따라선 true를 반환하지 못할 수도 있음
                 return true;
             }
             return false;
@@ -130,7 +130,7 @@ public class HTTPManager {
         if (_isRequesting) return false;
         if (IsMatching) return false;
 
-        // TODO : 추후 메세지 팝업 UI를 만들고 Util.Log를 팝업으로 변경하기
+        // OPTION: 메세지 팝업 UI를 만들고 Util.Log를 팝업으로 변경
         if (AuthState != LoginState.None) {
             Managers.ExecuteAtMainThread(() => Util.LogWarning("이미 로그인된 상태입니다. 로그아웃 후 이용해주세요."));
             return false;
@@ -164,7 +164,7 @@ public class HTTPManager {
                 ShopItems = resData.data.shopItems;
                 AuthState = LoginState.Login;
 
-                // TODO : 인벤토리 UI 새로고침 등 필요한 작업 실행하기
+                // TODO: 인벤토리 UI 새로고침 등 필요한 작업 실행
                 Managers.ExecuteAtMainThread(() => {
                     Util.Log($"계정 생성 성공! [Session: {resData.data.sessionId} ]");
                 });
@@ -210,7 +210,7 @@ public class HTTPManager {
                 ShopItems = resData.data.shopItems;
                 AuthState = LoginState.Login;
 
-                // TODO : 인벤토리 UI 새로고침 등 필요한 작업 실행하기
+                // TODO: 인벤토리 UI 새로고침 등 필요한 작업 실행
                 Managers.ExecuteAtMainThread(() => {
                     Util.Log($"로그인 성공! [Session: {resData.data.sessionId} ]");
                 });
@@ -319,7 +319,7 @@ public class HTTPManager {
             InventoryResponse resData = JsonUtility.FromJson<InventoryResponse>(responseText);
             if (resData != null && resData.success) {
                 Inventory = resData.data.inventory;
-                // TODO : 인벤토리 UI 새로고침 등 필요한 작업 실행하기
+                // TODO: 인벤토리 UI 새로고침 등 필요한 작업 실행
                 return true;
             }
             return false;
