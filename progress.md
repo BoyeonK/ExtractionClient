@@ -1,6 +1,6 @@
 # 프로젝트 진행 상황
 
-> 최종 수정: 2026-08-12
+> 최종 수정: 2026-08-19
 > 장르: 멀티플레이어 Extraction 게임 (알파 단계)
 > 엔진: Unity 6000.4.0f1 / URP 17.4.0
 
@@ -23,25 +23,41 @@
 ### 문서/설정
 - [x] (2026-07-15 #2) 상위 CLAUDE.md 로드 제외 설정 — `.claude/settings.local.json`에 `claudeMdExcludes` 추가, 클라이언트 세션에서 서버 컨텍스트(`Extraction/CLAUDE.md`) 로드 방지. 머신 종속 경로이므로 `.local`에 배치
 - [x] (2026-07-15 #3) CLAUDE.md 과도한 서술 정리 — 코드에서 바로 확인 가능한 필드 테이블·getter/setter 나열·상수값 등 제거. 설계 의도·규칙·흐름·함정만 잔류. 전체 471줄 → 269줄(−43%)
+- [x] (2026-08-19 #0) 서버 변경분 클라이언트 반영 작업 리스트 문서화 — `External_Protocol.proto`의 `[작업사항]` 주석(서버 2026-08-12 이후 변경분)을 클라 코드 현재 상태와 대조해 `server-sync-todo.md` 신규 작성. T1~T17을 0~3순위로 분류하고 각 항목에 `파일:줄번호` 레퍼런스·근거·판단 필요 지점을 명시. 조사 과정에서 파생 버그 2건(`timestampEcho` 갱신 범위, `IngameHealthBarUI` 필드 바인딩 누락) 발견. 코드 변경 없음
 
 ---
 
 ## 다음 작업 우선순위 (제안)
 
-1. **귀환 최종 결과 실처리 (TEMP 해소)** — `HandleRecallResult`의 TEMP 로그를 실제 처리로 교체. 성공 시 탈출 연출·씬 전환 + 잠금 유지(이미 맵을 떠나므로 해제하면 전환 지연 중 재요청 가능). 취소 시 `reason`별 분기(`OUT_OF_ZONE`·`SERVER_INTERNAL`은 재시도 허용, `PLAYER_DEAD`·`SESSION_LOST`는 각 흐름에 위임)
-2. **귀환 스팟 씬 배치** — 맵 씬에 귀환 단말기 오브젝트 배치, `RecallSpotController` 부착 후 인스펙터에서 `_recallSpotIndex`를 서버 테이블 값에 맞춤. 조준 레이가 맞아야 하므로 트리거가 아닌 일반 콜라이더 사용
-3. **귀환 진행 중 UI 피드백** — 승인~결과 사이 5초 구간 표시(카운트다운 등). `InteractText`는 매 프레임 재조회되므로 `virtual` 프로퍼티화하면 동적 텍스트 전환 가능
-4. **TEMP 귀환 워치독 제거 검토** — 서버 통지 신뢰성이 검증되면 `RECALL_TIMEOUT`/`_recallTimer` 및 `OnUpdate()`의 TEMP 블록 제거. 1번이 끝나기 전까지는 워치독이 정상 경로까지 떠받치므로 먼저 제거하지 말 것
-5. **발사 이펙트 프리팹 준비 → 이펙트 구현** — 로컬 탄착 이펙트(`ProcessHit`), 수신 측 머즐 플래시/총성/탄착 이펙트(`HandleWeaponFireBroadcast`). 파티클·사운드 에셋이 `Resources/Prefabs/` 아래에 필요
-6. **탄약 차감 주석 해제** — `Fire()` 내 `magazine.quantity--` 및 빈 탄창 가드. 테스트 완료 후 활성화
-7. **EmptyAmmoFire() 구현** — 빈 탄창 사운드, 재장전 유도 UI
-8. **인벤토리 열기/닫기 키바인딩** — Tab키로 MyInventory 토글 등 추가 입력 연결 (컨테이너 E/I키 닫기는 완료)
-9. **실제 맵 씬에서 IngameScene 상속 완성** — `IngameScene`을 상속하는 맵별 씬 컴포넌트 구현
-10. **설정값 실제 적용** — 해상도/창모드/FOV 변경이 `Screen.SetResolution()`, `Camera.fieldOfView` 등에 반영되도록 구현
+> **서버 변경분(2026-08-12 이후) 반영 작업은 별도 문서로 분리** — `server-sync-todo.md` (T1~T17) 참조.
+> proto의 `[작업사항]` 주석을 추적한 임시 문서이며, 전 항목 반영 후 이 파일로 이관하고 삭제할 것.
+> 아래 목록과의 대응: 2번(귀환 최종 결과 실처리) = T15, 5번(워치독 제거 검토) = T15에 종속
+
+1. **서버 변경분 반영 (`server-sync-todo.md`)** — 그중 T1(`timestampEcho`를 모든 수신 패킷에서 갱신)은 방치하면 세션이 강제 이탈되므로 **다른 어떤 항목보다 먼저**. 이어서 T3~T10(신규 패킷 6종 배선), T11~T14 순
+2. **귀환 최종 결과 실처리 (TEMP 해소)** — `HandleRecallResult`의 TEMP 로그를 실제 처리로 교체. 성공 시 탈출 연출·씬 전환 + 잠금 유지(이미 맵을 떠나므로 해제하면 전환 지연 중 재요청 가능). 취소 시 `reason`별 분기(`OUT_OF_ZONE`·`SERVER_INTERNAL`은 재시도 허용, `PLAYER_DEAD`·`SESSION_LOST`는 각 흐름에 위임)
+3. **귀환 스팟 씬 배치** — 맵 씬에 귀환 단말기 오브젝트 배치, `RecallSpotController` 부착 후 인스펙터에서 `_recallSpotIndex`를 서버 테이블 값에 맞춤. 조준 레이가 맞아야 하므로 트리거가 아닌 일반 콜라이더 사용
+4. **귀환 진행 중 UI 피드백** — 승인~결과 사이 5초 구간 표시(카운트다운 등). `InteractText`는 매 프레임 재조회되므로 `virtual` 프로퍼티화하면 동적 텍스트 전환 가능
+5. **TEMP 귀환 워치독 제거 검토** — 서버 통지 신뢰성이 검증되면 `RECALL_TIMEOUT`/`_recallTimer` 및 `OnUpdate()`의 TEMP 블록 제거. 2번이 끝나기 전까지는 워치독이 정상 경로까지 떠받치므로 먼저 제거하지 말 것
+6. **발사 이펙트 프리팹 준비 → 이펙트 구현** — 로컬 탄착 이펙트(`ProcessHit`), 수신 측 머즐 플래시/총성/탄착 이펙트(`HandleWeaponFireBroadcast`). 파티클·사운드 에셋이 `Resources/Prefabs/` 아래에 필요
+7. **탄약 차감 주석 해제** — `Fire()` 내 `magazine.quantity--` 및 빈 탄창 가드. 테스트 완료 후 활성화
+8. **EmptyAmmoFire() 구현** — 빈 탄창 사운드, 재장전 유도 UI
+9. **인벤토리 열기/닫기 키바인딩** — Tab키로 MyInventory 토글 등 추가 입력 연결 (컨테이너 E/I키 닫기는 완료). 무기 전환 1/2 키는 T9에서 함께 처리
+10. **실제 맵 씬에서 IngameScene 상속 완성** — `IngameScene`을 상속하는 맵별 씬 컴포넌트 구현
+11. **설정값 실제 적용** — 해상도/창모드/FOV 변경이 `Screen.SetResolution()`, `Camera.fieldOfView` 등에 반영되도록 구현
 
 ---
 
 ## 메모
+
+### 알려진 버그 (2026-08-19 조사 중 발견, 미수정)
+- **`timestampEcho`가 reliable 패킷 수신 시에만 갱신됨** (`PacketHandler.cs:303-307`) — `UpdateRecvAckState` 안에서 설정되므로 서버가 unreliable로만 보내는 구간이 6초 이어지면 서버가 세션을 `DISCONNECTED`로 강제 이탈시킨다(인벤토리 소실 포함). 서버의 끊김 판정이 이 값 하나로 바뀌면서 치명화됨. `server-sync-todo.md` T1
+- **`IngameHealthBarUI._hpFillImage` / `_armorFillImage`가 영구 null** (`IngameHealthBarUI.cs:5-6`) — `[SerializeField]` 없는 private 필드라 인스펙터 바인딩이 안 된다. HP/실드 게이지가 실제로는 전혀 갱신되지 않는 상태. `server-sync-todo.md` T12
+- **디스폰된 플레이어의 유령 재스폰 가능성** (`IngameScene.cs:163-173`) — `UpdatePlayerStates()`가 미등록 objectId를 보면 `C2DRequestSpawnByObjectId`를 쏘므로, 디스폰 직후 잔여 상태 패킷이 도착하면 다시 스폰된다. `D2CDespawnPlayerObject` 구현 시 함께 처리할 것. `server-sync-todo.md` T7
+
+### 서버 변경분 반영 관련 (2026-08-19 조사)
+- **`ExternalProtocol.cs`는 이미 새 proto 기준으로 재생성되어 있다** — `.gitignore` 대상이라 git diff에 안 잡히지만 `PktId` 35~40, `D2CNotifyWeaponChanged`, `C2DRequestSwitchWeapon`, `D2CNotifyHealthChange.AttackerObjectId` 스텁이 전부 존재. protoc 재실행 불필요
+- **`0xFFFFFFFF`가 '없음', `0`은 실재 objectId** — `D2CNotifyHealthChange.attacker_object_id`, `D2CNotifyPlayerKilled.killer_object_id` 모두 proto3 기본값 0을 미설정으로 해석하면 오귀속이 된다
+- **남의 방어구·실드·HP는 어떤 패킷으로도 오지 않는다 (의도된 설계)** — `blueprint_id` 하나가 `ArmorSpec` 전체와 동치라 수치 노출이 되기 때문. 구 `D2CNotifyEquipmentChanged`의 `armor_id`가 삭제된 이유
 
 ### 귀환(Recall) 설계 확정 사항
 - **2단계 프로토콜** — ① `C2DRequestRecall` → `D2CResponseRecall`(승인/거부) ② 승인 시 서버가 1초 간격 5회 검사 후 `D2CNotifyRecallResult`(성공/취소 + 사유)
