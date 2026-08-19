@@ -112,24 +112,31 @@ ACK 실패 횟수로 연결 생사를 판정하던 방식을 폐기하고, 수�
 
 ## 2순위 — 기존 패킷 의미 변경
 
-### [ ] T11. `D2CNotifyHealthChange.attacker_object_id` 반영
-`Assets/Scripts/Network/PacketHandler.cs:1042`, `Assets/Scripts/Scenes/IngameScene.cs:437`
+### [x] T11. `D2CNotifyHealthChange.attacker_object_id` 반영 — 완료 (2026-08-19)
+`Assets/Scripts/Network/PacketHandler.cs`, `Assets/Scripts/Scenes/IngameScene.cs`
 
-- 필드 4번 추가됨. 핸들러 파싱 + `HandleHealthChange()` 시그니처 확장
-- **`0xFFFFFFFF` = 가해자 없음(회복 등). `0`은 실재하는 objectId이므로 '미설정'으로 해석 금지**
-- 용도: 피격 방향 표시, 교전 상대 추적, 사망 시 킬러 표기
+- 핸들러에서 `attacker_object_id` 파싱 + `HandleHealthChange()` 시그니처 확장
+- `NO_ATTACKER_OBJECT_ID`를 `PLAYER_OBJECT_ID`와 **별도 상수로** 신설 — 값은 같지만 의미가 다르다(가해자 없음 vs 내 인벤토리). `0`은 실재하는 objectId이므로 '미설정' 해석 금지. T10 `killer_object_id`도 같은 규칙
+- `_currentHealthPoint` / `_currentShieldPoint` 신설해 서버 절대값 보관 → **T12 실드 예측이 이 필드를 이어받는다**
+- 교전 상대 추적: `_lastAttackerObjectId` + `ATTACKER_TRACK_DURATION`(5초) 만료 창. `LastAttackerObjectId` / `HasRecentAttacker` 노출 → T10 킬 피드, T15 킬러 표기에서 재사용
+- 피격 방향 각도 산출은 **`OPTION:` 마커로 보류**. 표시 UI(프리팹)가 없어 지금 계산해도 쓸 곳이 없고, 가해자가 미스폰이거나 비플레이어 전투 오브젝트(T14)인 경로를 UI 작업 때 같이 다루는 게 맞다
+- `reason`은 `int` 유지 — `REASON_ITEM_HEAL`을 발생시키는 서버 경로가 아직 없어 enum 승격 시 빈 분기만 늘어난다
+- 검증용 `Util.Log` 1줄 추가. 게이지 자체는 T12의 선행 버그(`IngameHealthBarUI`의 `[SerializeField]` 누락) 때문에 여전히 안 움직인다
 - 이 패킷은 여전히 피해 입은 본인에게만 온다
 
-### [ ] T12. 실드 재생 로컬 예측
-전용 통보 패킷이 없다. 서버는 매 틱 회복만 시키고 아무 패킷도 보내지 않으므로 클라가 직접 계산해야 한다.
+### [~] T12. 실드 재생 로컬 예측 — 구현 완료 / **런타임 미검증** (2026-08-19)
+`Assets/Scripts/Scenes/IngameScene.cs`, `Assets/Scripts/UI/IngameScene/IngameHealthBarUI.cs`
 
-- **선행 버그**: `Assets/Scripts/UI/IngameScene/IngameHealthBarUI.cs:5-6`의 `_hpFillImage` / `_armorFillImage`가 `[SerializeField]` 없는 private 필드라 **영구 null → 게이지가 전혀 갱신되지 않는다**. 여기부터 고쳐야 결과가 눈에 보인다
-- 현재 실드값을 `IngameScene`이 보관 (지금은 UI로 흘려보내기만 함, `:437-442`)
-- 서버 규칙 그대로 구현: `(재생량 × 경과ms)`를 누적해 1000이 될 때마다 1 회복, `ArmorSpec.MaxShieldPoint` 상한, 사망 시 중단
-- 재생량 출처: `ItemDBHelper.TryGetArmorSpec()` → `ArmorSpec.RegenerationPerSecond`
-- `D2CNotifyHealthChange` 수신 시 서버 절대값으로 리셋
-- **방어구 신규 착용 시 실드 0 초기화** → `ApplyEquipItem()`(`IngameScene.cs:392`)의 `equipmentSlotType == 2` 분기에 추가. UI를 0으로 떨어뜨리고 예측 재시작
+- 서버 공식 그대로 구현: `UpdateShieldRegen()`이 `(재생량 × 경과ms)`를 `_shieldRegenAccum`에 누적해 1000에 도달할 때마다 1 회복. 실수 보간이 아닌 정수 회복이라 서버와 어긋나지 않는다
+- 중단 조건: 사망(`_currentHealthPoint <= 0`), 방어구 미착용, 상한 도달
+- `_currentHealthPoint` 초기값은 `MAX_HEALTH_POINT`. **0으로 두면 첫 피격 전까지 사망으로 오판해 재생이 아예 안 돈다** (HP는 스폰 시 어떤 패킷으로도 오지 않는다)
+- 방어구 스펙 캐시(`_maxShieldPoint`/`_shieldRegenPerSecond`)는 `SyncHealthBarMax()`가 갱신. **`SyncInventoryUI()`의 `_ingameInventoryUI == null` 가드보다 앞으로 옮겼다** — 전투 예측이 UI 오브젝트 존재 여부에 묶이면 안 된다
+- 리셋 3곳: 피격 수신(서버 절대값 + 누적기 0) / `ApplyEquipItem`의 `equipmentSlotType == 2`(착용·해제·교체 전부 `ResetShieldPrediction()`) / 스폰 시 필드 초기값
 - 남의 실드·HP·방어구는 어떤 패킷으로도 오지 않는다
+
+**선행 버그는 `TODO:`로 남겼다** — `IngameHealthBarUI`의 문제는 `[SerializeField]` 누락이 아니라 **`Init()` 자체가 없는 것**이다. 같은 폴더의 `InteractUI`·`IngameInventoryUI`는 전부 `Init()` 안에서 `transform.Find`로 바인딩하는데 이 클래스만 빠졌고, `IngameScene.Init()`도 `GetComponent`만 하고 `Init()`을 호출하지 않는다. `IngameSceneUI` 폴더에 `[SerializeField]`는 하나도 없다.
+
+**남은 것**: Editor에서 계층 구조 확인 후 `Init()` + `transform.Find` 연결. **그 전까지 게이지가 움직이지 않으므로 재생 실측이 불가능하다.** 연결 후 확인할 것 — 방어구 착용 시 초당 100(=1%)씩 상승, 피격 시 서버값으로 점프, 방어구 교체 시 0으로 하락.
 
 ### [ ] T13. `object_type = 3` (Corpse) 매핑 — **판단 필요**
 `Assets/Scripts/Utils/Define.cs:29-40`

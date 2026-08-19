@@ -1061,10 +1061,11 @@ public class PacketHandler {
         int healthPoint = pkt.HealthPoint;
         int shieldPoint = pkt.ShieldPoint;
         int reason = (int)pkt.Reason;
+        uint attackerObjectId = pkt.AttackerObjectId;
 
         Managers.ExecuteAtMainThread(() => {
             if (Managers.Scene.CurrentScene is not IngameScene ingameScene) return;
-            ingameScene.HandleHealthChange(healthPoint, shieldPoint, reason);
+            ingameScene.HandleHealthChange(healthPoint, shieldPoint, reason, attackerObjectId);
         });
     }
 

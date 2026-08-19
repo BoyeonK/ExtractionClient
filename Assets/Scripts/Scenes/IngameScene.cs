@@ -208,22 +208,27 @@ public class IngameScene : BaseScene {
     }
 
     public void SyncInventoryUI() {
+        // 실드 예측이 이 안의 방어구 스펙 캐시에 의존하므로 UI 유무와 무관하게 먼저 돈다
+        SyncHealthBarMax();
+
         if (_ingameInventoryUI == null) return;
         _ingameInventoryUI.SyncMyInventory();
         _ingameInventoryUI.SyncEquipment();
-        SyncHealthBarMax();
     }
 
     private void SyncHealthBarMax() {
-        if (_ingameHealthBarUI == null) return;
-
-        _ingameHealthBarUI.SetMaxHP(100000f);
-
         InventoryItem armor = _inventory.Armor;
-        if (armor != null && ItemDBHelper.TryGetArmorSpec(armor.item_id, out ArmorSpec armorSpec))
-            _ingameHealthBarUI.SetMaxShield(armorSpec.MaxShieldPoint);
-        else
-            _ingameHealthBarUI.SetMaxShield(0f);
+        if (armor != null && ItemDBHelper.TryGetArmorSpec(armor.item_id, out ArmorSpec armorSpec)) {
+            _maxShieldPoint = armorSpec.MaxShieldPoint;
+            _shieldRegenPerSecond = armorSpec.RegenerationPerSecond;
+        } else {
+            _maxShieldPoint = 0;
+            _shieldRegenPerSecond = 0;
+        }
+
+        if (_ingameHealthBarUI == null) return;
+        _ingameHealthBarUI.SetMaxHP(MAX_HEALTH_POINT);
+        _ingameHealthBarUI.SetMaxShield(_maxShieldPoint);
     }
 
     public void SyncContainerUI() {
@@ -414,6 +419,10 @@ public class IngameScene : BaseScene {
         if (_isContainerOpen && _ingameInventoryUI != null)
             _ingameInventoryUI.SyncContainer();
 
+        // 방어구 슬롯이 바뀌면 실드는 0에서 다시 찬다 — 착용·해제·교체 전부 해당
+        if (equipmentSlotType == 2)
+            ResetShieldPrediction();
+
         // 무기 슬롯이 변경된 경우 무기 장착 갱신
         if (equipmentSlotType <= 1 && _playerController != null) {
             InventoryItem currentWeapon = _inventory.IsPrimaryWeaponApplyed
@@ -434,11 +443,89 @@ public class IngameScene : BaseScene {
         RequestRecentInventoryInfo();
     }
 
-    public void HandleHealthChange(int healthPoint, int shieldPoint, int reason) {
+    // ── Health ──
+
+    // PLAYER_OBJECT_ID와 값은 같지만 의미가 다르다(가해자 없음 vs 내 인벤토리).
+    // objectId 0은 실재하는 값이므로 '미설정'으로 해석하면 안 된다.
+    private const uint NO_ATTACKER_OBJECT_ID = 0xFFFFFFFF;
+    private const float ATTACKER_TRACK_DURATION = 5f;
+
+    // 서버가 HP 최대치를 어떤 패킷으로도 보내지 않아 이 상수가 유일한 출처다
+    private const int MAX_HEALTH_POINT = 100000;
+
+    // 실드 재생 서버 규칙: (재생량 × 경과ms)를 누적해 이 값에 도달할 때마다 1 회복
+    private const float SHIELD_REGEN_ACCUM_UNIT = 1000f;
+
+    private int _currentHealthPoint = MAX_HEALTH_POINT;
+    private int _currentShieldPoint;
+    private uint _lastAttackerObjectId = NO_ATTACKER_OBJECT_ID;
+    private float _lastAttackedTime = float.NegativeInfinity;
+
+    // SyncHealthBarMax()가 방어구 스펙에서 갱신
+    private int _maxShieldPoint;
+    private int _shieldRegenPerSecond;
+    private float _shieldRegenAccum;
+
+    public int CurrentHealthPoint => _currentHealthPoint;
+    public int CurrentShieldPoint => _currentShieldPoint;
+
+    public bool HasRecentAttacker =>
+        _lastAttackerObjectId != NO_ATTACKER_OBJECT_ID
+        && Time.realtimeSinceStartup - _lastAttackedTime <= ATTACKER_TRACK_DURATION;
+
+    public uint LastAttackerObjectId => HasRecentAttacker ? _lastAttackerObjectId : NO_ATTACKER_OBJECT_ID;
+
+    public void HandleHealthChange(int healthPoint, int shieldPoint, int reason, uint attackerObjectId) {
+        _currentHealthPoint = healthPoint;
+        _currentShieldPoint = shieldPoint;
+        _shieldRegenAccum = 0f;
+
+        if (attackerObjectId != NO_ATTACKER_OBJECT_ID) {
+            _lastAttackerObjectId = attackerObjectId;
+            _lastAttackedTime = Time.realtimeSinceStartup;
+
+            // OPTION: 피격 방향 표시. _oppoPlayers에서 가해자 위치를 찾아 캐릭터 forward 기준
+            //         signed yaw를 산출한다. 가해자가 아직 스폰되지 않았거나 비플레이어
+            //         전투 오브젝트인 경우가 있으므로 위치를 못 찾는 경로를 정상으로 다룰 것.
+        }
+
+        Util.Log($"[HealthChange] hp={healthPoint} shield={shieldPoint} reason={reason} attacker={attackerObjectId}");
+
         if (_ingameHealthBarUI != null) {
             _ingameHealthBarUI.SetHP(healthPoint);
             _ingameHealthBarUI.SetArmor(shieldPoint);
         }
+    }
+
+    // 실드 재생은 전용 통보 패킷이 없다. 서버는 매 틱 회복만 시키고 아무것도 보내지 않으므로
+    // 클라가 같은 공식으로 예측하고, 피격 통보가 올 때마다 서버 절대값으로 리셋한다.
+    private void UpdateShieldRegen() {
+        if (_maxShieldPoint <= 0 || _shieldRegenPerSecond <= 0) return;
+        if (_currentHealthPoint <= 0) return;
+        if (_currentShieldPoint >= _maxShieldPoint) {
+            _shieldRegenAccum = 0f;
+            return;
+        }
+
+        _shieldRegenAccum += _shieldRegenPerSecond * (Time.deltaTime * 1000f);
+        if (_shieldRegenAccum < SHIELD_REGEN_ACCUM_UNIT) return;
+
+        int recovered = (int)(_shieldRegenAccum / SHIELD_REGEN_ACCUM_UNIT);
+        _shieldRegenAccum -= recovered * SHIELD_REGEN_ACCUM_UNIT;
+        _currentShieldPoint = Mathf.Min(_currentShieldPoint + recovered, _maxShieldPoint);
+
+        if (_ingameHealthBarUI != null)
+            _ingameHealthBarUI.SetArmor(_currentShieldPoint);
+    }
+
+    private void ResetShieldPrediction() {
+        _currentShieldPoint = 0;
+        _shieldRegenAccum = 0f;
+
+        Util.Log($"[ShieldReset] max={_maxShieldPoint} regen={_shieldRegenPerSecond}/s");
+
+        if (_ingameHealthBarUI != null)
+            _ingameHealthBarUI.SetArmor(0);
     }
 
     public void HandleWeaponFireBroadcast(uint shooterObjectId, bool hasHitPoint, Vector3 hitPoint) {
@@ -490,6 +577,8 @@ public class IngameScene : BaseScene {
             _playerStateTimer = 0f;
             SendPlayerState();
         }
+
+        UpdateShieldRegen();
 
         // TEMP: 귀환 응답 워치독 — 상단 RECALL_TIMEOUT 주석 참조. 제거 시 함께 삭제할 것
         if (_recallRequested) {
