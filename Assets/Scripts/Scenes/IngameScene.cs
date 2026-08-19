@@ -142,6 +142,7 @@ public class IngameScene : BaseScene {
     public void SpawnPlayerObject(PlayerSpawnData data) {
         if (data.ObjectId == _myObjectId) return;
         if (_oppoPlayers.ContainsKey(data.ObjectId)) return;
+        if (_despawnedObjectIds.Contains(data.ObjectId)) return;
 
         GameObject go = Managers.Resource.Instantiate("GameObject/OppoPlayerObject");
         OppoPlayerController controller = go.GetComponent<OppoPlayerController>();
@@ -164,6 +165,7 @@ public class IngameScene : BaseScene {
     public void UpdatePlayerStates(List<PlayerStateData> playerStateDatas) {
         foreach (PlayerStateData data in playerStateDatas) {
             if (data.ObjectId == _myObjectId) continue;
+            if (_despawnedObjectIds.Contains(data.ObjectId)) continue;
 
             if (_oppoPlayers.TryGetValue(data.ObjectId, out OppoPlayerController controller)) {
                 controller.ApplyState(data);
@@ -171,6 +173,25 @@ public class IngameScene : BaseScene {
                 Managers.Network.udpManager.SendC2DRequestSpawnByObjectId((int)data.ObjectId);
             }
         }
+    }
+
+    // 디스폰된 objectId. 서버가 한 게임 안에서 objectId를 재사용하지 않으므로 만료 없이
+    // 씬 수명 내내 들고 간다 — 만료 창을 두면 그보다 늦게 도착한 패킷이 그대로 뚫는다.
+    // 플레이어·비플레이어 공용 목록이다(objectId 공간이 공용).
+    private HashSet<uint> _despawnedObjectIds = new HashSet<uint>();
+
+    public void DespawnPlayerObject(uint objectId, int reason) {
+        // 스폰 응답보다 디스폰이 먼저 도착할 수 있으므로 등록은 조회 성공 여부와 무관하다
+        _despawnedObjectIds.Add(objectId);
+
+        if (!_oppoPlayers.TryGetValue(objectId, out OppoPlayerController controller))
+            return;
+
+        // TODO: DespawnReason별 제거 연출 (1=RECALLED 탈출, 2=DEAD 사망, 3=DISCONNECTED 연출 없음)
+        //       현재는 사유와 무관하게 즉시 제거한다. 연출 에셋이 준비되면 분기할 것
+
+        _oppoPlayers.Remove(objectId);
+        Managers.Resource.Destroy(controller.gameObject);
     }
 
     public void TryInitWeapon() {

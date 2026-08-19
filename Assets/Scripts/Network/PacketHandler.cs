@@ -113,6 +113,7 @@ public class PacketHandler {
         _handlers.Add((ushort)PktId.D2CNotifyHealthChange, Handle_D2CNotifyHealthChange);
         _handlers.Add((ushort)PktId.D2CResponseRecall, Handle_D2CResponseRecall);
         _handlers.Add((ushort)PktId.D2CNotifyRecallResult, Handle_D2CNotifyRecallResult);
+        _handlers.Add((ushort)PktId.D2CDespawnPlayerObject, Handle_D2CDespawnPlayerObject);
     }
 
     // ==========================================
@@ -1115,6 +1116,30 @@ public class PacketHandler {
         Managers.ExecuteAtMainThread(() => {
             if (Managers.Scene.CurrentScene is not IngameScene ingameScene) return;
             ingameScene.HandleRecallResult(result, recallSpotIndex, reason);
+        });
+    }
+
+    private void Handle_D2CDespawnPlayerObject(ReadOnlySpan<byte> payloadSpan) {
+        D2CDespawnPlayerObject pkt = null;
+
+        try {
+            pkt = D2CDespawnPlayerObject.Parser.ParseFrom(payloadSpan);
+        }
+        catch (InvalidProtocolBufferException e) {
+            Managers.ExecuteAtMainThread(() => { Util.LogError($"D2CDespawnPlayerObject 파싱 실패: {e.Message}"); });
+            return;
+        }
+        catch (Exception e) {
+            Managers.ExecuteAtMainThread(() => { Util.LogError($"D2CDespawnPlayerObject 처리 중 알 수 없는 에러: {e.Message}"); });
+            return;
+        }
+
+        uint objectId = pkt.ObjectId;
+        int  reason   = (int)pkt.Reason;
+
+        Managers.ExecuteAtMainThread(() => {
+            if (Managers.Scene.CurrentScene is not IngameScene ingameScene) return;
+            ingameScene.DespawnPlayerObject(objectId, reason);
         });
     }
 }

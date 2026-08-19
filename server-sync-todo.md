@@ -47,18 +47,20 @@ ACK 실패 횟수로 연결 생사를 판정하던 방식을 폐기하고, 수�
 
 ## 1순위 — 신규 패킷 배선
 
-### [ ] T3. 핸들러 등록 5개
-`Assets/Scripts/Network/PacketHandler.cs` 생성자 (`:94-113`)
+### [~] T3. 핸들러 등록 5개 — **구현과 함께 하나씩 등록하는 방식으로 변경**
+`Assets/Scripts/Network/PacketHandler.cs` 생성자
 
-| PktId | 메시지 | 비고 |
-|-------|--------|------|
-| 35 | `D2CDespawnPlayerObject` | T7 |
-| 36 | `D2CNotifySpawnObject` | T5 |
-| 37 | `D2CNotifyWeaponChanged` | T8 |
-| 39 | `D2CNotifyDespawnObject` | T6 |
-| 40 | `D2CNotifyPlayerKilled` | T10 |
+| PktId | 메시지 | 담당 | 상태 |
+|-------|--------|------|------|
+| 35 | `D2CDespawnPlayerObject` | T7 | 등록 완료 (2026-08-20) |
+| 36 | `D2CNotifySpawnObject` | T5 | 대기 |
+| 37 | `D2CNotifyWeaponChanged` | T8 | 대기 |
+| 39 | `D2CNotifyDespawnObject` | T6 | 대기 |
+| 40 | `D2CNotifyPlayerKilled` | T10 | 대기 |
 
 전부 reliable 수신. 38 `C2DRequestSwitchWeapon`은 송신 전용(T9).
+
+**다섯 개를 미리 몰아 등록하지 않는다.** 구현 없이 빈 스텁으로 등록하면 패킷이 조용히 삼켜져 처리된 것처럼 보인다. 미등록으로 두면 `PacketHandler.cs`의 디스패치가 `등록되지 않은 패킷 ID` 경고를 남겨 아직 안 붙었다는 게 드러난다. 각 담당 작업에서 구현과 같이 등록할 것.
 
 ### [ ] T4. objectId → GameObject 레지스트리 신설 (T5/T6 선행)
 `Assets/Scripts/Scenes/IngameScene.cs`
@@ -76,14 +78,26 @@ ACK 실패 횟수로 연결 생사를 판정하던 방식을 폐기하고, 수�
 
 - objectId로 오브젝트 제거 (T4 레지스트리 + `Managers.Resource.Destroy`)
 - 그 컨테이너 UI가 열려 있었다면 닫기
-- **판단 필요**: 이미 사라진 컨테이너에 `C2DCloseContainer`를 보낼지. 현재 `IngameScene.CloseContainer()`(`:244`)는 무조건 전송한다
+- **`_despawnedObjectIds`에 등록 + 비플레이어 스폰 경로에 가드를 얹을 것** — T7이 만든 공용 목록을 그대로 쓴다. 늦게 도착한 스폰 응답이 파괴된 오브젝트를 되살리는 레이스가 플레이어와 동일하게 존재한다
+- **판단 필요**: 이미 사라진 컨테이너에 `C2DCloseContainer`를 보낼지. 현재 `IngameScene.CloseContainer()`(`:244`)는 무조건 전송한다 — `_despawnedObjectIds`로 판정 가능
 
-### [ ] T7. `D2CDespawnPlayerObject`(35) 처리 — 신규
+### [x] T7. `D2CDespawnPlayerObject`(35) 처리 — 완료 (2026-08-20)
+`Assets/Scripts/Network/PacketHandler.cs`, `Assets/Scripts/Scenes/IngameScene.cs`
+
 지금까지 **다른 플레이어가 사라지는 경로 자체가 없었다**(스폰만 있고 디스폰이 없음). 당사자는 받지 않고 룸의 나머지에게만 온다.
 
-- `_oppoPlayers`에서 제거 + 오브젝트 파괴
-- `DespawnReason`별 연출 분기: `RECALLED`(탈출 연출 후 제거) / `DEAD`(사망 연출, 동시에 T10 + 시신 스폰이 온다) / `DISCONNECTED`(연출 없이 제거)
-- **부수 문제**: `UpdatePlayerStates()`(`IngameScene.cs:163-173`)는 미등록 objectId를 보면 `C2DRequestSpawnByObjectId`를 쏜다. 디스폰 직후 잔여 상태 패킷이 도착하면 유령 재스폰이 발생 → 최근 디스폰 objectId 차단 처리 필요
+- `Handle_D2CDespawnPlayerObject` + `IngameScene.DespawnPlayerObject()` — `_oppoPlayers`에서 제거 후 `Managers.Resource.Destroy`
+- `DespawnReason`별 연출은 `TODO:` 마커로 보류. 연출 에셋이 `Assets/Scripts` 밖이라 현재는 사유와 무관하게 즉시 제거한다
+- **유령 재스폰 차단은 두 곳이다.** 문서가 원래 지목한 `UpdatePlayerStates()`의 요청 억제만으로는 부족하다 — 더 위험한 건 **이미 보낸 요청의 응답**이다. `C2DRequestSpawnByObjectId`를 쏜 뒤 디스폰이 먼저 도착하면, 뒤늦게 온 `D2CSpawnPlayerObject`(13)가 `SpawnPlayerObject()`로 들어가 그대로 되살린다. 따라서 `UpdatePlayerStates()`(요청 억제)와 `SpawnPlayerObject()`(스폰 무시) 양쪽에 가드를 둔다
+
+**`_despawnedObjectIds` 설계 — 만료 없는 씬 수명 `HashSet<uint>`**
+
+- **전제: 서버는 한 게임 안에서 objectId를 재사용하지 않는다.** proto에 명시된 보장이 아니라 구두 전제이므로 서버 확인 필요. 이 전제가 깨지면 해당 오브젝트가 끝까지 안 보이며, 증상이 원인에서 가장 먼 곳에 나타난다
+- 만료 창을 두지 않은 이유: 창을 몇 초로 잡든 그보다 늦게 도착한 패킷이 뚫는다. 특히 재전송 한도를 없앤 뒤(T2) reliable 패킷이 아주 늦게 도착하는 경로가 넓어졌다. 영구 목록은 도착 시점과 무관하게 정확하다
+- 비용은 논점이 아니다 — 한 판에 쌓여야 플레이어 수십 + 파괴 오브젝트 수백, 매치 최대 15분이라 무한 증가도 아니다
+- 씬 인스턴스 필드라 매치가 바뀌면 자연히 비므로 별도 초기화가 없다
+- **플레이어·비플레이어 공용 목록이다**(objectId 공간이 공용). T5·T6에서 비플레이어 스폰 경로에도 같은 가드를 얹을 것
+- 차단 발동 시 로그는 남기지 않는다. 정상 상황(인플라이트 잔여분)에서도 똑같이 찍혀 오작동을 가려내지 못하고, 규약을 벗어난 서버 오작동까지 클라가 감당할 범위가 아니다
 
 ### [ ] T8. `D2CNotifyWeaponChanged`(37) 처리 — 신규
 도착 경로가 두 가지이며 `object_id`로 구분한다.
@@ -141,7 +155,9 @@ ACK 실패 횟수로 연결 생사를 판정하던 방식을 폐기하고, 수�
 - **초기 게이지 값이 한 번도 안 밀렸다** — `SetHP`/`SetArmor` 호출부가 피격·재생 틱뿐이라 첫 피격 전까지 프리팹에 저장된 `fillAmount`가 그대로 보였다. `SyncHealthBarMax()`에서 최대치 세팅 직후 현재값도 밀도록 추가(최대치 → 현재값 순서여야 `SetArmor`가 최대 실드 0 가드에 안 걸린다)
 - **최대 실드가 0이 될 때 실드 바가 안 비워졌다** — `SetArmor()`의 `_maxShield <= 0f` 조기 반환 때문에 벗기 직전 `fillAmount`가 남았다. 반환 대신 `fillAmount = 0`으로 교체. 조건은 '방어구 교체'가 아니라 **최대 실드가 0이 되는 것**이며 해당 경로는 셋 — 해제 / `_armorSpecs`에 없는 방어구로 교체(현재 Armor 아이템이 id 4 하나뿐이라 도달 불가하나 스펙 등록 누락 시 재현) / equip 분기에 빈 슬롯이 소스로 들어와 실질 해제가 되는 경우. **정상 교체는 새 방어구 최대치가 들어와 가드를 통과하므로 원래부터 문제없다**
 
-**남은 것**: 실측. 매치 진입 직후 HP 만피·실드 0 → 방어구 착용 후 초당 100(=1%) 상승 → 피격 시 서버값 점프(`[HealthChange]` 로그와 대조) → 방어구 해제 시 0. 코드로 확인 불가한 전제 하나 — `HealthBarFill`/`ArmorBarFill`의 Image Type이 `Filled`여야 한다. `Simple`이면 `fillAmount` 대입이 조용히 무시된다.
+**실측 결과 (2026-08-20)**: **값은 정상적으로 들어오는데 이미지가 변하지 않는다.** 즉 스크립트 경로는 `fillAmount` 대입 직전까지 정상이고, 남은 원인은 `HealthBarFill`/`ArmorBarFill`의 **Image Type이 `Filled`가 아닌 것** 하나다(`Simple`/`Sliced`면 대입이 에러 없이 무시된다).
+
+**남은 것**: Editor에서 Image Type을 `Filled`로 변경 + Fill Method·Origin 설정. **코드 작업 아님** — 후순위로 미뤄둠(`progress.md` 우선순위 4번). 이후 시각 검증: 매치 진입 직후 HP 만피·실드 0 → 방어구 착용 후 초당 100(=1%) 상승 → 피격 시 서버값 점프(`[HealthChange]` 로그와 대조) → 방어구 해제 시 0.
 
 ### [ ] T13. `object_type = 3` (Corpse) 매핑 — **판단 필요**
 `Assets/Scripts/Utils/Define.cs:29-40`
