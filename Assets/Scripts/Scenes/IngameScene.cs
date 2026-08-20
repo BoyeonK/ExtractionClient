@@ -201,6 +201,9 @@ public class IngameScene : BaseScene {
     // D2CResponseSpawnByObjectId 중 하나로 갈린다. 어느 쪽인지는 서버가 판단한다.
     private void RequestSpawnIfUnknown(uint objectId) {
         if (_despawnedObjectIds.Contains(objectId)) return;
+        // 내 objectId는 _oppoPlayers에 없어 가드가 없으면 나 자신의 스폰을 요청하게 된다.
+        // _myObjectId 초기값 0은 실재 objectId라 스폰 전에는 비교가 성립하지 않는다
+        if (_spawnCompleted && objectId == _myObjectId) return;
         if (_oppoPlayers.ContainsKey(objectId)) return;
         if (_sceneObjects.ContainsKey(objectId)) return;
         if (!_pendingSpawnRequests.Add(objectId)) return;
@@ -651,6 +654,7 @@ public class IngameScene : BaseScene {
 
     // PLAYER_OBJECT_ID와 값은 같지만 의미가 다르다(가해자 없음 vs 내 인벤토리).
     // objectId 0은 실재하는 값이므로 '미설정'으로 해석하면 안 된다.
+    // D2CNotifyPlayerKilled.killer_object_id도 같은 의미(가해자 없는 죽음)라 이 상수를 함께 쓴다.
     private const uint NO_ATTACKER_OBJECT_ID = 0xFFFFFFFF;
     private const float ATTACKER_TRACK_DURATION = 5f;
 
@@ -695,10 +699,49 @@ public class IngameScene : BaseScene {
 
         Util.Log($"[HealthChange] hp={healthPoint} shield={shieldPoint} reason={reason} attacker={attackerObjectId}");
 
+        // 내 죽음에는 D2CNotifyPlayerKilled가 오지 않는다(피해자 제외) — 킬 피드의 내 사망 줄은
+        // 이 경로에서만 만들 수 있다. 인게임 부활이 없으므로 한 번만 남긴다
+        if (_currentHealthPoint <= 0 && !_deathReported) {
+            _deathReported = true;
+            Util.Log($"[KillFeed] {DescribePlayer(LastAttackerObjectId)} → {DescribePlayer(_myObjectId)}");
+        }
+
         if (_ingameHealthBarUI != null) {
             _ingameHealthBarUI.SetHP(healthPoint);
             _ingameHealthBarUI.SetArmor(shieldPoint);
         }
+    }
+
+    // ── 킬 피드 ──
+
+    private bool _deathReported = false;
+
+    // D2CNotifyPlayerKilled. 피해자 본인을 제외한 룸 전체가 받는다
+    // (본인은 D2CNotifyHealthChange.attacker_object_id로 이미 킬러를 안다).
+    // 캐릭터 제거 연출은 D2CDespawnPlayerObject(T7)가 담당하고 여기서는 표기만 다룬다.
+    // TODO: 킬 피드 UI. 프리팹이 준비되면 로그를 표시부로 교체할 것
+    public void HandlePlayerKilled(uint victimObjectId, uint killerObjectId) {
+        // 킬러는 살아있는 플레이어이므로 모르는 objectId면 채워둔다.
+        // 피해자는 같은 타이밍에 디스폰 통보가 오므로 요청하지 않는다
+        if (killerObjectId != NO_ATTACKER_OBJECT_ID)
+            RequestSpawnIfUnknown(killerObjectId);
+
+        Util.Log($"[KillFeed] {DescribePlayer(killerObjectId)} → {DescribePlayer(victimObjectId)}");
+    }
+
+    // 킬러의 무기는 통보에 실려 오지 않는다 — 통보가 사격보다 한 틱 뒤라 그 사이 교체되면
+    // 틀린 값이 되기 때문이다. 스폰·무기 변경 통보로 추적해둔 값을 쓴다
+    private string DescribePlayer(uint objectId) {
+        if (objectId == NO_ATTACKER_OBJECT_ID)
+            return "가해자 없음";
+
+        if (_spawnCompleted && objectId == _myObjectId)
+            return $"나 objectId={objectId}(weaponId={(_playerController != null ? _playerController.EquippedWeaponId : 0)})";
+
+        if (_oppoPlayers.TryGetValue(objectId, out OppoPlayerController controller))
+            return $"objectId={objectId}(weaponId={controller.EquippedWeaponId})";
+
+        return $"objectId={objectId}(미스폰)";
     }
 
     // 실드 재생은 전용 통보 패킷이 없다. 서버는 매 틱 회복만 시키고 아무것도 보내지 않으므로

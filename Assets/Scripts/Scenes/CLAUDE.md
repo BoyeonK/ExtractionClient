@@ -53,6 +53,15 @@
 - `_currentHealthPoint`의 초기값은 `MAX_HEALTH_POINT`다. HP는 스폰 시 어떤 패킷으로도 오지 않으므로 0으로 두면 사망으로 오판해 재생이 멈춘다
 - 방어구는 착용·해제·교체 어느 경로든 실드가 0에서 다시 찬다(서버 규칙). `ApplyEquipItem`의 `equipmentSlotType == 2`에서 `ResetShieldPrediction()`
 
+## 킬 피드 (`HandlePlayerKilled`)
+
+`D2CNotifyPlayerKilled`는 **피해자 본인을 제외한** 룸 전체에 온다. 캐릭터 제거는 `D2CDespawnPlayerObject`가 담당하고 이 패킷은 표기만 다룬다.
+
+- **내 죽음에는 이 패킷이 오지 않는다.** 내 사망 줄은 `HandleHealthChange`에서 `LastAttackerObjectId`로 만든다 — 킬 피드를 손볼 때 이 두 경로를 함께 볼 것
+- `killer_object_id == 0xFFFFFFFF`는 가해자 없는 죽음이며 `NO_ATTACKER_OBJECT_ID`와 같은 의미다(전투 문맥 공용). `0`은 실재 objectId
+- **킬러 무기는 실려 오지 않는다** — 통보가 사격보다 한 틱 뒤라 그 사이 교체되면 틀린 값이 되기 때문이다. `EquippedWeaponId`로 추적해둔 값을 쓴다
+- 모르는 **킬러**는 `RequestSpawnIfUnknown()`으로 채우고 **피해자는 요청하지 않는다**(같은 타이밍에 디스폰이 온다)
+
 ## 다른 플레이어 관리
 
 - `_oppoPlayers`: objectId → `OppoPlayerController` 매핑
@@ -66,6 +75,7 @@
 - **같은 objectId로 두 번 보내지 않는다.** 요청은 reliable이라 ACK될 때까지 알아서 재전송되므로 한 번이면 충분하다. 매 틱 다시 만들면 같은 내용이 서로 다른 시퀀스로 쌓여 in-flight 32슬롯을 채우고, 넘치는 순간 아직 ACK되지 않은 **다른** 패킷이 덮어써진다(`Network/CLAUDE.md` 참조). 상태 스트림이 10Hz라 이 경로는 특히 위험하다
 - `_pendingSpawnRequests`에 만료를 두지 않는다. 응답도 디스폰 통보도 오지 않는 objectId는 서버가 모르는 것이라 재요청해도 결과가 같다
 - 해제는 4곳 — `SpawnPlayerObject`/`SpawnObject`(응답 도착 = 요청 종료. 중복·차단으로 조기 반환하는 경우도 있으므로 **가드보다 앞에서** 제거한다), `DespawnPlayerObject`/`DespawnObject`
+- **내 objectId를 걸러낸다.** 나는 `_oppoPlayers`에 없으므로 가드가 없으면 나 자신의 스폰을 요청하게 된다(킬러가 나인 킬 피드 등)
 - 디스폰 목록·`_oppoPlayers`·`_sceneObjects`를 모두 확인한다. objectId 공간이 플레이어·비플레이어 공용이고 이 요청도 공용이라(응답이 `D2CSpawnPlayerObject` 또는 `D2CResponseSpawnByObjectId`로 갈린다) 한쪽만 보면 이미 아는 오브젝트를 다시 요청하게 된다
 
 ## 손에 든 무기
@@ -74,6 +84,7 @@
 
 | 상황 | 반영 경로 |
 |------|-----------|
+| **내 초기 무기** | 통보 없음. `InitWeapon()`이 **주무기 우선, 없으면 보조무기**(양쪽 비면 맨손) — 서버와 같은 규칙이며 한쪽만 바꾸면 매치 시작부터 어긋난다 |
 | 남의 초기 무기 | `D2CSpawnPlayerObject.weapon_id` |
 | 남의 변경 | `D2CNotifyWeaponChanged` (장착·해제·전환 전부) |
 | 내 전환 | `C2DRequestSwitchWeapon` → `D2CNotifyWeaponChanged`(성공·거부 모두 본인에게) |

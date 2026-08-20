@@ -26,6 +26,7 @@ public class PlayerController : GameObjectController, ICombatTarget {
 
     // 손에 든 무기 blueprint_id (0=맨손). 서버가 보는 값과 같아야 발사가 버려지지 않는다
     int _equippedWeaponId;
+    public int EquippedWeaponId => _equippedWeaponId;
 
     // 발사 타이머
     float _fireTimer = 0f;

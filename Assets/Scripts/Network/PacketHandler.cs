@@ -117,6 +117,7 @@ public class PacketHandler {
         _handlers.Add((ushort)PktId.D2CNotifySpawnObject, Handle_D2CNotifySpawnObject);
         _handlers.Add((ushort)PktId.D2CNotifyDespawnObject, Handle_D2CNotifyDespawnObject);
         _handlers.Add((ushort)PktId.D2CNotifyWeaponChanged, Handle_D2CNotifyWeaponChanged);
+        _handlers.Add((ushort)PktId.D2CNotifyPlayerKilled, Handle_D2CNotifyPlayerKilled);
     }
 
     // ==========================================
@@ -1219,6 +1220,30 @@ public class PacketHandler {
         Managers.ExecuteAtMainThread(() => {
             if (Managers.Scene.CurrentScene is not IngameScene ingameScene) return;
             ingameScene.HandleWeaponChanged(objectId, weaponId, slot, inventoryVersion);
+        });
+    }
+
+    private void Handle_D2CNotifyPlayerKilled(ReadOnlySpan<byte> payloadSpan) {
+        D2CNotifyPlayerKilled pkt = null;
+
+        try {
+            pkt = D2CNotifyPlayerKilled.Parser.ParseFrom(payloadSpan);
+        }
+        catch (InvalidProtocolBufferException e) {
+            Managers.ExecuteAtMainThread(() => { Util.LogError($"D2CNotifyPlayerKilled 파싱 실패: {e.Message}"); });
+            return;
+        }
+        catch (Exception e) {
+            Managers.ExecuteAtMainThread(() => { Util.LogError($"D2CNotifyPlayerKilled 처리 중 알 수 없는 에러: {e.Message}"); });
+            return;
+        }
+
+        uint victimObjectId = pkt.VictimObjectId;
+        uint killerObjectId = pkt.KillerObjectId;
+
+        Managers.ExecuteAtMainThread(() => {
+            if (Managers.Scene.CurrentScene is not IngameScene ingameScene) return;
+            ingameScene.HandlePlayerKilled(victimObjectId, killerObjectId);
         });
     }
 }

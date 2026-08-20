@@ -56,7 +56,7 @@ ACK 실패 횟수로 연결 생사를 판정하던 방식을 폐기하고, 수�
 | 36 | `D2CNotifySpawnObject` | T5 | 대기 |
 | 37 | `D2CNotifyWeaponChanged` | T8 | 등록 완료 (2026-08-21) |
 | 39 | `D2CNotifyDespawnObject` | T6 | 대기 |
-| 40 | `D2CNotifyPlayerKilled` | T10 | 대기 |
+| 40 | `D2CNotifyPlayerKilled` | T10 | 등록 완료 (2026-08-21) |
 
 전부 reliable 수신. 38 `C2DRequestSwitchWeapon`은 송신 전용(T9).
 
@@ -166,11 +166,17 @@ proto가 규칙을 명문화하면서(`C2DRequestEquipItem` 주석) T8 시점 �
 - T8에서 "해제하면 맨손"으로 고쳐둔 것이 이 규칙과 어긋났다. 서버가 보조무기를 손에 들려준 상태에서 클라만 맨손이 되면 **`weapon_dbid` 불일치로 사격이 통째로 무시된다**. 그전 코드(해제해도 이전 무기가 손에 남음)도 방향만 다른 오류였다
 - `SyncHeldWeapon()`으로 분리해 `ApplyEquipItem`에서 호출
 
-### [ ] T10. `D2CNotifyPlayerKilled`(40) 처리 / 킬 피드 UI — 신규
-- 피해자 본인 제외, 룸 전체 수신. `killer_object_id == 0xFFFFFFFF`면 가해자 없는 죽음(**0이 아니다**)
-- 캐릭터 제거 연출은 T7이 담당, 이 패킷은 킬 피드 표기만
-- 킬러 무기는 안 실려 온다 → 표기가 필요하면 `D2CSpawnPlayerObject.weapon_id` + T8로 추적한 값 사용
-- **판단 필요**: 킬 피드 UI를 이번에 붙일지(프리팹·씬 오브젝트 필요 = `Assets/Scripts` 밖 작업), 로그만 남기고 미룰지
+### [~] T10. `D2CNotifyPlayerKilled`(40) 처리 — 데이터 경로 완료 (2026-08-21) / **UI 대기**
+`Assets/Scripts/Network/PacketHandler.cs`, `Assets/Scripts/Scenes/IngameScene.cs`, `Assets/Scripts/Controller/GameObjectControllers/PlayerController.cs`
+
+- **판단 확정**: 킬 피드 UI는 붙이지 않는다(프리팹 = `Assets/Scripts` 밖). 패킷 처리·킬러 무기 추적·표기 문자열까지 코드로 완성하고 출력만 `Util.Log`로 둔다. 프리팹이 생기면 `HandlePlayerKilled`의 `TODO:` 자리에서 표시부만 갈아끼우면 된다
+- `killer_object_id == 0xFFFFFFFF`는 가해자 없는 죽음이며 **`NO_ATTACKER_OBJECT_ID`를 그대로 재사용**했다 — `attacker_object_id`와 의미가 같은 전투 문맥 상수다. 세 번째 동일 값 상수를 만들지 않는다
+- 킬러 무기는 실려 오지 않으므로(통보가 사격보다 한 틱 뒤라 그 사이 교체되면 틀린 값) T8이 만든 `OppoPlayerController.EquippedWeaponId`를 쓴다. 본인이 킬러인 경로를 위해 `PlayerController.EquippedWeaponId`도 공개
+- **미스폰 킬러는 `RequestSpawnIfUnknown()`으로 채운다**(살아있는 플레이어라 다음 표기부터 무기가 맞는다). **피해자는 요청하지 않는다** — 같은 타이밍에 디스폰 통보가 오므로 요청해도 버려지고, T7의 차단 목록에 걸릴 뿐이다
+- **내 죽음에는 이 패킷이 오지 않아**(피해자 제외) 킬 피드의 내 사망 줄은 `HandleHealthChange`에서 만든다. T11이 남겨둔 `LastAttackerObjectId`를 여기서 처음 사용한다. 인게임 부활이 없어 `_deathReported`로 한 번만 남긴다
+- 캐릭터 제거 연출은 T7(`D2CDespawnPlayerObject`) 담당이며 이 패킷은 표기만 한다
+
+**남은 것**: 킬 피드 UI 프리팹 + 표시부. 사망 처리(내 캐릭터 제거·매치 종료 화면)는 T15 소관이다.
 
 ---
 
@@ -257,4 +263,4 @@ proto가 규칙을 명문화하면서(`C2DRequestEquipItem` 주석) T8 시점 �
 3. ~~**T9** — 무기 전환의 로컬 예측 방식~~ → **응답 대기 후 적용**으로 확정 (2026-08-21). 예측은 동작 검증 후 `OPTION:`으로 도입
 4. **T10** — 킬 피드 UI를 이번에 붙일지, 로그만 남기고 미룰지
 5. **T14** — HP를 갖는 비플레이어 오브젝트 목록(서버 확인)
-6. **초기 손 무기 규칙** — 클라 `InitWeapon()`은 주무기 우선인데 서버 규칙이 같은지 확인되지 않았다. 어긋나면 매치 시작부터 내 화면과 남의 화면 무기가 다르고 `weapon_dbid` 불일치로 사격이 버려진다. 전환 로직이 아니라 **초기 상태**의 문제라 T9 검증에서 드러나지 않을 수 있다
+6. ~~**초기 손 무기 규칙**~~ → **확정 (2026-08-21, 서버 확인)**. 서버도 **주무기가 있으면 주무기, 없으면 보조무기**를 처음 손에 들린다 — 클라 `IngameInventory.InitWeapon()`과 같은 규칙이므로 수정할 것이 없다. 양쪽 다 비면 맨손인 것도 일치
