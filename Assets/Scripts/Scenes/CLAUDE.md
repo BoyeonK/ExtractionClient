@@ -56,8 +56,26 @@
 ## 다른 플레이어 관리
 
 - `_oppoPlayers`: objectId → `OppoPlayerController` 매핑
-- `UpdatePlayerStates()`: 미등록 objectId 수신 시 `C2DRequestSpawnByObjectId` 전송 (지연 스폰 대응)
+- `UpdatePlayerStates()`: 미등록 objectId 수신 시 `RequestSpawnIfUnknown()` (지연 스폰 대응)
 - `PlayerSpawnData`/`PlayerStateData` 구조체(`SceneManagerEx.cs`): Protobuf 타입 격리를 위한 중간 변환 타입
+
+### 지연 스폰 요청 (`RequestSpawnIfUnknown` / `_pendingSpawnRequests`)
+
+모르는 objectId를 가리키는 패킷이 오면 `C2DRequestSpawnByObjectId`를 보내는 유일한 경로. 상태 스트림·무기 변경 통보가 쓰며, 새 통보 패킷을 붙일 때도 직접 전송하지 말고 이 함수를 쓸 것.
+
+- **같은 objectId로 두 번 보내지 않는다.** 요청은 reliable이라 ACK될 때까지 알아서 재전송되므로 한 번이면 충분하다. 매 틱 다시 만들면 같은 내용이 서로 다른 시퀀스로 쌓여 in-flight 32슬롯을 채우고, 넘치는 순간 아직 ACK되지 않은 **다른** 패킷이 덮어써진다(`Network/CLAUDE.md` 참조). 상태 스트림이 10Hz라 이 경로는 특히 위험하다
+- `_pendingSpawnRequests`에 만료를 두지 않는다. 응답도 디스폰 통보도 오지 않는 objectId는 서버가 모르는 것이라 재요청해도 결과가 같다
+- 해제는 4곳 — `SpawnPlayerObject`/`SpawnObject`(응답 도착 = 요청 종료. 중복·차단으로 조기 반환하는 경우도 있으므로 **가드보다 앞에서** 제거한다), `DespawnPlayerObject`/`DespawnObject`
+- 디스폰 목록·`_oppoPlayers`·`_sceneObjects`를 모두 확인한다. objectId 공간이 플레이어·비플레이어 공용이고 이 요청도 공용이라(응답이 `D2CSpawnPlayerObject` 또는 `D2CResponseSpawnByObjectId`로 갈린다) 한쪽만 보면 이미 아는 오브젝트를 다시 요청하게 된다
+
+### 무기 변경 통보 (`HandleWeaponChanged`)
+
+`D2CNotifyWeaponChanged`의 도착 경로는 셋이며 `object_id`로 갈린다. 남의 **무기 전환**뿐 아니라 남의 **장착·해제**(`C2DRequestEquipItem` 슬롯 0/1 성공)도 이 패킷으로 온다.
+
+- **본인 objectId로 오는 것은 항상 `C2DRequestSwitchWeapon` 거부다** — 성공 통보는 룸의 '나머지'에게만 가므로 성공/실패 분기가 필요 없다. 도착한 `weapon_id`로 로컬 예측을 되돌린다(`RollbackWeaponPrediction`)
+- 통보에 슬롯이 없어 주/보조가 같은 blueprint면 어느 쪽인지 알 수 없다. **한쪽만 일치할 때만** `IsPrimaryWeaponApplyed`를 확정하고, 동률이면 유지한다(외형·스펙이 같아 차이가 없다)
+- `weapon_id = 0`은 맨손이다. `EquipWeapon`에 그대로 넘길 것 — `weaponId != 0` 가드를 붙이면 맨손 전환이 반영되지 않는다
+- 남의 방어구·실드·HP는 어떤 패킷으로도 오지 않는다(`armor_id`는 스펙에서 삭제됨)
 
 ## 비플레이어 오브젝트 관리
 

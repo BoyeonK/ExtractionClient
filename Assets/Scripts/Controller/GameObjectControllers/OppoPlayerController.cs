@@ -13,6 +13,11 @@ public class OppoPlayerController : GameObjectController, ICombatTarget {
     Transform _weaponSocketTr;
     GameObject _equippedWeaponGo;
 
+    // D2CSpawnPlayerObject.weapon_id + D2CNotifyWeaponChanged로 추적한 현재 무기.
+    // 킬 피드는 킬러의 무기를 싣지 않으므로 표기가 필요하면 이 값을 쓴다
+    int _equippedWeaponId;
+    public int EquippedWeaponId => _equippedWeaponId;
+
     Vector3 _velocity;
     float _yaw;
     float _pitch;
@@ -59,9 +64,14 @@ public class OppoPlayerController : GameObjectController, ICombatTarget {
             _equippedWeaponGo = null;
         }
 
+        _equippedWeaponId = weaponId;
+        if (weaponId == 0) return;   // 맨손
+
         IngameScene scene = Managers.Scene.CurrentScene as IngameScene;
-        if (!scene.WeaponPrefabCache.TryGetValue(weaponId, out GameObject weaponPrefab))
+        if (!scene.WeaponPrefabCache.TryGetValue(weaponId, out GameObject weaponPrefab)) {
+            Util.LogError($"무기 프리팹이 없어 맨손으로 표시된다 weaponId={weaponId} (objectId={_objectId}) — Resources/Prefabs/Weapons에 Weapon_{weaponId}_* 필요");
             return;
+        }
 
         _equippedWeaponGo = Object.Instantiate(weaponPrefab, _weaponSocketTr);
         _equippedWeaponGo.transform.localPosition = Vector3.zero;

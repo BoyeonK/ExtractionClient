@@ -63,3 +63,5 @@ public interface ICombatTarget {
 - `PlayerController`와 동일 모델/Rig 패턴 (Camera/ViewPoint/CharacterController 제외)
 - `ApplyState()`: 첫 수신 또는 대규모 이동(sqrMagnitude>100) 시 즉시 텔레포트, 그 외 매 프레임 Lerp 보간
 - `ProcessAim()`: yaw+pitch → 방향 벡터 → `_aimTarget` 배치(가슴 높이 yOffset=0.58f + 100m 전방)
+- `EquipWeapon(weaponId)`: `weaponId = 0`은 맨손이라 기존 무기만 파괴하고 끝낸다. 프리팹 캐시에 없는 id는 에러 로그 — 조용히 return하면 맨손으로 보이기만 하고 원인이 남지 않는다
+- `_equippedWeaponId`: `D2CSpawnPlayerObject.weapon_id` + `D2CNotifyWeaponChanged`로 추적한 현재 무기. 킬 피드가 킬러 무기를 싣지 않으므로 표기가 필요하면 이 값을 쓴다

@@ -54,7 +54,7 @@ ACK 실패 횟수로 연결 생사를 판정하던 방식을 폐기하고, 수�
 |-------|--------|------|------|
 | 35 | `D2CDespawnPlayerObject` | T7 | 등록 완료 (2026-08-20) |
 | 36 | `D2CNotifySpawnObject` | T5 | 대기 |
-| 37 | `D2CNotifyWeaponChanged` | T8 | 대기 |
+| 37 | `D2CNotifyWeaponChanged` | T8 | 등록 완료 (2026-08-21) |
 | 39 | `D2CNotifyDespawnObject` | T6 | 대기 |
 | 40 | `D2CNotifyPlayerKilled` | T10 | 대기 |
 
@@ -102,13 +102,38 @@ ACK 실패 횟수로 연결 생사를 판정하던 방식을 폐기하고, 수�
 - **플레이어·비플레이어 공용 목록이다**(objectId 공간이 공용). T5·T6에서 비플레이어 스폰 경로에도 같은 가드를 얹을 것
 - 차단 발동 시 로그는 남기지 않는다. 정상 상황(인플라이트 잔여분)에서도 똑같이 찍혀 오작동을 가려내지 못하고, 규약을 벗어난 서버 오작동까지 클라가 감당할 범위가 아니다
 
-### [ ] T8. `D2CNotifyWeaponChanged`(37) 처리 — 신규
-도착 경로가 두 가지이며 `object_id`로 구분한다.
+### [x] T8. `D2CNotifyWeaponChanged`(37) 처리 — 완료 (2026-08-21)
+`Assets/Scripts/Network/PacketHandler.cs`, `Assets/Scripts/Scenes/IngameScene.cs`, `Assets/Scripts/Controller/GameObjectControllers/OppoPlayerController.cs`
 
-1. **남의 objectId** → 무기 변경 통보. `OppoPlayerController.EquipWeapon(weaponId)` 호출 (`weaponId = 0`은 맨손, 기존 코드가 이미 올바르게 처리)
-2. **자기 objectId** → `C2DRequestSwitchWeapon` **거부 응답**. 서버가 보는 현재 무기가 담겨 오므로 로컬 예측을 이 값으로 롤백
+**도착 경로는 둘이 아니라 셋이다.** 남의 경로가 두 갈래라 T9 없이도 이 작업이 필요했다 — 남이 `C2DRequestEquipItem`(슬롯 0/1)으로 무기를 장착·해제할 때도 통보가 온다(proto 245~249). 지금까지는 스폰 시점 외형이 그대로 남아 있었다.
 
-`armor_id`는 스펙에서 삭제되었다(구 `D2CNotifyEquipmentChanged` 기준으로 작업한 게 있으면 폐기). 남의 방어구는 어떤 패킷으로도 오지 않는다.
+`IngameScene.HandleWeaponChanged(objectId, weaponId)` 분기:
+
+1. `_despawnedObjectIds` → 무시 (로그 없음, T7 규약)
+2. `_spawnCompleted && objectId == _myObjectId` → `RollbackWeaponPrediction()`. **본인 수신은 항상 거부다** — 성공은 룸의 '나머지'에게만 가므로 성공/실패 분기가 필요 없다. `_spawnCompleted` 가드는 `_myObjectId` 초기값 `0`이 실재하는 objectId여서 스폰 전 비교가 성립하지 않기 때문
+3. `_oppoPlayers`에 있으면 `EquipWeapon((int)weaponId)` — **`weaponId != 0` 가드를 붙이면 안 된다.** 걸러내면 맨손 전환이 반영되지 않는다
+4. 그 외 → `RequestSpawnIfUnknown()`. 이번 `weaponId`는 버린다. 스폰 응답의 `weapon_id`가 이 통보보다 최신이라 pending 맵을 둘 이유가 없다
+
+**롤백은 T9와 맞물린다.** 통보에 `weapon_id`만 있고 슬롯이 없어, 지금은 주/보조의 `item_id`와 대조해 **한쪽만 일치할 때만** `IsPrimaryWeaponApplyed`를 확정한다. 양쪽이 같은 blueprint면 외형·스펙이 동일해 상태를 유지해도 차이가 없다. T9에서 보낸 `target_slot`을 기억하면 이 함수 안만 대조로 승격하면 된다(거부 확정이므로 요청한 슬롯의 반대쪽).
+
+**부수 작업 3건**
+
+- `RequestSpawnIfUnknown()` 신설 + `_pendingSpawnRequests` — 아래 별도 항목
+- `OppoPlayerController._equippedWeaponId` 보관 — 킬 피드가 킬러 무기를 싣지 않아 T10이 이 값을 쓴다(proto 481·485). 프리팹 캐시 미스는 조용한 return이었는데 맨손으로 보이고 원인이 안 남아 T5와 같은 방식의 에러 로그로 승격
+- **기존 버그 수정** — `ApplyEquipItem`이 `currentWeapon != null`일 때만 `EquipWeapon`을 호출해, **내가 무기를 해제하면 손에 든 무기가 그대로 남았다**. 서버는 남들에게 맨손을 통보하므로 T8을 붙이는 순간 화면이 어긋난다. `EquipWeapon(currentWeapon != null ? item_id : 0)`으로 해소
+
+`armor_id`는 스펙에서 삭제되었다. 남의 방어구는 어떤 패킷으로도 오지 않는다.
+
+### [x] T8-a. 지연 스폰 요청 1회 제한 (`_pendingSpawnRequests`) — 완료 (2026-08-21)
+`Assets/Scripts/Scenes/IngameScene.cs`
+
+T8의 분기 4를 붙이면서 드러난 기존 문제. `UpdatePlayerStates()`가 미스폰 objectId를 볼 때마다 **10Hz로 `C2DRequestSpawnByObjectId`를 새로 만들고 있었다.** 재전송이 아니라 매번 새 시퀀스라, 응답이 3초만 늦어도 서로 다른 reliable 30개가 in-flight에 쌓인다. T2에서 재전송 한도를 없애며 32슬롯 상한을 지키던 장치가 사라져, 넘치는 순간 `MakeReliablePacket`이 아직 ACK되지 않은 **다른** 패킷을 덮어쓴다(장착·귀환 요청이 조용히 유실된다).
+
+- `RequestSpawnIfUnknown(objectId)` 하나로 판정을 모았다: 디스폰 목록 → `_oppoPlayers` → `_sceneObjects` → `_pendingSpawnRequests.Add()` 성공 시에만 전송
+- `_sceneObjects`까지 보는 이유는 `C2DRequestSpawnByObjectId`가 플레이어·비플레이어 공용이기 때문(응답이 `D2CSpawnPlayerObject` / `D2CResponseSpawnByObjectId`로 갈린다). T10에서 또 판단할 일이 없도록 헬퍼가 두 공간을 다 덮는다
+- **만료를 두지 않는다.** 요청은 reliable이라 ACK될 때까지 알아서 재전송되므로 한 번이면 충분하고, 응답도 디스폰 통보도 오지 않는 objectId는 서버가 모르는 것이라 재요청해도 결과가 같다
+- 해제 지점 4곳: `SpawnPlayerObject` / `SpawnObject`(응답 도착 = 요청 종료, 스폰 여부와 무관하게 조기 반환보다 앞에서 제거) / `DespawnPlayerObject` / `DespawnObject`
+- `UpdatePlayerStates()`도 이 헬퍼를 쓰도록 교체했다
 
 ### [ ] T9. `C2DRequestSwitchWeapon`(38) 송신 — 신규
 - `Assets/Scripts/Network/UDPManager.cs`에 송신 함수 추가 (reliable)

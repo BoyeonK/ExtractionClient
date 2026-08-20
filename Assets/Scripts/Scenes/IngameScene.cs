@@ -140,6 +140,9 @@ public class IngameScene : BaseScene {
     }
 
     public void SpawnPlayerObject(PlayerSpawnData data) {
+        // 응답이 왔으므로 스폰 여부와 무관하게 요청은 끝난 것으로 본다
+        _pendingSpawnRequests.Remove(data.ObjectId);
+
         if (data.ObjectId == _myObjectId) return;
         if (_oppoPlayers.ContainsKey(data.ObjectId)) return;
         if (_despawnedObjectIds.Contains(data.ObjectId)) return;
@@ -150,8 +153,7 @@ public class IngameScene : BaseScene {
         controller.SetPosition(data.Position);
         controller.SetRotation(data.Rotation);
         controller.Setup(data.CharacterType);
-        if (data.WeaponId != 0)
-            controller.EquipWeapon(data.WeaponId);
+        controller.EquipWeapon(data.WeaponId);   // 0=맨손. EquipWeapon이 직접 처리한다
         _oppoPlayers[data.ObjectId] = controller;
     }
 
@@ -167,11 +169,10 @@ public class IngameScene : BaseScene {
             if (data.ObjectId == _myObjectId) continue;
             if (_despawnedObjectIds.Contains(data.ObjectId)) continue;
 
-            if (_oppoPlayers.TryGetValue(data.ObjectId, out OppoPlayerController controller)) {
+            if (_oppoPlayers.TryGetValue(data.ObjectId, out OppoPlayerController controller))
                 controller.ApplyState(data);
-            } else {
-                Managers.Network.udpManager.SendC2DRequestSpawnByObjectId((int)data.ObjectId);
-            }
+            else
+                RequestSpawnIfUnknown(data.ObjectId);
         }
     }
 
@@ -180,6 +181,26 @@ public class IngameScene : BaseScene {
     // 플레이어·비플레이어 공용 목록이다(objectId 공간이 공용).
     private HashSet<uint> _despawnedObjectIds = new HashSet<uint>();
 
+    // 스폰을 요청해두고 아직 응답이 오지 않은 objectId.
+    // 요청은 reliable이라 ACK될 때까지 알아서 재전송되므로 한 번만 보내면 된다. 매 틱 다시 보내면
+    // 같은 내용이 서로 다른 시퀀스로 쌓여 in-flight 32슬롯을 채우고, 넘치는 순간
+    // 아직 ACK되지 않은 다른 패킷이 덮어써진다(PacketHandler.MakeReliablePacket).
+    // 응답도 디스폰 통보도 오지 않는 objectId는 서버가 모르는 것이므로 재요청해도 결과가 같다.
+    private HashSet<uint> _pendingSpawnRequests = new HashSet<uint>();
+
+    // 아직 모르는 objectId를 가리키는 통보가 오면 스폰을 요청한다.
+    // 디스폰된 id는 요청하지 않는다 — 되살아난다.
+    // objectId 공간이 플레이어·비플레이어 공용이라 응답은 D2CSpawnPlayerObject 또는
+    // D2CResponseSpawnByObjectId 중 하나로 갈린다. 어느 쪽인지는 서버가 판단한다.
+    private void RequestSpawnIfUnknown(uint objectId) {
+        if (_despawnedObjectIds.Contains(objectId)) return;
+        if (_oppoPlayers.ContainsKey(objectId)) return;
+        if (_sceneObjects.ContainsKey(objectId)) return;
+        if (!_pendingSpawnRequests.Add(objectId)) return;
+
+        Managers.Network.udpManager.SendC2DRequestSpawnByObjectId((int)objectId);
+    }
+
     // ── 비플레이어 오브젝트 ──
 
     private Dictionary<uint, GameObjectController> _sceneObjects = new Dictionary<uint, GameObjectController>();
@@ -187,6 +208,8 @@ public class IngameScene : BaseScene {
     // 비플레이어 오브젝트의 유일한 스폰 경로. 정적·동적 초기 스폰, 지연 스폰 응답,
     // 런타임 스폰 통보가 전부 여기로 모여야 레지스트리와 차단 검사에 구멍이 생기지 않는다.
     public void SpawnObject(ObjectData data) {
+        _pendingSpawnRequests.Remove(data.ObjectId);
+
         if (_sceneObjects.ContainsKey(data.ObjectId)) return;
         if (_despawnedObjectIds.Contains(data.ObjectId)) return;
 
@@ -206,6 +229,7 @@ public class IngameScene : BaseScene {
 
     public void DespawnObject(uint objectId) {
         _despawnedObjectIds.Add(objectId);
+        _pendingSpawnRequests.Remove(objectId);
 
         // 파괴된 컨테이너를 열어둔 상태였다면 UI만 닫는다.
         // 서버가 이미 없앤 오브젝트이므로 C2DCloseContainer는 보내지 않는다.
@@ -222,6 +246,7 @@ public class IngameScene : BaseScene {
     public void DespawnPlayerObject(uint objectId, int reason) {
         // 스폰 응답보다 디스폰이 먼저 도착할 수 있으므로 등록은 조회 성공 여부와 무관하다
         _despawnedObjectIds.Add(objectId);
+        _pendingSpawnRequests.Remove(objectId);
 
         if (!_oppoPlayers.TryGetValue(objectId, out OppoPlayerController controller))
             return;
@@ -249,6 +274,48 @@ public class IngameScene : BaseScene {
                 _weaponPrefabCache[id] = prefab;
             }
         }
+    }
+
+    // D2CNotifyWeaponChanged. 도착 경로가 셋이며 object_id로 갈린다.
+    //   남 + 장착/해제(C2DRequestEquipItem 성공) / 남 + 무기 전환(C2DRequestSwitchWeapon 성공) → 외형 갱신
+    //   나 → C2DRequestSwitchWeapon 거부. 성공은 룸의 '나머지'에게만 가므로 본인 수신은 항상 거부다
+    public void HandleWeaponChanged(uint objectId, uint weaponId) {
+        if (_despawnedObjectIds.Contains(objectId)) return;
+
+        // _myObjectId 초기값 0은 실재하는 objectId다. 스폰 응답 전에는 비교 자체가 성립하지 않는다
+        if (_spawnCompleted && objectId == _myObjectId) {
+            RollbackWeaponPrediction((int)weaponId);
+            return;
+        }
+
+        if (_oppoPlayers.TryGetValue(objectId, out OppoPlayerController controller)) {
+            // weaponId가 0이어도 그대로 넘긴다 — 맨손 전환이므로 걸러내면 무기가 손에 남는다
+            controller.EquipWeapon((int)weaponId);
+            return;
+        }
+
+        // 아직 스폰되지 않은 플레이어. 스폰 응답의 weapon_id가 이 통보보다 최신이므로
+        // weaponId는 들고 있을 필요가 없다
+        RequestSpawnIfUnknown(objectId);
+    }
+
+    // 서버가 보는 현재 무기로 로컬 예측을 되돌린다.
+    // 통보에는 weapon_id만 있고 슬롯이 없어 주/보조가 같은 blueprint면 어느 쪽인지 알 수 없다.
+    // 그 경우 외형·스펙이 같아 슬롯 상태를 유지해도 차이가 없다.
+    // T9에서 보낸 target_slot을 기억하게 되면 이 함수 안을 그 대조로 승격할 것.
+    private void RollbackWeaponPrediction(int weaponId) {
+        InventoryItem primary   = _inventory.PrimaryWeapon;
+        InventoryItem secondary = _inventory.SecondaryWeapon;
+
+        bool primaryMatches   = primary != null && primary.item_id == weaponId;
+        bool secondaryMatches = secondary != null && secondary.item_id == weaponId;
+
+        // 한쪽만 일치할 때만 슬롯을 확정할 수 있다
+        if (primaryMatches != secondaryMatches)
+            _inventory.IsPrimaryWeaponApplyed = primaryMatches;
+
+        if (_playerController != null)
+            _playerController.EquipWeapon(weaponId);
     }
 
     public bool IsContainerOpen => _isContainerOpen;
@@ -494,13 +561,14 @@ public class IngameScene : BaseScene {
         if (equipmentSlotType == 2)
             ResetShieldPrediction();
 
-        // 무기 슬롯이 변경된 경우 무기 장착 갱신
+        // 무기 슬롯이 변경된 경우 무기 장착 갱신.
+        // 해제로 현재 무기가 비면 맨손(0)으로 갱신해야 한다 — 호출을 건너뛰면 손에 든 무기가
+        // 그대로 남아, 서버가 남들에게 통보한 맨손 상태와 본인 화면이 어긋난다
         if (equipmentSlotType <= 1 && _playerController != null) {
             InventoryItem currentWeapon = _inventory.IsPrimaryWeaponApplyed
                 ? _inventory.PrimaryWeapon
                 : _inventory.SecondaryWeapon;
-            if (currentWeapon != null)
-                _playerController.EquipWeapon(currentWeapon.item_id);
+            _playerController.EquipWeapon(currentWeapon != null ? currentWeapon.item_id : 0);
         }
     }
 
