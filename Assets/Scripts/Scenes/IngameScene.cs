@@ -101,12 +101,19 @@ public class IngameScene : BaseScene {
         }
 
         Managers.Input.AddKeyListener(Key.I, TryCloseContainerUI, InputManager.KeyState.Down);
+        Managers.Input.AddKeyListener(Key.Digit1, SwitchToPrimaryWeapon, InputManager.KeyState.Down);
+        Managers.Input.AddKeyListener(Key.Digit2, SwitchToSecondaryWeapon, InputManager.KeyState.Down);
     }
 
     private void OnDestroy() {
         if (Managers.Instance == null) return;
         Managers.Input.RemoveKeyListener(Key.I, TryCloseContainerUI, InputManager.KeyState.Down);
+        Managers.Input.RemoveKeyListener(Key.Digit1, SwitchToPrimaryWeapon, InputManager.KeyState.Down);
+        Managers.Input.RemoveKeyListener(Key.Digit2, SwitchToSecondaryWeapon, InputManager.KeyState.Down);
     }
+
+    private void SwitchToPrimaryWeapon() => RequestSwitchWeapon(0);
+    private void SwitchToSecondaryWeapon() => RequestSwitchWeapon(1);
 
     public void TryCompleteSpawnMe() {
         if (_spawnCompleted) return;
@@ -276,20 +283,73 @@ public class IngameScene : BaseScene {
         }
     }
 
+    // ── 무기 교체 ──
+
+    // 대기 중인 교체 요청이 없음을 뜻한다. 슬롯 값(0/1)과 겹치지 않기만 하면 된다
+    private const uint NO_PENDING_SLOT = 0xFFFFFFFF;
+
+    // TEMP: 교체 응답 워치독. 통보가 오지 않으면 발사가 그 판 내내 막히므로 잠금만 풀어둔다.
+    //       결과를 추측하지 않고 로컬 잠금만 해제하므로 판정 권한은 서버에 그대로 있다.
+    //       서버 통보 신뢰성이 검증되면 이 상수·타이머와 OnUpdate()의 TEMP 블록을 함께 제거할 것.
+    private const float SWITCH_WEAPON_TIMEOUT = 3f;
+    private float _switchWeaponTimer = 0f;
+
+    private uint _switchPendingSlot = NO_PENDING_SLOT;
+
+    // 교체가 확정되기 전에는 발사를 막는다. reliable(교체)과 unreliable(사격) 사이에는
+    // 순서 보장이 없어, 사격이 먼저 처리되면 weapon_dbid 불일치로 조용히 버려진다
+    public bool IsWeaponSwitchPending => _switchPendingSlot != NO_PENDING_SLOT;
+
+    // 1/2 키. target_slot은 절대 지정이라 같은 슬롯을 다시 요청하는 것은 의미가 없다
+    public void RequestSwitchWeapon(uint targetSlot) {
+        if (IsWeaponSwitchPending) return;
+        if (!_spawnCompleted) return;
+
+        uint heldSlot = _inventory.IsPrimaryWeaponApplyed ? 0u : 1u;
+        if (targetSlot == heldSlot) return;
+
+        // 서버 거부 조건(대상 슬롯이 비어 있음)을 미리 걸러내 불필요한 왕복을 없앤다.
+        // equipmentSlotType과 target_slot은 0=주무기, 1=보조무기로 값이 같다
+        if (_inventory.GetEquipmentSlot(targetSlot) == null) return;
+
+        _switchPendingSlot = targetSlot;
+        _switchWeaponTimer = 0f;   // TEMP: 워치독 시작
+        Managers.Network.udpManager.SendC2DRequestSwitchWeapon(targetSlot, _inventory.InventoryVersion);
+    }
+
     // D2CNotifyWeaponChanged. 도착 경로가 셋이며 object_id로 갈린다.
     //   남 + 장착/해제(C2DRequestEquipItem 성공) / 남 + 무기 전환(C2DRequestSwitchWeapon 성공) → 외형 갱신
-    //   나 → C2DRequestSwitchWeapon 거부. 성공은 룸의 '나머지'에게만 가므로 본인 수신은 항상 거부다
-    public void HandleWeaponChanged(uint objectId, uint weaponId) {
+    //   나 + 무기 전환 결과(성공·거부 모두) → 손에 든 슬롯 확정
+    // 도착한 slot/weapon_id가 항상 서버 권위값이므로 성공·거부의 상태 반영은 같다.
+    // 갈리는 것은 재동기화 여부 하나뿐이다.
+    public void HandleWeaponChanged(uint objectId, uint weaponId, uint slot, uint inventoryVersion) {
         if (_despawnedObjectIds.Contains(objectId)) return;
 
         // _myObjectId 초기값 0은 실재하는 objectId다. 스폰 응답 전에는 비교 자체가 성립하지 않는다
         if (_spawnCompleted && objectId == _myObjectId) {
-            RollbackWeaponPrediction((int)weaponId);
+            // OPTION: 통보 순서 역전 방어. 클라가 수신 reliable을 중복 제거하지 않아
+            //         (PacketHandler가 디스패치 전 중복 검사를 하지 않는다), ACK 유실로 재전송된
+            //         옛 통보가 새 통보 뒤에 도착하면 낡은 슬롯이 다시 적용된다. 확정 전 재요청을
+            //         막고 있어 정상 경로에서는 발생하지 않고 다음 교체에서 교정되므로 방치 가능.
+            //         막으려면 마지막으로 반영한 UDP 헤더 rSeqNum을 기억해야 하는데 HandlerFunc가
+            //         페이로드만 받아 델리게이트 시그니처 변경이 선행된다.
+            //         무기 교체 로컬 예측을 도입하면 그때는 필수가 된다
+            ApplyServerWeaponState(slot, (int)weaponId);
+
+            bool rejected = slot != _switchPendingSlot;
+            _switchPendingSlot = NO_PENDING_SLOT;
+
+            // 버전이 어긋나 거부된 경우에만 재동기화한다. 버전만 통보값으로 맞추면
+            // 슬롯 내용은 낡은 채로 다음 요청이 통과하므로, 갱신은 재동기화 응답에 맡긴다.
+            // 재요청은 보내지 않는다 — 인벤토리 버전이 계속 바뀌면 자동 재시도가 루프가 된다
+            if (rejected && inventoryVersion != _inventory.InventoryVersion)
+                RequestRecentInventoryInfo();
             return;
         }
 
         if (_oppoPlayers.TryGetValue(objectId, out OppoPlayerController controller)) {
-            // weaponId가 0이어도 그대로 넘긴다 — 맨손 전환이므로 걸러내면 무기가 손에 남는다
+            // weaponId가 0이어도 그대로 넘긴다 — 맨손 전환이므로 걸러내면 무기가 손에 남는다.
+            // 남의 slot·inventory_version은 쓸 곳이 없다(후자는 항상 0xFFFFFFFF로 온다)
             controller.EquipWeapon((int)weaponId);
             return;
         }
@@ -299,23 +359,33 @@ public class IngameScene : BaseScene {
         RequestSpawnIfUnknown(objectId);
     }
 
-    // 서버가 보는 현재 무기로 로컬 예측을 되돌린다.
-    // 통보에는 weapon_id만 있고 슬롯이 없어 주/보조가 같은 blueprint면 어느 쪽인지 알 수 없다.
-    // 그 경우 외형·스펙이 같아 슬롯 상태를 유지해도 차이가 없다.
-    // T9에서 보낸 target_slot을 기억하게 되면 이 함수 안을 그 대조로 승격할 것.
-    private void RollbackWeaponPrediction(int weaponId) {
-        InventoryItem primary   = _inventory.PrimaryWeapon;
-        InventoryItem secondary = _inventory.SecondaryWeapon;
-
-        bool primaryMatches   = primary != null && primary.item_id == weaponId;
-        bool secondaryMatches = secondary != null && secondary.item_id == weaponId;
-
-        // 한쪽만 일치할 때만 슬롯을 확정할 수 있다
-        if (primaryMatches != secondaryMatches)
-            _inventory.IsPrimaryWeaponApplyed = primaryMatches;
+    // 서버가 확정한 '손에 든 슬롯/무기'를 그대로 반영한다. 성공·거부 구분 없이 이 값이 권위값이다
+    private void ApplyServerWeaponState(uint slot, int weaponId) {
+        _inventory.IsPrimaryWeaponApplyed = slot == 0;
 
         if (_playerController != null)
             _playerController.EquipWeapon(weaponId);
+    }
+
+    // 무기 슬롯 조작 뒤 손에 든 무기를 서버 규칙대로 맞춘다.
+    // 규칙: 들고 있던 슬롯이 비었을 때만 반대쪽으로 옮긴다(양쪽 다 비면 맨손).
+    //       그 외에는 손에 든 슬롯을 유지하고, 그 슬롯의 무기가 바뀌었으면 새 무기로 갱신한다
+    private void SyncHeldWeapon() {
+        if (_playerController == null) return;
+
+        uint heldSlot = _inventory.IsPrimaryWeaponApplyed ? 0u : 1u;
+        InventoryItem held = _inventory.GetEquipmentSlot(heldSlot);
+
+        if (held == null) {
+            uint otherSlot = heldSlot == 0u ? 1u : 0u;
+            InventoryItem other = _inventory.GetEquipmentSlot(otherSlot);
+            if (other != null) {
+                _inventory.IsPrimaryWeaponApplyed = otherSlot == 0u;
+                held = other;
+            }
+        }
+
+        _playerController.EquipWeapon(held != null ? held.item_id : 0);
     }
 
     public bool IsContainerOpen => _isContainerOpen;
@@ -561,15 +631,10 @@ public class IngameScene : BaseScene {
         if (equipmentSlotType == 2)
             ResetShieldPrediction();
 
-        // 무기 슬롯이 변경된 경우 무기 장착 갱신.
-        // 해제로 현재 무기가 비면 맨손(0)으로 갱신해야 한다 — 호출을 건너뛰면 손에 든 무기가
-        // 그대로 남아, 서버가 남들에게 통보한 맨손 상태와 본인 화면이 어긋난다
-        if (equipmentSlotType <= 1 && _playerController != null) {
-            InventoryItem currentWeapon = _inventory.IsPrimaryWeaponApplyed
-                ? _inventory.PrimaryWeapon
-                : _inventory.SecondaryWeapon;
-            _playerController.EquipWeapon(currentWeapon != null ? currentWeapon.item_id : 0);
-        }
+        // 무기 슬롯 조작으로 손에 든 슬롯이 바뀌는 경우 본인에게는 통보가 오지 않는다.
+        // 서버 규칙을 클라가 직접 반영해야 한다
+        if (equipmentSlotType <= 1)
+            SyncHeldWeapon();
     }
 
     public void HandleInteractContainerObjectDeny(uint denyReasonMask) {
@@ -725,6 +790,15 @@ public class IngameScene : BaseScene {
             if (_recallTimer >= RECALL_TIMEOUT) {
                 _recallRequested = false;
                 Util.LogWarning($"귀환 응답 미수신 ({RECALL_TIMEOUT}초) — 요청 잠금 해제");
+            }
+        }
+
+        // TEMP: 교체 응답 워치독 — 상단 SWITCH_WEAPON_TIMEOUT 주석 참조. 제거 시 함께 삭제할 것
+        if (IsWeaponSwitchPending) {
+            _switchWeaponTimer += Time.deltaTime;
+            if (_switchWeaponTimer >= SWITCH_WEAPON_TIMEOUT) {
+                _switchPendingSlot = NO_PENDING_SLOT;
+                Util.LogWarning($"무기 교체 응답 미수신 ({SWITCH_WEAPON_TIMEOUT}초) — 발사 잠금 해제");
             }
         }
 

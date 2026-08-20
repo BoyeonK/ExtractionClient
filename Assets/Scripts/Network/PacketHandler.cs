@@ -1211,12 +1211,14 @@ public class PacketHandler {
             return;
         }
 
-        uint objectId = pkt.ObjectId;
-        uint weaponId = pkt.WeaponId;
+        uint objectId         = pkt.ObjectId;
+        uint weaponId         = pkt.WeaponId;
+        uint slot             = pkt.Slot;
+        uint inventoryVersion = pkt.InventoryVersion;
 
         Managers.ExecuteAtMainThread(() => {
             if (Managers.Scene.CurrentScene is not IngameScene ingameScene) return;
-            ingameScene.HandleWeaponChanged(objectId, weaponId);
+            ingameScene.HandleWeaponChanged(objectId, weaponId, slot, inventoryVersion);
         });
     }
 }

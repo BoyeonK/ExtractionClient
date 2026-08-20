@@ -9,7 +9,6 @@
 ## 완료된 것들
 
 ### 네트워크/UI
-- [x] (2026-08-19 #2) 재전송 한도 폐기 + 수신 워치독 도입 (server-sync T2) — ACK 실패 횟수로 연결 생사를 판정하던 방식을 폐기. `MAX_RETRY`와 `CollectRetransmits`의 `out shouldDisconnect` 제거로 연결이 살아있다고 보는 동안 무한 재시도. 판정은 `PacketHandler.LastRecvSec`(서명 검증 통과분만 기록) 기준 `RECV_TIMEOUT_SEC`(10초) 무수신으로 단독 이관. 워치독 시드는 `SetSessionVariable`에서 — 0으로 두면 `Time.realtimeSinceStartup`과 비교되어 접속 즉시 오탐. RTO 백오프는 미도입(버퍼 재사용으로 CPU/GC 비용 0, 실사용 in-flight 0~2개). 재전송 한도가 겸하던 in-flight 상한이 사라져 슬롯 덮어쓰기 경고를 런타임 에러 로그로 승격
 - [x] (2026-08-19 #4) D2CNotifyHealthChange.attacker_object_id 반영 (server-sync T11) — 핸들러 파싱 + `HandleHealthChange()` 시그니처 확장. `NO_ATTACKER_OBJECT_ID`를 `PLAYER_OBJECT_ID`와 **별도 상수로** 신설 — 값은 같아도 의미가 다르고(가해자 없음 vs 내 인벤토리), `0`은 실재 objectId라 미설정으로 읽으면 오귀속이 된다. `_currentHealthPoint`/`_currentShieldPoint` 신설로 서버 절대값 보관(T12가 이어받음), 교전 상대 추적은 `_lastAttackerObjectId` + `ATTACKER_TRACK_DURATION`(5초) 만료 창으로 `LastAttackerObjectId`/`HasRecentAttacker` 노출(T10 킬 피드·T15 킬러 표기에서 재사용). 피격 방향 각도 산출은 표시 UI가 없어 `OPTION:` 보류, `reason`은 `REASON_ITEM_HEAL` 발생 경로가 아직 없어 enum 승격 없이 `int` 유지
 - [x] (2026-08-19 #5) 실드 재생 로컬 예측 (server-sync T12) — **구현 완료 / 런타임 미검증**. 전용 통보 패킷이 없어 클라가 서버 공식 그대로 예측: `UpdateShieldRegen()`이 `(재생량 × 경과ms)`를 누적해 1000마다 1 회복(실수 보간 아닌 정수 회복이라 서버와 어긋나지 않음), 중단 조건은 사망·방어구 미착용·상한 도달. 리셋 3곳 — 피격 수신(서버 절대값 + 누적기 0) / 방어구 착용·해제·교체 전부(`ResetShieldPrediction()`) / 스폰 시 필드 초기값. 계획 외 수정 2건: `_currentHealthPoint` 초기값을 `MAX_HEALTH_POINT`로(0이면 첫 피격 전까지 사망 오판으로 재생이 아예 안 돎, 이 과정에서 하드코딩 `100000f`를 상수화), `SyncHealthBarMax()`를 `SyncInventoryUI()`의 UI null 가드 앞으로 이동(전투 예측이 UI 오브젝트 존재 여부에 묶여 있었음). 이 시점엔 게이지가 미연결이라 실측 불가 → 아래 `(2026-08-20 #0)`에서 해소
 - [x] (2026-08-20 #0) 체력 게이지 연결 + 표시 버그 2건 수정 (server-sync T12 마무리) — `IngameHealthBarUI.Init()`(`HealthBarBg/HealthBarFill`, `ArmorBarBg/ArmorBarFill`) 신설 후 `IngameScene.Init()`에서 호출해 영구 null 상태를 해소. 연결 과정에서 발견한 2건도 수정: ① **초기 게이지 값이 한 번도 안 밀렸다** — `SetHP`/`SetArmor` 호출부가 피격·재생 틱뿐이라 첫 피격 전까지 프리팹에 저장된 `fillAmount`가 그대로 보였다. `SyncHealthBarMax()`에서 최대치 직후 현재값도 밀도록 추가(최대치 → 현재값 순서여야 `SetArmor`가 최대 실드 0 가드에 안 걸림) ② **최대 실드가 0이 될 때 실드 바가 안 비워졌다** — `SetArmor()`의 `_maxShield <= 0f` 조기 반환 탓에 벗기 직전 `fillAmount`가 남았다. 반환 대신 `fillAmount = 0`으로 교체. 조건은 '방어구 교체'가 아니라 최대 실드가 0이 되는 것이며(해제 / 스펙 미등록 방어구 / equip 분기에 빈 슬롯이 소스), **정상 교체는 새 방어구 최대치가 들어와 원래부터 문제없다**
@@ -17,6 +16,7 @@
 - [x] (2026-08-20 #3) 비플레이어 오브젝트 스폰·디스폰 배선 (server-sync T4·T5·T6) — `_sceneObjects`(objectId → `GameObjectController`) 레지스트리 신설 + `D2CNotifySpawnObject`(36)·`D2CNotifyDespawnObject`(39) 처리. **T4의 실제 작업은 딕셔너리 추가가 아니라 스폰 경로 일원화였다** — `Handle_D2CResponseSpawnByObjectId`가 씬을 거치지 않고 `Managers.Resource.InstantiateFromObjectDataStruct()`를 직접 부르고 있어, 그대로 뒀다면 등록되지 않은 오브젝트가 생겨 레지스트리에 구멍이 났다. `IngameScene.SpawnObject()`를 유일한 스폰 경로로 삼고 호출부 3곳(정적·동적 초기 스폰, 지연 스폰 응답)을 전부 라우팅해 중복 검사·디스폰 차단·매핑 검사를 한곳에 모았다. `D2CNotifySpawnObject`는 `D2CResponseSpawnByObjectId`와 페이로드가 같아 변환부를 `PacketHandler.ToObjectData()`로 분리해 공용화. 매핑 없는 `object_type`은 빈 경로 로드 실패로 조용히 묻히던 것을 타입 번호·objectId를 찍는 에러 로그로 교체(`Undefined`는 키가 있어도 경로가 null이라 함께 걸러냄). **보류돼 있던 판단 확정**: 이미 파괴된 컨테이너에 `C2DCloseContainer`를 보내지 않는다 — 서버 통보를 분리해 `CloseContainerLocal()` 신설
 - [x] (2026-08-21 #0) 체력/실드 게이지 Fill 이미지 Editor 설정 (server-sync T12 렌더 경로) — `HealthBarFill`/`ArmorBarFill`의 Image Type을 `Filled`로 맞추고 스프라이트를 신규 `Assets/Resources/White_Square.png`(Sprite, border 0)로 지정. **코드 변경 없음** — `(2026-08-20 #0)`에서 "값은 정상인데 그림만 안 바뀌던" 원인이 이것 하나였다. `fillAmount`는 Type이 `Filled`일 때만 동작하고 `Simple`/`Sliced`면 대입이 **에러 없이 무시된다**. 씬 오버라이드에는 두 Image 중 한쪽에만 `m_Type`이 실렸는데, 나머지 하나는 프리팹 기본값이 이미 `Filled`라 정상이다. 이 제약은 앞으로 추가될 게이지에도 그대로 적용되므로 `UI/CLAUDE.md`의 `IngameHealthBarUI` 항목에 상시 규칙으로 남겼다. **런타임 실측은 아직** — 아래 '확인 필요' 참조
 - [x] (2026-08-21 #1) 무기 변경 통보 처리 + 지연 스폰 요청 1회 제한 (server-sync T8) — `D2CNotifyWeaponChanged`(37) 등록 + `IngameScene.HandleWeaponChanged()`. **도착 경로가 문서에 적힌 둘이 아니라 셋이었다** — 남의 무기 전환뿐 아니라 남의 장착·해제(`C2DRequestEquipItem` 슬롯 0/1 성공)도 이 패킷으로 오므로, T9(무기 전환 송신) 없이도 이 작업이 필요했다(지금까진 남이 무기를 주워도 스폰 시점 외형이 그대로였다). 분기는 디스폰 차단 → 본인 롤백 → 남 외형 갱신 → 미스폰 시 스폰 요청 순. **본인 objectId로 오는 것은 항상 거부다**(성공은 룸의 나머지에게만 간다) → 성공/실패 분기 불필요. `_spawnCompleted` 가드를 둔 이유는 `_myObjectId` 초기값 `0`이 실재 objectId라 스폰 전엔 비교가 성립하지 않기 때문. 롤백은 슬롯 정보가 없어 주/보조 `item_id` 중 **한쪽만 일치할 때만** 확정(동률이면 외형·스펙이 같아 유지) — T9에서 `target_slot` 대조로 승격할 자리. **함께 고친 것 2건**: ① `RequestSpawnIfUnknown()`·`_pendingSpawnRequests` 신설 — `UpdatePlayerStates()`가 미스폰 objectId를 볼 때마다 **10Hz로 새 reliable을 만들고 있었다**. 재전송이 아니라 매번 새 시퀀스라 응답이 3초만 늦어도 in-flight 32슬롯이 차고, 넘치면 아직 ACK되지 않은 **다른** 패킷(장착·귀환 요청)이 덮어써져 조용히 유실된다. 요청은 reliable이라 한 번이면 충분하므로 objectId당 1회로 제한하고 판정을 헬퍼 하나로 모았다(전송 지점도 이제 이 함수뿐) ② 무기 **해제** 시 `ApplyEquipItem`이 `EquipWeapon` 호출을 건너뛰어 손에 든 무기가 남던 버그 — 서버는 남들에게 맨손을 통보하므로 T8을 붙이는 순간 화면이 어긋난다. **Unity 컴파일·런타임 모두 미검증**
+- [x] (2026-08-21 #2) 무기 전환 구현 + 손에 든 무기 규칙 반영 (server-sync T9·T9-a) — **착수 직전 서버가 계약을 바꿨다**. `D2CNotifyWeaponChanged`에 `slot`·`inventory_version`이 추가되고 **성공도 요청자에게 오게 되면서**, T8이 세운 "본인 수신 = 거부" 전제와 `item_id` 추정 롤백이 통째로 폐기됐다. **로컬 예측은 쓰지 않는다** — 키 입력 시점엔 요청만 보내고 손의 무기는 통보 후에만 바꾼다(예측은 동작 검증 후 `OPTION:`으로). 확정 전 재요청을 막아 in-flight 요청이 항상 1개이므로 **통보 순서 역전이 정상 경로에서 발생하지 않는다**(잔여 경로는 `OPTION:`으로 기록 — 클라가 수신 reliable을 중복 제거하지 않아 재전송된 옛 통보가 뒤늦게 오면 낡은 슬롯이 재적용된다). 판정은 `slot == 보낸 target_slot`이지만 **상태 반영은 성공·거부가 같아**(도착값이 항상 권위값) `ApplyServerWeaponState()` 한 경로로 처리하고, 갈리는 것은 버전 불일치 시 재동기화 하나뿐이다. 자동 재요청은 하지 않는다(버전이 계속 움직이면 루프). **확정 전 발사 차단**은 reliable(교체)·unreliable(사격) 간 순서 보장이 없어 필수이며(`weapon_dbid` 불일치는 조용히 버려진다), `_fireBlocked`는 마우스 재클릭으로 풀려 재사용할 수 없어 `IsShooting`에 별도 게이트를 뒀다. 통보 유실 시 발사가 영구 차단되므로 **TEMP 워치독(3초)** — 잠금만 풀고 무기 상태는 서버에 맡긴다. **T9-a**: 장착·해제로 손에 든 슬롯이 바뀌는 경우는 본인에게 통보가 없어 클라가 서버 규칙("들고 있던 슬롯이 비면 반대쪽으로, 양쪽 다 비면 맨손")을 직접 반영해야 한다 → `SyncHeldWeapon()`. 그 외 `weapon_dbid`를 `PlayerController._equippedWeaponId`(서버 확정값)로 교체, `EquipWeapon` 재생성 가드·캐시 미스 로그 추가, 1/2 키 바인딩, 예측을 쓰지 않으면서 호출자가 사라진 `IngameInventory.ApplyWeapon()` 삭제. **Unity 컴파일·런타임 모두 미검증**
 
 ### 매니저/리소스
 - [x] (2026-08-20 #2) 오브젝트 풀링 코드 전면 제거 — `PoolManager.cs`·`Poolable.cs`(+`.meta`) 삭제, `Managers.cs`의 `_pool`/`Pool`/`_pool.Init()`/`Pool.Clear()` 제거, `ResourceManager`의 `Instantiate()`·`Destroy()` 분기와 `Load<T>()`의 GameObject 분기 전체 제거(풀 조회가 유일한 목적이라 이름 추출까지 통째로 죽은 코드였음 → `Resources.Load<T>` 한 줄로 축약). **동작 변화 없음** — `Poolable`을 어디에도 부착하지 않아 세 분기 모두 항상 false로 흘렀고 `GetOriginal()`은 항상 null이었다. 풀링이 필요해지면 별도 방식으로 새로 만들 예정. `Util.GetOrAddComponent`는 `UIManager` 등이 쓰므로 유지
@@ -32,7 +32,7 @@
 > proto의 `[작업사항]` 주석을 추적한 임시 문서이며, 전 항목 반영 후 이 파일로 이관하고 삭제할 것.
 > 아래 목록과의 대응: 2번(귀환 최종 결과 실처리) = T15, 5번(워치독 제거 검토) = T15에 종속
 
-1. **서버 변경분 반영 (`server-sync-todo.md`)** — T1·T2·T4~T8·T11 완료, T12는 코드·Editor 작업이 끝나고 **런타임 실측만 남음**(T3은 구현과 함께 하나씩 등록하는 방침으로 진행 중). 남은 것은 T9(무기 전환 송신 + 1/2 키 바인딩) → T10(킬 피드) → T15(귀환 후처리) → T16·T17. **T13은 시신 프리팹 제작 대기, T14는 서버 목록 대기**
+1. **서버 변경분 반영 (`server-sync-todo.md`)** — T1·T2·T4~T9·T11 완료, T12는 코드·Editor 작업이 끝나고 **런타임 실측만 남음**(T3은 구현과 함께 하나씩 등록하는 방침으로 진행 중). 남은 것은 T10(킬 피드) → T15(귀환 후처리) → T16·T17. **T13은 시신 프리팹 제작 대기, T14는 서버 목록 대기**
 2. **귀환 최종 결과 실처리 + 연결 끊김 처리** — `HandleRecallResult`의 TODO를 실제 처리로 교체. 성공 시 탈출 연출·씬 전환 + 잠금 유지(이미 맵을 떠나므로 해제하면 전환 지연 중 재요청 가능). 취소 시 `reason`별 분기(`OUT_OF_ZONE`·`SERVER_INTERNAL`은 재시도 허용, `PLAYER_DEAD`·`SESSION_LOST`는 각 흐름에 위임). **연결 끊김도 같은 출구가 필요하다** — 현재 `UDPManager.Disconnect()`는 소켓만 정리해 플레이어가 인게임 씬에 그대로 남는다. 매치 종료 화면을 만들 때 함께 처리할 것
 3. **귀환 스팟 씬 배치** — 맵 씬에 귀환 단말기 오브젝트 배치, `RecallSpotController` 부착 후 인스펙터에서 `_recallSpotIndex`를 서버 테이블 값에 맞춤. 조준 레이가 맞아야 하므로 트리거가 아닌 일반 콜라이더 사용
 4. **귀환 진행 중 UI 피드백** — 승인~결과 사이 5초 구간 표시(카운트다운 등). `InteractText`는 매 프레임 재조회되므로 `virtual` 프로퍼티화하면 동적 텍스트 전환 가능
@@ -40,7 +40,7 @@
 6. **발사 이펙트 프리팹 준비 → 이펙트 구현** — 로컬 탄착 이펙트(`ProcessHit`), 수신 측 머즐 플래시/총성/탄착 이펙트(`HandleWeaponFireBroadcast`). 파티클·사운드 에셋이 `Resources/Prefabs/` 아래에 필요
 7. **탄약 차감 주석 해제** — `Fire()` 내 `magazine.quantity--` 및 빈 탄창 가드. 테스트 완료 후 활성화
 8. **EmptyAmmoFire() 구현** — 빈 탄창 사운드, 재장전 유도 UI
-9. **인벤토리 열기/닫기 키바인딩** — Tab키로 MyInventory 토글 등 추가 입력 연결 (컨테이너 E/I키 닫기는 완료). 무기 전환 1/2 키는 T9에서 함께 처리
+9. **인벤토리 열기/닫기 키바인딩** — Tab키로 MyInventory 토글 등 추가 입력 연결 (컨테이너 E/I키 닫기, 무기 전환 1/2 키는 완료)
 10. **실제 맵 씬에서 IngameScene 상속 완성** — `IngameScene`을 상속하는 맵별 씬 컴포넌트 구현
 11. **설정값 실제 적용** — 해상도/창모드/FOV 변경이 `Screen.SetResolution()`, `Camera.fieldOfView` 등에 반영되도록 구현
 
@@ -49,16 +49,23 @@
 ## 메모
 
 ### 확인 필요
+- **(2026-08-21) 초기 손 무기 규칙 서버 확인** — 클라 `InitWeapon()`은 주무기 우선인데 서버 규칙이 같은지 확인되지 않았다. 어긋나면 **매치 시작부터** 내 화면과 남의 화면 무기가 다르고 `weapon_dbid` 불일치로 사격이 조용히 버려진다. 전환 로직이 아니라 초기 상태의 문제라 T9 검증으로는 드러나지 않는다
+- **(2026-08-21) T9 컴파일 + 검증** — ① 1/2 전환이 **한 박자 뒤에** 반영되는지(예측 없음이라 정상) ② **주무기 해제 시 보조무기가 손에 들리는지**(T9-a. 서버와 어긋나면 사격이 통째로 무시된다) ③ 전환 대기 중 클릭이 발사되지 않는지 ④ 빈 슬롯 키에 패킷이 안 나가는지 ⑤ 버전 불일치 거부는 자연 재현이 어려우니 낡은 버전을 싣는 `TEMP:` 코드로 재동기화 경로를 한 번
 - **(2026-08-21) T8 컴파일 + 2인 접속 검증** — ① A가 무기를 장착하면 B 화면에서 A 손에 무기가 생기는지(경로 1, 이번 작업의 실질 검증) ② A가 해제하면 B 화면 맨손 + **A 본인 화면도 맨손인지**(해제 버그 수정 확인) ③ 미스폰 플레이어가 있을 때 `C2DRequestSpawnByObjectId`가 **한 번만** 나가는지. 본인 롤백(경로 3)은 `C2DRequestSwitchWeapon`을 보내야 발생하므로 T9 전까지 검증 불가
 - **(2026-08-21) 체력/실드 게이지 런타임 실측** — Fill 이미지 설정이 끝나 이제 눈으로 확인만 남았다. 순서: 매치 진입 직후 HP 만피·실드 0 → 방어구 착용 후 초당 100(=1%) 상승 → 피격 시 서버값으로 점프(`[HealthChange]` 로그와 대조) → 방어구 해제 시 0. 통과하면 T11·T12를 함께 종료 처리한다. **어긋나면 원인은 이제 스크립트 쪽이다** — Editor 설정이 유일한 잔여 변수였으므로 남는 후보는 `SyncHealthBarMax()` 호출 시점과 실드 예측 누적 로직
 - **(2026-08-20) T14용 HP 보유 비플레이어 오브젝트 목록** — 서버 답변 대기 중. 이게 와야 `ICombatTarget` 구현 대상이 정해진다
 - **(2026-08-20) `Poolable` 삭제 후 Unity 콘솔 확인** — MonoBehaviour라 프리팹·씬 오브젝트에 수동으로 붙어 있었다면 "Missing (Mono Script)" 경고가 뜬다. 코드가 붙이는 경로는 없었으므로 가능성은 낮다
 
+### 서버 계약 (2026-08-21 proto 변경)
+- **'장착한 무기'와 '손에 든 무기'는 다른 개념이다.** 무기 슬롯 2개는 장착이고 손에 든 것은 하나뿐이며, `C2DRequestWeaponFire.weapon_dbid`는 손에 든 쪽이어야 한다. 어긋나면 서버가 발사를 **조용히 버린다**(에러 응답 없음). 추적 출처가 넷이라 한 묶음으로 볼 것 — 상세는 `Scenes/CLAUDE.md`의 '손에 든 무기'
+- **내 장착·해제로 손에 든 슬롯이 바뀌는 경우는 통보가 없다.** 클라가 서버 규칙을 직접 들고 있어야 하는 유일한 상태다
+- `D2CNotifyWeaponChanged`의 `inventory_version`은 남의 통보에서 `0xFFFFFFFF`다. `0`은 실재하는 버전(세션 시작값)이라 미설정으로 읽으면 안 된다 — `attacker_object_id`와 같은 함정
+
 ### 서버 계약 (2026-08-20 확인)
 - **objectId는 한 게임 안에서 단조 증가하며 재사용되지 않는다. 죽은 오브젝트가 살아나지도 않는다.** proto에 문서화된 보장은 아니다. `_despawnedObjectIds`를 만료 없이 씬 수명 내내 들고 가는 설계의 근거이며, 서버 계약이 바뀌면 이 설계를 다시 봐야 한다(증상은 "특정 오브젝트가 끝까지 안 보임")
 
 ### 해소된 버그
-- **무기 해제 시 손에 든 무기가 남던 문제** — (2026-08-21 #1)에서 해소. `ApplyEquipItem`이 `currentWeapon != null`일 때만 `EquipWeapon`을 호출했다. 서버는 남들에게 맨손을 통보하므로 본인 화면만 어긋난다
+- **장착·해제 시 손에 든 무기가 어긋나던 문제** — (2026-08-21 #2)에서 해소. 두 번 틀렸다: 원래는 `currentWeapon != null`일 때만 `EquipWeapon`을 호출해 **해제해도 이전 무기가 손에 남았고**, (#1)에서 맨손으로 고친 것은 **서버 규칙(반대쪽 슬롯으로 옮김)과 어긋났다**. 서버가 보조무기를 들려준 상태에서 클라만 맨손이면 `weapon_dbid` 불일치로 사격이 통째로 무시된다. 이 경로는 **본인에게 통보가 오지 않아** 클라가 규칙을 직접 들고 있어야 한다
 - **미스폰 objectId에 대한 스폰 요청 폭주** — (2026-08-21 #1)에서 해소. `UpdatePlayerStates()`가 10Hz로 새 reliable을 만들어 in-flight 32슬롯을 채우면 **무관한 다른 패킷이 덮어써져 조용히 유실된다**. 재전송 한도를 없앤 뒤(T2) 슬롯 상한을 지키던 장치가 없어져 생긴 노출이다. 새 통보 패킷을 붙일 때 `RequestSpawnIfUnknown()`을 쓰지 않고 직접 전송하면 같은 문제가 재발한다
 - **디스폰된 플레이어의 유령 재스폰** — (2026-08-20 #1)에서 해소. 최초 조사 때는 `UpdatePlayerStates()`의 요청 억제 한 곳만 지목했으나, 실제로는 이미 보낸 요청의 늦은 응답이 `SpawnPlayerObject()`로 들어가는 경로가 더 위험해 **두 곳 모두** 막아야 했다
 

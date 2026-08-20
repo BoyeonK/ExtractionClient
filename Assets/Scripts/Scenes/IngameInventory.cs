@@ -103,22 +103,6 @@ public class IngameInventory {
         }
     }
 
-    public void ApplyWeapon(bool primary) {
-        if (primary) {
-            if (_isPrimaryWeaponApplyed) return;
-            if (_primaryWeapon == null) return;
-            _isPrimaryWeaponApplyed = true;
-            GetIngameScene().PlayerController.EquipWeapon(_primaryWeapon.item_id);
-            // TODO: 서버에 무기 전환 요청을 보내고 응답으로 전환 시행
-        } else {
-            if (!_isPrimaryWeaponApplyed) return;
-            if (_secondaryWeapon == null) return;
-            _isPrimaryWeaponApplyed = false;
-            GetIngameScene().PlayerController.EquipWeapon(_secondaryWeapon.item_id);
-            // TODO: 서버에 무기 전환 요청을 보내고 응답으로 전환 시행
-        }
-    }
-
     public void SetPrimaryWeapon(InventoryItem item) => _primaryWeapon = item;
     public void SetSecondaryWeapon(InventoryItem item) => _secondaryWeapon = item;
     public void SetArmor(InventoryItem item) => _armor = item;

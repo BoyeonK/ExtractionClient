@@ -38,6 +38,14 @@ public interface ICombatTarget {
 - **발사 차단**: UI 열림 전환 시 block, 마우스 재클릭(release→press) 시 해제. UI 닫힘 후 마우스 유지만으로는 해제되지 않음
 - **WeaponSpec 캐시**: `EquipWeapon()` 시 정수값을 `/100f`로 변환하여 도(degree) 단위로 캐싱
 
+### 손에 든 무기 (`_equippedWeaponId`)
+
+`EquipWeapon()`이 갱신하는 '손에 든 무기' blueprint_id(0=맨손). `C2DRequestWeaponFire.weapon_dbid`는 **인벤토리에서 다시 유도하지 말고 이 값을 쓸 것** — 서버가 확정해 장착시킨 값이라야 발사가 버려지지 않는다.
+
+- 같은 무기면 파괴·재생성하지 않는다. 인벤토리 조작마다 호출되므로 없으면 손에 안 든 슬롯을 건드려도 무기가 다시 만들어진다
+- 프리팹 캐시에 없는 id는 에러 로그 — 조용히 return하면 맨손으로 보이기만 하고 원인이 남지 않는다
+- 발사 차단 조건에 `IngameScene.IsWeaponSwitchPending`이 포함된다(`IsShooting`). `_fireBlocked`는 마우스 재클릭으로 풀려서 이 용도로 쓸 수 없다
+
 ### Fire() 흐름
 
 1. 탄약 확인 → 없으면 `EmptyAmmoFire()` + `_fireBlocked = true`

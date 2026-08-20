@@ -260,6 +260,16 @@ public class UDPManager {
         SendReliable((ushort)GameProtocol.PktId.C2DRequestEquipItem, pkt);
     }
 
+    // 손에 드는 무기 교체. target_slot은 토글이 아닌 절대 지정(0=주무기, 1=보조무기)이라
+    // 재전송·순서 역전에도 결과가 같다. 결과는 성공·거부 모두 D2CNotifyWeaponChanged로 돌아온다
+    public void SendC2DRequestSwitchWeapon(uint targetSlot, uint myInventoryVersion) {
+        C2DRequestSwitchWeapon pkt = new C2DRequestSwitchWeapon {
+            TargetSlot = targetSlot,
+            MyInventoryVersion = myInventoryVersion
+        };
+        SendReliable((ushort)GameProtocol.PktId.C2DRequestSwitchWeapon, pkt);
+    }
+
     public void SendC2DRequestRecentInventoryInfo(uint objectId) {
         C2DRequestRecentInventoryInfo pkt = new C2DRequestRecentInventoryInfo {
             ObjectId = objectId

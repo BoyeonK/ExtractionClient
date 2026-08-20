@@ -68,13 +68,32 @@
 - 해제는 4곳 — `SpawnPlayerObject`/`SpawnObject`(응답 도착 = 요청 종료. 중복·차단으로 조기 반환하는 경우도 있으므로 **가드보다 앞에서** 제거한다), `DespawnPlayerObject`/`DespawnObject`
 - 디스폰 목록·`_oppoPlayers`·`_sceneObjects`를 모두 확인한다. objectId 공간이 플레이어·비플레이어 공용이고 이 요청도 공용이라(응답이 `D2CSpawnPlayerObject` 또는 `D2CResponseSpawnByObjectId`로 갈린다) 한쪽만 보면 이미 아는 오브젝트를 다시 요청하게 된다
 
-### 무기 변경 통보 (`HandleWeaponChanged`)
+## 손에 든 무기
 
-`D2CNotifyWeaponChanged`의 도착 경로는 셋이며 `object_id`로 갈린다. 남의 **무기 전환**뿐 아니라 남의 **장착·해제**(`C2DRequestEquipItem` 슬롯 0/1 성공)도 이 패킷으로 온다.
+**'장착한 무기'와 '손에 든 무기'는 다른 개념이다.** 인벤토리의 무기 슬롯 2개는 장착이고, 그중 손에 든 것은 하나뿐이다(`IsPrimaryWeaponApplyed`). `C2DRequestWeaponFire.weapon_dbid`는 **손에 든** 쪽이어야 하며, 어긋나면 서버가 발사를 조용히 버린다. 추적 출처가 셋이므로 한 묶음으로 볼 것.
 
-- **본인 objectId로 오는 것은 항상 `C2DRequestSwitchWeapon` 거부다** — 성공 통보는 룸의 '나머지'에게만 가므로 성공/실패 분기가 필요 없다. 도착한 `weapon_id`로 로컬 예측을 되돌린다(`RollbackWeaponPrediction`)
-- 통보에 슬롯이 없어 주/보조가 같은 blueprint면 어느 쪽인지 알 수 없다. **한쪽만 일치할 때만** `IsPrimaryWeaponApplyed`를 확정하고, 동률이면 유지한다(외형·스펙이 같아 차이가 없다)
+| 상황 | 반영 경로 |
+|------|-----------|
+| 남의 초기 무기 | `D2CSpawnPlayerObject.weapon_id` |
+| 남의 변경 | `D2CNotifyWeaponChanged` (장착·해제·전환 전부) |
+| 내 전환 | `C2DRequestSwitchWeapon` → `D2CNotifyWeaponChanged`(성공·거부 모두 본인에게) |
+| **내 장착·해제** | **통보 없음. 클라가 서버 규칙대로 직접 반영** (`SyncHeldWeapon`) |
+
+### 내 장착·해제 규칙 (`SyncHeldWeapon`)
+
+**들고 있던 슬롯이 비었을 때만 반대쪽으로 옮긴다**(양쪽 다 비면 맨손). 그 외에는 손에 든 슬롯을 유지하고, 그 슬롯의 무기가 바뀌었으면 새 무기로 갱신한다. 서버 규칙이며 임의로 바꾸면 `weapon_dbid`가 어긋나 사격이 통째로 무시된다.
+
+### 무기 전환 (`RequestSwitchWeapon` / `HandleWeaponChanged`)
+
+**로컬 예측을 쓰지 않는다.** 키 입력 시점에는 요청만 보내고 손의 무기는 서버 통보 후에만 바꾼다.
+
+- **확정 전 재요청을 막는다**(`IsWeaponSwitchPending`). in-flight 요청이 항상 1개가 되어 통보 순서 역전이 정상 경로에서 발생하지 않는다 — 이 잠금을 푸는 변경(예: 로컬 예측 도입)은 `rSeqNum` 기반 순서 방어를 함께 가져와야 한다
+- **확정 전에는 발사도 막는다.** reliable(교체)과 unreliable(사격) 사이에 순서 보장이 없다. `PlayerController._fireBlocked`는 마우스 재클릭으로 풀리므로 재사용 금지
+- 통보의 `slot`/`weapon_id`가 **성공·거부 구분 없이 항상 권위값**이다. 상태 반영은 한 경로(`ApplyServerWeaponState`)로 처리하고, 갈리는 것은 재동기화 여부뿐이다
+- 판정은 `slot == 보낸 target_slot`. **`object_id`가 본인이라고 거부가 아니다**(구 스펙). 거부 중 **버전 불일치일 때만** 재동기화하고 **자동 재요청은 하지 않는다**
+- 통보의 `inventory_version`으로 로컬 버전을 갱신하지 않는다. 버전만 맞추고 슬롯 내용이 낡으면 다음 요청이 '버전은 맞는데 내용은 틀린' 상태로 통과한다
 - `weapon_id = 0`은 맨손이다. `EquipWeapon`에 그대로 넘길 것 — `weaponId != 0` 가드를 붙이면 맨손 전환이 반영되지 않는다
+- 남의 통보에는 `inventory_version`이 `0xFFFFFFFF`로 온다. `0`은 실재하는 버전(세션 시작값)이라 미설정으로 읽으면 안 된다
 - 남의 방어구·실드·HP는 어떤 패킷으로도 오지 않는다(`armor_id`는 스펙에서 삭제됨)
 
 ## 비플레이어 오브젝트 관리

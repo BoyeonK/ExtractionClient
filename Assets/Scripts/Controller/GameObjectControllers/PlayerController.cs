@@ -24,6 +24,9 @@ public class PlayerController : GameObjectController, ICombatTarget {
     Transform _weaponSocketTr;
     GameObject _equippedWeaponGo;
 
+    // 손에 든 무기 blueprint_id (0=맨손). 서버가 보는 값과 같아야 발사가 버려지지 않는다
+    int _equippedWeaponId;
+
     // 발사 타이머
     float _fireTimer = 0f;
     float _fireInterval = 0f; // 60f / RPM
@@ -64,8 +67,11 @@ public class PlayerController : GameObjectController, ICombatTarget {
 
     bool IsMoving => _w || _s || _a || _d;
     bool IsRunning => IsMoving && _shift;
+    // 무기 교체가 확정되기 전에는 쏘지 않는다 — reliable(교체)과 unreliable(사격) 사이에
+    // 순서 보장이 없어, 사격이 먼저 처리되면 weapon_dbid 불일치로 조용히 버려진다
     bool IsShooting => Mouse.current != null && Mouse.current.leftButton.isPressed
-                       && !_ingameScene.IsAnyUIOpen && !IsRunning;
+                       && !_ingameScene.IsAnyUIOpen && !IsRunning
+                       && !_ingameScene.IsWeaponSwitchPending;
 
     public override void Init() {
         base.Init();
@@ -116,14 +122,22 @@ public class PlayerController : GameObjectController, ICombatTarget {
     }
 
     public void EquipWeapon(int weaponId) {
+        // 인벤토리 조작마다 호출되므로 같은 무기면 파괴·재생성하지 않는다
+        if (_equippedWeaponId == weaponId && _equippedWeaponGo != null) return;
+
         if (_equippedWeaponGo != null) {
             Managers.Resource.Destroy(_equippedWeaponGo);
             _equippedWeaponGo = null;
         }
 
+        _equippedWeaponId = weaponId;
+        if (weaponId == 0) return;   // 맨손
+
         IngameScene scene = Managers.Scene.CurrentScene as IngameScene;
-        if (!scene.WeaponPrefabCache.TryGetValue(weaponId, out GameObject weaponPrefab))
+        if (!scene.WeaponPrefabCache.TryGetValue(weaponId, out GameObject weaponPrefab)) {
+            Util.LogError($"무기 프리팹이 없어 맨손으로 표시된다 weaponId={weaponId} — Resources/Prefabs/Weapons에 Weapon_{weaponId}_* 필요");
             return;
+        }
 
         _equippedWeaponGo = Object.Instantiate(weaponPrefab, _weaponSocketTr);
         _equippedWeaponGo.transform.localPosition = Vector3.zero;
@@ -311,11 +325,9 @@ public class PlayerController : GameObjectController, ICombatTarget {
     }
 
     private void ProcessHit(RaycastHit hit, bool hasHit) {
-        // 현재 장착 총기의 blueprintId
-        InventoryItem currentWeapon = _ingameScene.Inventory.IsPrimaryWeaponApplyed
-            ? _ingameScene.Inventory.PrimaryWeapon
-            : _ingameScene.Inventory.SecondaryWeapon;
-        uint weaponDbid = currentWeapon != null ? (uint)currentWeapon.item_id : 0;
+        // '장착한' 무기가 아니라 '손에 든' 무기여야 한다. 인벤토리에서 다시 유도하면
+        // 교체 확정 전 상태를 실을 수 있어, 서버가 확정해 장착시킨 값을 그대로 쓴다
+        uint weaponDbid = (uint)_equippedWeaponId;
 
         // 피격 대상 object_id 추출
         uint hitObjectId = 0xFFFFFFFF;

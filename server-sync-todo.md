@@ -114,7 +114,9 @@ ACK 실패 횟수로 연결 생사를 판정하던 방식을 폐기하고, 수�
 3. `_oppoPlayers`에 있으면 `EquipWeapon((int)weaponId)` — **`weaponId != 0` 가드를 붙이면 안 된다.** 걸러내면 맨손 전환이 반영되지 않는다
 4. 그 외 → `RequestSpawnIfUnknown()`. 이번 `weaponId`는 버린다. 스폰 응답의 `weapon_id`가 이 통보보다 최신이라 pending 맵을 둘 이유가 없다
 
-**롤백은 T9와 맞물린다.** 통보에 `weapon_id`만 있고 슬롯이 없어, 지금은 주/보조의 `item_id`와 대조해 **한쪽만 일치할 때만** `IsPrimaryWeaponApplyed`를 확정한다. 양쪽이 같은 blueprint면 외형·스펙이 동일해 상태를 유지해도 차이가 없다. T9에서 보낸 `target_slot`을 기억하면 이 함수 안만 대조로 승격하면 된다(거부 확정이므로 요청한 슬롯의 반대쪽).
+**⚠ 아래 2·4항과 롤백 설명은 2026-08-21 proto 변경으로 폐기됐다 — T9 항목을 볼 것.** 성공도 요청자에게 오게 되어 "본인 수신 = 거부"가 성립하지 않고, `slot` 필드가 생겨 `item_id` 추정도 필요 없어졌다. 여기 남겨두는 이유는 당시 판단 근거를 잃지 않기 위해서다.
+
+~~**롤백은 T9와 맞물린다.** 통보에 `weapon_id`만 있고 슬롯이 없어, 지금은 주/보조의 `item_id`와 대조해 한쪽만 일치할 때만 `IsPrimaryWeaponApplyed`를 확정한다.~~
 
 **부수 작업 3건**
 
@@ -135,14 +137,34 @@ T8의 분기 4를 붙이면서 드러난 기존 문제. `UpdatePlayerStates()`�
 - 해제 지점 4곳: `SpawnPlayerObject` / `SpawnObject`(응답 도착 = 요청 종료, 스폰 여부와 무관하게 조기 반환보다 앞에서 제거) / `DespawnPlayerObject` / `DespawnObject`
 - `UpdatePlayerStates()`도 이 헬퍼를 쓰도록 교체했다
 
-### [ ] T9. `C2DRequestSwitchWeapon`(38) 송신 — 신규
-- `Assets/Scripts/Network/UDPManager.cs`에 송신 함수 추가 (reliable)
-- `IngameInventory.ApplyWeapon()`의 TODO 해소 (`Assets/Scripts/Scenes/IngameInventory.cs:112`, `:118`)
-- **1/2 키 바인딩 추가** — 현재 `ApplyWeapon` 호출자가 아예 없다
-- `target_slot`은 토글이 아닌 절대 지정(0=주무기, 1=보조무기). 재전송·순서 역전에 안전
-- `my_inventory_version`에 가장 최근 서버 인벤토리 버전(`Inventory.InventoryVersion`)을 실을 것
-- 성공/거부 모두 `D2CNotifyWeaponChanged`로 돌아오므로 성공·실패 분기 불필요
-- **설계 판단 필요**: 응답에 `weapon_id`만 오고 slot이 없어 주/보조가 같은 blueprint면 구분 불가 → 보낸 `target_slot`을 로컬에 기억해두고 대조하는 방식 권장
+### [x] T9. `C2DRequestSwitchWeapon`(38) 송신 + 무기 전환 — 완료 (2026-08-21)
+`Assets/Scripts/Network/UDPManager.cs`, `Assets/Scripts/Network/PacketHandler.cs`, `Assets/Scripts/Scenes/IngameScene.cs`, `Assets/Scripts/Scenes/IngameInventory.cs`, `Assets/Scripts/Controller/GameObjectControllers/PlayerController.cs`
+
+**착수 직전에 서버가 계약을 바꿨다(proto 2026-08-21).** `D2CNotifyWeaponChanged`에 `slot`·`inventory_version`이 추가되고 **성공도 요청자에게 오게 되면서**, T8이 세워둔 "본인 수신 = 거부" 전제와 `item_id` 추정 롤백이 통째로 폐기됐다. 아래는 새 계약 기준이다.
+
+- **로컬 예측을 쓰지 않는다.** 키 입력 시점에는 요청만 보내고, 손의 무기는 서버 통보가 온 뒤에만 바꾼다. 확정 전 재요청을 막으므로 in-flight 요청이 항상 1개이고, 그 결과 **정상 경로에서는 통보 순서 역전이 발생하지 않는다**
+- 판정: `slot == 보낸 target_slot`이면 성공, 아니면 거부. 다만 **상태 반영은 성공·거부가 같다**(도착한 `slot`/`weapon_id`가 항상 권위값). 갈리는 것은 재동기화 여부뿐이라 `ApplyServerWeaponState()` 하나로 처리하고 분기는 그 밖에 둔다
+- 거부 중 **버전 불일치일 때만** `RequestRecentInventoryInfo()`. **자동 재요청은 하지 않는다**(버전이 계속 움직이면 루프가 된다) — 재입력은 사용자에게 맡긴다
+- **통보의 `inventory_version`으로 로컬 버전을 갱신하지 않는다.** 버전만 맞추고 슬롯 내용이 낡으면 다음 요청이 '버전은 맞는데 내용은 틀린' 상태로 통과한다. 갱신은 재동기화 응답에 맡긴다
+- **교체 확정 전 발사 차단** — `IngameScene.IsWeaponSwitchPending`을 `PlayerController.IsShooting` 조건에 추가. reliable(교체)과 unreliable(사격) 사이에 순서 보장이 없어 사격이 먼저 처리되면 서버가 조용히 버린다. `_fireBlocked`는 마우스 재클릭으로 풀려 재사용할 수 없다
+- **TEMP 워치독(3초)** — 통보가 오지 않으면 발사가 그 판 내내 막힌다. 만료 시 잠금만 풀고 무기 상태는 건드리지 않는다(판정 권한은 서버 유지). T15 귀환 워치독과 같은 비대칭 논리
+- `C2DRequestWeaponFire.weapon_dbid`를 인벤토리에서 다시 유도하지 않고 `PlayerController._equippedWeaponId`(서버가 확정해 장착시킨 값)로 교체. proto가 '장착한'이 아니라 **'손에 든'** 무기를 요구하도록 바뀌었다
+- 1/2 키(`Key.Digit1`/`Digit2`) 바인딩. UI 열림 중에도 허용한다
+- **`IngameInventory.ApplyWeapon()`은 TODO 해소가 아니라 삭제했다** — 예측을 쓰지 않으면서 호출자가 하나도 없어졌고, 하는 일이 `ApplyServerWeaponState()`와 완전히 겹친다
+- `PlayerController.EquipWeapon()`에 같은 무기면 재생성하지 않는 가드 + 프리팹 캐시 미스 에러 로그 추가(T8에서 `OppoPlayerController`에 넣은 것과 대칭). 인벤토리 조작마다 손에 안 든 슬롯을 건드려도 무기가 파괴·재생성되고 있었다
+
+**`OPTION:` 통보 순서 역전 방어** — 클라가 수신 reliable을 중복 제거하지 않아(`PacketHandler`가 디스패치 전 중복 검사를 하지 않는다), ACK 유실로 재전송된 옛 통보가 새 통보 뒤에 도착하면 낡은 슬롯이 다시 적용된다. 다음 교체에서 교정되므로 방치 가능. 막으려면 마지막 반영 `rSeqNum`을 기억해야 하는데 `HandlerFunc`가 페이로드만 받아 **핸들러 25개의 시그니처 변경**이 선행된다. 로컬 예측을 도입하면 그때는 필수다.
+
+**`OPTION:` 무기 전환 로컬 예측** — 즉시 적용 후 거부 시 롤백. 서버 통보가 정확히 오는 것이 확인된 뒤 도입한다. 도입하면 발사 차단 게이트와 재요청 차단이 함께 풀리므로 위 순서 방어가 전제 조건이 된다.
+
+### [x] T9-a. 장착 조작 시 '손에 든 슬롯' 규칙 반영 — 완료 (2026-08-21)
+`Assets/Scripts/Scenes/IngameScene.cs`
+
+proto가 규칙을 명문화하면서(`C2DRequestEquipItem` 주석) T8 시점 구현이 서버와 어긋나 있던 것이 드러났다. 무기 슬롯 조작으로 손에 든 슬롯이 바뀌는 경우 **본인에게는 통보가 오지 않아** 클라가 직접 반영해야 한다.
+
+- 규칙: **들고 있던 슬롯이 비었을 때만 반대쪽으로 옮긴다**(양쪽 다 비면 맨손). 그 외에는 손에 든 슬롯을 유지하고, 그 슬롯의 무기가 바뀌었으면 새 무기로 갱신
+- T8에서 "해제하면 맨손"으로 고쳐둔 것이 이 규칙과 어긋났다. 서버가 보조무기를 손에 들려준 상태에서 클라만 맨손이 되면 **`weapon_dbid` 불일치로 사격이 통째로 무시된다**. 그전 코드(해제해도 이전 무기가 손에 남음)도 방향만 다른 오류였다
+- `SyncHeldWeapon()`으로 분리해 `ApplyEquipItem`에서 호출
 
 ### [ ] T10. `D2CNotifyPlayerKilled`(40) 처리 / 킬 피드 UI — 신규
 - 피해자 본인 제외, 룸 전체 수신. `killer_object_id == 0xFFFFFFFF`면 가해자 없는 죽음(**0이 아니다**)
@@ -230,8 +252,9 @@ T8의 분기 4를 붙이면서 드러난 기존 문제. `UpdatePlayerStates()`�
 
 ## 착수 전 결정해야 할 것
 
-1. **T2** — 클라 재전송 한도(상향 / 제거 / 유지)
+1. ~~**T2** — 클라 재전송 한도~~ → 제거로 확정 (2026-08-19)
 2. **T13** — 시신 컨테이너 프리팹을 새로 만들지, 기존 컨테이너 프리팹을 재사용할지
-3. **T9** — 무기 전환의 로컬 예측 방식(예측 후 롤백 / 응답 대기 후 적용)
+3. ~~**T9** — 무기 전환의 로컬 예측 방식~~ → **응답 대기 후 적용**으로 확정 (2026-08-21). 예측은 동작 검증 후 `OPTION:`으로 도입
 4. **T10** — 킬 피드 UI를 이번에 붙일지, 로그만 남기고 미룰지
 5. **T14** — HP를 갖는 비플레이어 오브젝트 목록(서버 확인)
+6. **초기 손 무기 규칙** — 클라 `InitWeapon()`은 주무기 우선인데 서버 규칙이 같은지 확인되지 않았다. 어긋나면 매치 시작부터 내 화면과 남의 화면 무기가 다르고 `weapon_dbid` 불일치로 사격이 버려진다. 전환 로직이 아니라 **초기 상태**의 문제라 T9 검증에서 드러나지 않을 수 있다
