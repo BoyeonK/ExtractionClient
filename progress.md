@@ -1,6 +1,6 @@
 # 프로젝트 진행 상황
 
-> 최종 수정: 2026-08-20
+> 최종 수정: 2026-08-21
 > 장르: 멀티플레이어 Extraction 게임 (알파 단계)
 > 엔진: Unity 6000.4.0f1 / URP 17.4.0
 
@@ -16,12 +16,12 @@
 - [x] (2026-08-20 #0) 체력 게이지 연결 + 표시 버그 2건 수정 (server-sync T12 마무리) — `IngameHealthBarUI.Init()`(`HealthBarBg/HealthBarFill`, `ArmorBarBg/ArmorBarFill`) 신설 후 `IngameScene.Init()`에서 호출해 영구 null 상태를 해소. 연결 과정에서 발견한 2건도 수정: ① **초기 게이지 값이 한 번도 안 밀렸다** — `SetHP`/`SetArmor` 호출부가 피격·재생 틱뿐이라 첫 피격 전까지 프리팹에 저장된 `fillAmount`가 그대로 보였다. `SyncHealthBarMax()`에서 최대치 직후 현재값도 밀도록 추가(최대치 → 현재값 순서여야 `SetArmor`가 최대 실드 0 가드에 안 걸림) ② **최대 실드가 0이 될 때 실드 바가 안 비워졌다** — `SetArmor()`의 `_maxShield <= 0f` 조기 반환 탓에 벗기 직전 `fillAmount`가 남았다. 반환 대신 `fillAmount = 0`으로 교체. 조건은 '방어구 교체'가 아니라 최대 실드가 0이 되는 것이며(해제 / 스펙 미등록 방어구 / equip 분기에 빈 슬롯이 소스), **정상 교체는 새 방어구 최대치가 들어와 원래부터 문제없다**
 - [x] (2026-08-20 #1) 플레이어 디스폰 처리 + 유령 재스폰 차단 (server-sync T3 일부·T7) — `D2CDespawnPlayerObject`(35) 등록 + `Handle_D2CDespawnPlayerObject` + `IngameScene.DespawnPlayerObject()`. **지금까지 다른 플레이어가 사라지는 경로 자체가 없어** 죽거나 탈출해도 캐릭터가 맵에 영원히 남아 있었다. `DespawnReason`별 연출은 에셋이 없어 `TODO:`로 보류하고 사유와 무관하게 즉시 제거. **차단 지점이 두 곳이라는 것이 핵심** — 문서가 지목한 `UpdatePlayerStates()`의 요청 억제만으로는 부족하고, 이미 보낸 `C2DRequestSpawnByObjectId`의 응답이 디스폰보다 늦게 도착해 `SpawnPlayerObject()`가 되살리는 경로가 더 위험하다. `_despawnedObjectIds`(만료 없는 씬 수명 `HashSet<uint>`, 플레이어·비플레이어 공용)로 양쪽을 막았다. 만료 창을 쓰지 않은 이유는 창보다 늦게 오는 패킷이 뚫기 때문이며, 재전송 한도를 없앤 뒤로 그 경로가 넓어졌다. T3은 5개 일괄 등록 대신 **구현과 함께 하나씩 등록**하는 방침으로 변경 — 빈 스텁 등록은 패킷을 조용히 삼키지만 미등록은 경고 로그로 드러난다
 - [x] (2026-08-20 #3) 비플레이어 오브젝트 스폰·디스폰 배선 (server-sync T4·T5·T6) — `_sceneObjects`(objectId → `GameObjectController`) 레지스트리 신설 + `D2CNotifySpawnObject`(36)·`D2CNotifyDespawnObject`(39) 처리. **T4의 실제 작업은 딕셔너리 추가가 아니라 스폰 경로 일원화였다** — `Handle_D2CResponseSpawnByObjectId`가 씬을 거치지 않고 `Managers.Resource.InstantiateFromObjectDataStruct()`를 직접 부르고 있어, 그대로 뒀다면 등록되지 않은 오브젝트가 생겨 레지스트리에 구멍이 났다. `IngameScene.SpawnObject()`를 유일한 스폰 경로로 삼고 호출부 3곳(정적·동적 초기 스폰, 지연 스폰 응답)을 전부 라우팅해 중복 검사·디스폰 차단·매핑 검사를 한곳에 모았다. `D2CNotifySpawnObject`는 `D2CResponseSpawnByObjectId`와 페이로드가 같아 변환부를 `PacketHandler.ToObjectData()`로 분리해 공용화. 매핑 없는 `object_type`은 빈 경로 로드 실패로 조용히 묻히던 것을 타입 번호·objectId를 찍는 에러 로그로 교체(`Undefined`는 키가 있어도 경로가 null이라 함께 걸러냄). **보류돼 있던 판단 확정**: 이미 파괴된 컨테이너에 `C2DCloseContainer`를 보내지 않는다 — 서버 통보를 분리해 `CloseContainerLocal()` 신설
+- [x] (2026-08-21 #0) 체력/실드 게이지 Fill 이미지 Editor 설정 (server-sync T12 렌더 경로) — `HealthBarFill`/`ArmorBarFill`의 Image Type을 `Filled`로 맞추고 스프라이트를 신규 `Assets/Resources/White_Square.png`(Sprite, border 0)로 지정. **코드 변경 없음** — `(2026-08-20 #0)`에서 "값은 정상인데 그림만 안 바뀌던" 원인이 이것 하나였다. `fillAmount`는 Type이 `Filled`일 때만 동작하고 `Simple`/`Sliced`면 대입이 **에러 없이 무시된다**. 씬 오버라이드에는 두 Image 중 한쪽에만 `m_Type`이 실렸는데, 나머지 하나는 프리팹 기본값이 이미 `Filled`라 정상이다. 이 제약은 앞으로 추가될 게이지에도 그대로 적용되므로 `UI/CLAUDE.md`의 `IngameHealthBarUI` 항목에 상시 규칙으로 남겼다. **런타임 실측은 아직** — 아래 '확인 필요' 참조
 
 ### 매니저/리소스
 - [x] (2026-08-20 #2) 오브젝트 풀링 코드 전면 제거 — `PoolManager.cs`·`Poolable.cs`(+`.meta`) 삭제, `Managers.cs`의 `_pool`/`Pool`/`_pool.Init()`/`Pool.Clear()` 제거, `ResourceManager`의 `Instantiate()`·`Destroy()` 분기와 `Load<T>()`의 GameObject 분기 전체 제거(풀 조회가 유일한 목적이라 이름 추출까지 통째로 죽은 코드였음 → `Resources.Load<T>` 한 줄로 축약). **동작 변화 없음** — `Poolable`을 어디에도 부착하지 않아 세 분기 모두 항상 false로 흘렀고 `GetOriginal()`은 항상 null이었다. 풀링이 필요해지면 별도 방식으로 새로 만들 예정. `Util.GetOrAddComponent`는 `UIManager` 등이 쓰므로 유지
 
 ### 문서/설정
-- [x] (2026-08-19 #0) 서버 변경분 클라이언트 반영 작업 리스트 문서화 — `External_Protocol.proto`의 `[작업사항]` 주석(서버 2026-08-12 이후 변경분)을 클라 코드 현재 상태와 대조해 `server-sync-todo.md` 신규 작성. T1~T17을 0~3순위로 분류하고 각 항목에 `파일:줄번호` 레퍼런스·근거·판단 필요 지점을 명시. 조사 과정에서 파생 버그 2건(`timestampEcho` 갱신 범위, `IngameHealthBarUI` 필드 바인딩 누락) 발견. 코드 변경 없음
 - [x] (2026-08-19 #3) 미완성 코드 주석 마커 카테고리화 — `TODO:`(미구현) / `TEMP:`(테스트용으로 막아둔 것) / `OPTION:`(없어도 무방한 개선) 3분류를 정의하고 기존 주석 23개를 재분류·표기 통일(`//TODO :` 등 혼재 → `// MARKER: `). 귀환 성공·취소 처리는 테스트 목적이 아닌 미구현이므로 TEMP→TODO로 이동. 코드와 어긋난 TODO 2건(`UI_Login`의 로그인 시도, `LobbyScene`의 게임 씬 로드 — 둘 다 이미 구현되어 있었음) 삭제. 규칙 표는 루트 `CLAUDE.md` 컨벤션 5번에 추가
 
 ---
@@ -32,26 +32,26 @@
 > proto의 `[작업사항]` 주석을 추적한 임시 문서이며, 전 항목 반영 후 이 파일로 이관하고 삭제할 것.
 > 아래 목록과의 대응: 2번(귀환 최종 결과 실처리) = T15, 5번(워치독 제거 검토) = T15에 종속
 
-1. **서버 변경분 반영 (`server-sync-todo.md`)** — T1·T2·T4~T7·T11·T12 완료(T3은 구현과 함께 하나씩 등록하는 방침으로 진행 중). 남은 것은 T8·T9(무기 전환) → T10(킬 피드) → T15(귀환 후처리) → T16·T17. **T13은 시신 프리팹 제작 대기, T14는 서버 목록 대기**
+1. **서버 변경분 반영 (`server-sync-todo.md`)** — T1·T2·T4~T7·T11 완료, T12는 코드·Editor 작업이 끝나고 **런타임 실측만 남음**(T3은 구현과 함께 하나씩 등록하는 방침으로 진행 중). 남은 것은 T8·T9(무기 전환) → T10(킬 피드) → T15(귀환 후처리) → T16·T17. **T13은 시신 프리팹 제작 대기, T14는 서버 목록 대기**
 2. **귀환 최종 결과 실처리 + 연결 끊김 처리** — `HandleRecallResult`의 TODO를 실제 처리로 교체. 성공 시 탈출 연출·씬 전환 + 잠금 유지(이미 맵을 떠나므로 해제하면 전환 지연 중 재요청 가능). 취소 시 `reason`별 분기(`OUT_OF_ZONE`·`SERVER_INTERNAL`은 재시도 허용, `PLAYER_DEAD`·`SESSION_LOST`는 각 흐름에 위임). **연결 끊김도 같은 출구가 필요하다** — 현재 `UDPManager.Disconnect()`는 소켓만 정리해 플레이어가 인게임 씬에 그대로 남는다. 매치 종료 화면을 만들 때 함께 처리할 것
 3. **귀환 스팟 씬 배치** — 맵 씬에 귀환 단말기 오브젝트 배치, `RecallSpotController` 부착 후 인스펙터에서 `_recallSpotIndex`를 서버 테이블 값에 맞춤. 조준 레이가 맞아야 하므로 트리거가 아닌 일반 콜라이더 사용
-4. **체력 게이지 Image Type 수정 (Editor, 소요 짧음)** — `HealthBarFill`/`ArmorBarFill`의 Image Type을 `Filled`로 변경 + Fill Method·Origin 설정. **값은 정상적으로 들어오는데 그림만 안 바뀌는 것이 실측으로 확인됐다**(2026-08-20). `fillAmount`는 Type이 `Filled`일 때만 동작하며 그 외에는 대입이 조용히 무시된다. 이게 되어야 T11·T12의 시각 검증(매치 진입 직후 HP 만피·실드 0 → 방어구 착용 후 초당 100(=1%) 상승 → 피격 시 서버값 점프 → 방어구 해제 시 0)이 끝난다
-5. **귀환 진행 중 UI 피드백** — 승인~결과 사이 5초 구간 표시(카운트다운 등). `InteractText`는 매 프레임 재조회되므로 `virtual` 프로퍼티화하면 동적 텍스트 전환 가능
-6. **TEMP 귀환 워치독 제거 검토** — 서버 통지 신뢰성이 검증되면 `RECALL_TIMEOUT`/`_recallTimer` 및 `OnUpdate()`의 TEMP 블록 제거. 2번이 끝나기 전까지는 워치독이 정상 경로까지 떠받치므로 먼저 제거하지 말 것
-7. **발사 이펙트 프리팹 준비 → 이펙트 구현** — 로컬 탄착 이펙트(`ProcessHit`), 수신 측 머즐 플래시/총성/탄착 이펙트(`HandleWeaponFireBroadcast`). 파티클·사운드 에셋이 `Resources/Prefabs/` 아래에 필요
-8. **탄약 차감 주석 해제** — `Fire()` 내 `magazine.quantity--` 및 빈 탄창 가드. 테스트 완료 후 활성화
-9. **EmptyAmmoFire() 구현** — 빈 탄창 사운드, 재장전 유도 UI
-10. **인벤토리 열기/닫기 키바인딩** — Tab키로 MyInventory 토글 등 추가 입력 연결 (컨테이너 E/I키 닫기는 완료). 무기 전환 1/2 키는 T9에서 함께 처리
-11. **실제 맵 씬에서 IngameScene 상속 완성** — `IngameScene`을 상속하는 맵별 씬 컴포넌트 구현
-12. **설정값 실제 적용** — 해상도/창모드/FOV 변경이 `Screen.SetResolution()`, `Camera.fieldOfView` 등에 반영되도록 구현
+4. **귀환 진행 중 UI 피드백** — 승인~결과 사이 5초 구간 표시(카운트다운 등). `InteractText`는 매 프레임 재조회되므로 `virtual` 프로퍼티화하면 동적 텍스트 전환 가능
+5. **TEMP 귀환 워치독 제거 검토** — 서버 통지 신뢰성이 검증되면 `RECALL_TIMEOUT`/`_recallTimer` 및 `OnUpdate()`의 TEMP 블록 제거. 2번이 끝나기 전까지는 워치독이 정상 경로까지 떠받치므로 먼저 제거하지 말 것
+6. **발사 이펙트 프리팹 준비 → 이펙트 구현** — 로컬 탄착 이펙트(`ProcessHit`), 수신 측 머즐 플래시/총성/탄착 이펙트(`HandleWeaponFireBroadcast`). 파티클·사운드 에셋이 `Resources/Prefabs/` 아래에 필요
+7. **탄약 차감 주석 해제** — `Fire()` 내 `magazine.quantity--` 및 빈 탄창 가드. 테스트 완료 후 활성화
+8. **EmptyAmmoFire() 구현** — 빈 탄창 사운드, 재장전 유도 UI
+9. **인벤토리 열기/닫기 키바인딩** — Tab키로 MyInventory 토글 등 추가 입력 연결 (컨테이너 E/I키 닫기는 완료). 무기 전환 1/2 키는 T9에서 함께 처리
+10. **실제 맵 씬에서 IngameScene 상속 완성** — `IngameScene`을 상속하는 맵별 씬 컴포넌트 구현
+11. **설정값 실제 적용** — 해상도/창모드/FOV 변경이 `Screen.SetResolution()`, `Camera.fieldOfView` 등에 반영되도록 구현
 
 ---
 
 ## 메모
 
-### 확인 필요 (2026-08-20)
-- **T14용 HP 보유 비플레이어 오브젝트 목록** — 서버 답변 대기 중. 이게 와야 `ICombatTarget` 구현 대상이 정해진다
-- **`Poolable` 삭제 후 Unity 콘솔 확인** — MonoBehaviour라 프리팹·씬 오브젝트에 수동으로 붙어 있었다면 "Missing (Mono Script)" 경고가 뜬다. 코드가 붙이는 경로는 없었으므로 가능성은 낮다
+### 확인 필요
+- **(2026-08-21) 체력/실드 게이지 런타임 실측** — Fill 이미지 설정이 끝나 이제 눈으로 확인만 남았다. 순서: 매치 진입 직후 HP 만피·실드 0 → 방어구 착용 후 초당 100(=1%) 상승 → 피격 시 서버값으로 점프(`[HealthChange]` 로그와 대조) → 방어구 해제 시 0. 통과하면 T11·T12를 함께 종료 처리한다. **어긋나면 원인은 이제 스크립트 쪽이다** — Editor 설정이 유일한 잔여 변수였으므로 남는 후보는 `SyncHealthBarMax()` 호출 시점과 실드 예측 누적 로직
+- **(2026-08-20) T14용 HP 보유 비플레이어 오브젝트 목록** — 서버 답변 대기 중. 이게 와야 `ICombatTarget` 구현 대상이 정해진다
+- **(2026-08-20) `Poolable` 삭제 후 Unity 콘솔 확인** — MonoBehaviour라 프리팹·씬 오브젝트에 수동으로 붙어 있었다면 "Missing (Mono Script)" 경고가 뜬다. 코드가 붙이는 경로는 없었으므로 가능성은 낮다
 
 ### 서버 계약 (2026-08-20 확인)
 - **objectId는 한 게임 안에서 단조 증가하며 재사용되지 않는다. 죽은 오브젝트가 살아나지도 않는다.** proto에 문서화된 보장은 아니다. `_despawnedObjectIds`를 만료 없이 씬 수명 내내 들고 가는 설계의 근거이며, 서버 계약이 바뀌면 이 설계를 다시 봐야 한다(증상은 "특정 오브젝트가 끝까지 안 보임")

@@ -141,7 +141,7 @@ ACK 실패 횟수로 연결 생사를 판정하던 방식을 폐기하고, 수�
 - 검증용 `Util.Log` 1줄 추가. 게이지 갱신은 T12에서 연결됨
 - 이 패킷은 여전히 피해 입은 본인에게만 온다
 
-### [x] T12. 실드 재생 로컬 예측 — 구현 완료 (2026-08-19) / 게이지 연결 (2026-08-20)
+### [~] T12. 실드 재생 로컬 예측 — 구현 (2026-08-19) / 게이지 연결 (2026-08-20) / Editor 설정 (2026-08-21) — **런타임 실측 대기**
 `Assets/Scripts/Scenes/IngameScene.cs`, `Assets/Scripts/UI/IngameScene/IngameHealthBarUI.cs`
 
 - 서버 공식 그대로 구현: `UpdateShieldRegen()`이 `(재생량 × 경과ms)`를 `_shieldRegenAccum`에 누적해 1000에 도달할 때마다 1 회복. 실수 보간이 아닌 정수 회복이라 서버와 어긋나지 않는다
@@ -158,9 +158,12 @@ ACK 실패 횟수로 연결 생사를 판정하던 방식을 폐기하고, 수�
 - **초기 게이지 값이 한 번도 안 밀렸다** — `SetHP`/`SetArmor` 호출부가 피격·재생 틱뿐이라 첫 피격 전까지 프리팹에 저장된 `fillAmount`가 그대로 보였다. `SyncHealthBarMax()`에서 최대치 세팅 직후 현재값도 밀도록 추가(최대치 → 현재값 순서여야 `SetArmor`가 최대 실드 0 가드에 안 걸린다)
 - **최대 실드가 0이 될 때 실드 바가 안 비워졌다** — `SetArmor()`의 `_maxShield <= 0f` 조기 반환 때문에 벗기 직전 `fillAmount`가 남았다. 반환 대신 `fillAmount = 0`으로 교체. 조건은 '방어구 교체'가 아니라 **최대 실드가 0이 되는 것**이며 해당 경로는 셋 — 해제 / `_armorSpecs`에 없는 방어구로 교체(현재 Armor 아이템이 id 4 하나뿐이라 도달 불가하나 스펙 등록 누락 시 재현) / equip 분기에 빈 슬롯이 소스로 들어와 실질 해제가 되는 경우. **정상 교체는 새 방어구 최대치가 들어와 가드를 통과하므로 원래부터 문제없다**
 
-**실측 결과 (2026-08-20)**: **값은 정상적으로 들어오는데 이미지가 변하지 않는다.** 즉 스크립트 경로는 `fillAmount` 대입 직전까지 정상이고, 남은 원인은 `HealthBarFill`/`ArmorBarFill`의 **Image Type이 `Filled`가 아닌 것** 하나다(`Simple`/`Sliced`면 대입이 에러 없이 무시된다).
+**실측 경과**
 
-**남은 것**: Editor에서 Image Type을 `Filled`로 변경 + Fill Method·Origin 설정. **코드 작업 아님** — 후순위로 미뤄둠(`progress.md` 우선순위 4번). 이후 시각 검증: 매치 진입 직후 HP 만피·실드 0 → 방어구 착용 후 초당 100(=1%) 상승 → 피격 시 서버값 점프(`[HealthChange]` 로그와 대조) → 방어구 해제 시 0.
+- (2026-08-20) **값은 정상적으로 들어오는데 이미지가 변하지 않았다.** 스크립트 경로는 `fillAmount` 대입 직전까지 정상이고, 원인은 `HealthBarFill`/`ArmorBarFill`의 **Image Type이 `Filled`가 아닌 것** 하나로 좁혀졌다(`Simple`/`Sliced`면 대입이 에러 없이 무시된다)
+- (2026-08-21) **Editor 작업 완료** — 두 Fill 이미지의 Type을 `Filled`로 맞추고 스프라이트를 신규 `Assets/Resources/White_Square.png`(Sprite, border 0)로 지정. 코드 변경 없음. 씬 오버라이드(`TestIngame.unity`)에는 한쪽 Image의 `m_Type`만 실리는데, 나머지는 프리팹 기본값이 이미 `Filled`라 정상이다. 이 제약은 앞으로 추가될 게이지에도 그대로 적용되므로 `Assets/Scripts/UI/CLAUDE.md`의 `IngameHealthBarUI` 항목에 상시 규칙으로 남겨둔다
+
+**남은 것**: 런타임 시각 검증만. 매치 진입 직후 HP 만피·실드 0 → 방어구 착용 후 초당 100(=1%) 상승 → 피격 시 서버값 점프(`[HealthChange]` 로그와 대조) → 방어구 해제 시 0. 이게 통과하면 T11·T12를 함께 종료 처리한다. **어긋나면 원인은 이제 스크립트 쪽이다** — Editor 설정이 유일한 잔여 변수였으므로, 남는 후보는 `SyncHealthBarMax()` 호출 시점과 실드 예측 누적 로직이다.
 
 ### [ ] T13. `object_type = 3` (Corpse) 매핑 — **프리팹 대기**
 `Assets/Scripts/Utils/Define.cs:29-40`
