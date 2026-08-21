@@ -9,6 +9,8 @@ public class PlayerController : GameObjectController, ICombatTarget {
     // 카메라 및 Raycast
     Camera _camera;
     GameObject _viewPoint;
+    // 사망 연출이 같은 시점의 카메라를 새로 만들 때 화각·클리핑을 물려받는다
+    public Camera ViewCamera => _camera;
     Vector3 _raycastDir = new Vector3(0.05f, 0.15f, -0.4f);
     Transform _aimTarget;
 

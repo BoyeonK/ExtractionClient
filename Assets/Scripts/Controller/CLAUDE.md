@@ -18,6 +18,16 @@ GameObjectController (MonoBehaviour)
   - 상호작용 판정이 `hit.collider.transform.position` 기준 2m 고정이므로(`PlayerController.CheckInteractable`), 스팟은 **작은 프롭**(단말기 등)으로 배치할 것. 넓은 트리거 존은 조준·거리 판정이 성립하지 않는다
   - 중복 요청 차단은 스팟이 아닌 `IngameScene._recallRequested`가 담당 (스팟별로 두면 다른 스팟에서 재요청 가능)
 
+## DeathCameraController (독립 MonoBehaviour)
+
+`Assets/Scripts/Controller/DeathCameraController.cs` — 사망 유예 동안 재생되는 탑뷰 연출. `GameObjectController` 계층이 아니며 프리팹도 없다. `DeathCameraController.Play(sourceCamera, deadPlayer)` 정적 호출이 런타임에 `@DeathCamera` 리그를 만든다.
+
+- **기존 카메라를 움직이지 않고 같은 시점의 카메라를 새로 만들어 전환한다.** 기존 카메라는 `PlayerController` 하위에 있고 `ApplyViewRotation()`이 매 프레임 시점을 덮어써서, 그대로 보간하면 되돌려진다
+- **`AudioListener`는 옮기지 않는다** — 새 카메라에 붙이면 씬에 둘이 되어 경고가 뜨고, 그대로 두면 소리가 시신 위치에서 들려 연출과도 맞는다
+- 화각·클리핑·컬링 마스크는 원본 카메라에서 복사한다. **로컬 플레이어 모델이 원본 카메라의 컬링에서 빠져 있으면 탑뷰에도 안 보인다**
+- 도착 시점 시선이 수직이라 `LookRotation`의 up 힌트를 원래 보던 수평 방향으로 잡는다. 안 그러면 forward와 up이 평행해져 회전이 튄다
+- 연출 시간은 `IngameScene.MATCH_EXIT_DELAY`보다 짧아야 한다
+
 ## ICombatTarget 인터페이스
 
 `Assets/Scripts/Controller/ICombatTarget.cs`

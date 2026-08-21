@@ -794,7 +794,12 @@ public class IngameScene : BaseScene {
 
         Util.Log($"[MatchExit] 이탈 시작 (reason={reason}) — {MATCH_EXIT_DELAY}초 뒤 연결을 종료한다");
 
-        // TODO: 사망 연출(탑뷰 카메라 전환) / 탈출 연출
+        // 사망은 시신을 내려다보는 탑뷰로 전환한다. 자기 캐릭터는 디스폰 통보가 오지 않아
+        // 유예 동안 그 자리에 남아 있으므로 그대로 연출 대상이 된다
+        if (reason == MatchExitReason.Dead && _playerController != null)
+            DeathCameraController.Play(_playerController.ViewCamera, _playerController.transform);
+
+        // TODO: 탈출(귀환) 연출
     }
 
     private void CompleteMatchExit() {
