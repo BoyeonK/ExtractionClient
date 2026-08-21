@@ -105,6 +105,13 @@ public class IngameScene : BaseScene {
         Managers.Input.AddKeyListener(Key.Digit2, SwitchToSecondaryWeapon, InputManager.KeyState.Down);
     }
 
+    // Managers.Clear() → Scene.Clear() → 여기. 씬 전환 시 자동으로 불린다.
+    // 이탈 유예를 다 쓰지 않고 나가는 경로(강제 씬 전환 등)에서도 정리가 보장된다
+    public override void Clear() {
+        SetCursorLock(false);
+        Managers.Network.udpManager.Disconnect();
+    }
+
     private void OnDestroy() {
         if (Managers.Instance == null) return;
         Managers.Input.RemoveKeyListener(Key.I, TryCloseContainerUI, InputManager.KeyState.Down);
@@ -305,6 +312,7 @@ public class IngameScene : BaseScene {
 
     // 1/2 키. target_slot은 절대 지정이라 같은 슬롯을 다시 요청하는 것은 의미가 없다
     public void RequestSwitchWeapon(uint targetSlot) {
+        if (IsInputLocked) return;
         if (IsWeaponSwitchPending) return;
         if (!_spawnCompleted) return;
 
@@ -394,6 +402,7 @@ public class IngameScene : BaseScene {
     public bool IsContainerOpen => _isContainerOpen;
 
     public void TryInteract() {
+        if (IsInputLocked) return;
         if (IsContainerOpen) {
             CloseContainer();
             return;
@@ -467,6 +476,7 @@ public class IngameScene : BaseScene {
     }
 
     public void RequestOpenContainer(uint containerObjectId) {
+        if (IsInputLocked) return;
         Managers.Network.udpManager.SendC2DRequestOpenContainer(containerObjectId);
     }
 
@@ -475,6 +485,7 @@ public class IngameScene : BaseScene {
     // 귀환 요청은 판당 1회만 유효하다. 스팟별이 아닌 씬 단위로 막아야
     // 다른 스팟으로 이동해 재요청하는 경로가 생기지 않는다.
     public void RequestRecall(uint recallSpotIndex) {
+        if (IsInputLocked) return;
         if (_recallRequested) return;
         _recallRequested = true;
         _recallTimer = 0f;   // TEMP: 워치독 시작 (승인 응답·최종 결과 양쪽을 함께 커버)
@@ -495,18 +506,32 @@ public class IngameScene : BaseScene {
 
     // 승인된 귀환의 최종 결과. reason은 RecallResultReason
     // (0=UNKNOWN, 1=SUCCESS, 2=OUT_OF_ZONE, 3=PLAYER_DEAD, 4=SESSION_LOST, 5=SERVER_INTERNAL)
+    private const int RECALL_RESULT_PLAYER_DEAD  = 3;
+    private const int RECALL_RESULT_SESSION_LOST = 4;
+
     public void HandleRecallResult(bool result, uint recallSpotIndex, int reason) {
         if (result) {
-            // TODO: 귀환 성공 — 탈출 연출·씬 전환 미구현. 로그만 남기고 잠금을 해제한다.
-            //       씬 전환이 붙으면 성공 시에는 잠금을 유지하는 쪽이 맞다(이미 맵을 떠나므로).
-            Util.Log($"TEMP: 귀환 성공 (spotIndex={recallSpotIndex}, reason={reason})");
-        }
-        else {
-            // TODO: 귀환 취소 — reason별 분기 미구현. 현재는 사유와 무관하게 재시도를 허용한다.
-            Util.Log($"TEMP: 귀환 취소 (spotIndex={recallSpotIndex}, reason={reason})");
+            Util.Log($"귀환 성공 (spotIndex={recallSpotIndex})");
+            // 잠금은 해제하지 않는다 — 이미 맵을 떠났으므로 재요청 경로가 열려선 안 된다
+            BeginMatchExit(MatchExitReason.Recalled);
+            return;
         }
 
-        _recallRequested = false;
+        Util.Log($"귀환 취소 (spotIndex={recallSpotIndex}, reason={reason})");
+
+        switch (reason) {
+            case RECALL_RESULT_PLAYER_DEAD:
+                // 사망 흐름이 이미 이탈을 잡고 있다. 잠금도 그대로 둔다
+                break;
+            case RECALL_RESULT_SESSION_LOST:
+                // 세션 이탈 확정이라 재요청이 불가능하다 — 출구로 보낸다
+                BeginMatchExit(MatchExitReason.ConnectionLost);
+                break;
+            default:
+                // OUT_OF_ZONE·SERVER_INTERNAL·UNKNOWN은 상황이 바뀌면 다시 시도할 수 있다
+                _recallRequested = false;
+                break;
+        }
     }
 
     // ── Drag ──
@@ -544,6 +569,7 @@ public class IngameScene : BaseScene {
     }
 
     public void RequestInteractContainerObject(uint interactType, IngameISlot source, IngameISlot target) {
+        if (IsInputLocked) return;
         uint startObjectId = GetObjectId(source.OwnerType);
         uint startVersion  = GetVersion(source.OwnerType);
         uint startSlotIdx  = (uint)source.SlotIndex;
@@ -558,6 +584,7 @@ public class IngameScene : BaseScene {
     }
 
     public void RequestEquipItem(uint actionType, uint equipmentSlotType, IngameISlot slot) {
+        if (IsInputLocked) return;
         uint objectId           = GetObjectId(slot.OwnerType);
         uint version            = GetVersion(slot.OwnerType);
         uint slotIdx            = (uint)slot.SlotIndex;
@@ -699,12 +726,8 @@ public class IngameScene : BaseScene {
 
         Util.Log($"[HealthChange] hp={healthPoint} shield={shieldPoint} reason={reason} attacker={attackerObjectId}");
 
-        // 내 죽음에는 D2CNotifyPlayerKilled가 오지 않는다(피해자 제외) — 킬 피드의 내 사망 줄은
-        // 이 경로에서만 만들 수 있다. 인게임 부활이 없으므로 한 번만 남긴다
-        if (_currentHealthPoint <= 0 && !_deathReported) {
-            _deathReported = true;
-            Util.Log($"[KillFeed] {DescribePlayer(LastAttackerObjectId)} → {DescribePlayer(_myObjectId)}");
-        }
+        // 사망 판정을 HP 0으로 하지 않는다 — 서버가 D2CNotifyPlayerKilled를 사망 확정 신호로
+        // 지정했고 그 패킷은 피해자에게도 온다. 여기서 함께 감지하면 기점이 이중화된다
 
         if (_ingameHealthBarUI != null) {
             _ingameHealthBarUI.SetHP(healthPoint);
@@ -714,11 +737,9 @@ public class IngameScene : BaseScene {
 
     // ── 킬 피드 ──
 
-    private bool _deathReported = false;
-
-    // D2CNotifyPlayerKilled. 피해자 본인을 제외한 룸 전체가 받는다
-    // (본인은 D2CNotifyHealthChange.attacker_object_id로 이미 킬러를 안다).
-    // 캐릭터 제거 연출은 D2CDespawnPlayerObject(T7)가 담당하고 여기서는 표기만 다룬다.
+    // D2CNotifyPlayerKilled. 피해자를 포함한 룸 전체가 받으며,
+    // 피해자에게는 '사망 확정' 신호를 겸한다(공통 사항 6).
+    // 남의 캐릭터 제거 연출은 D2CDespawnPlayerObject(T7)가 담당한다.
     // TODO: 킬 피드 UI. 프리팹이 준비되면 로그를 표시부로 교체할 것
     public void HandlePlayerKilled(uint victimObjectId, uint killerObjectId) {
         // 킬러는 살아있는 플레이어이므로 모르는 objectId면 채워둔다.
@@ -727,6 +748,64 @@ public class IngameScene : BaseScene {
             RequestSpawnIfUnknown(killerObjectId);
 
         Util.Log($"[KillFeed] {DescribePlayer(killerObjectId)} → {DescribePlayer(victimObjectId)}");
+
+        // 자기 캐릭터의 디스폰 통보는 오지 않는다 — 유예 동안 화면에 남겨두라는 뜻이며,
+        // 정리는 이탈 흐름이 담당한다
+        if (_spawnCompleted && victimObjectId == _myObjectId)
+            BeginMatchExit(MatchExitReason.Dead);
+    }
+
+    // ── 매치 이탈 ──
+
+    public enum MatchExitReason { Dead, Recalled, ConnectionLost }
+
+    // 서버의 사망 유예는 5초다(proto 공통 사항 6). 4초를 쓰는 이유는 둘 —
+    // 서버가 세션을 정리하기 전에 클라가 먼저 정리하고, 통보의 ACK가 나갈 시간을 번다.
+    // 서버 값에 맞춰 5초로 "고치지" 말 것.
+    private const float MATCH_EXIT_DELAY = 4f;
+
+    private bool _matchExitStarted = false;
+    private bool _matchExitCompleted = false;
+    private float _matchExitTimer = 0f;
+    private MatchExitReason _matchExitReason;
+
+    // 이탈이 시작되면 서버가 하트비트를 제외한 내 요청을 전부 버린다.
+    // 클라도 함께 막지 않으면 반응 없는 조작이 된다
+    public bool IsInputLocked => _matchExitStarted;
+
+    private void BeginMatchExit(MatchExitReason reason) {
+        if (_matchExitStarted) return;
+
+        _matchExitStarted = true;
+        _matchExitReason = reason;
+        _matchExitTimer = 0f;
+
+        // 유예 중 송신은 하트비트뿐이라 그냥 두면 통보 ACK가 최대 3초 늦게 나간다.
+        // 연결이 이미 끊긴 경우에는 보낼 곳이 없다
+        if (reason != MatchExitReason.ConnectionLost)
+            Managers.Network.udpManager.SendHeartbeatNow();
+
+        // 조작 안내와 열린 컨테이너를 정리한다. 서버는 이미 내 요청을 받지 않는다
+        SetInteractState(false, null);
+        if (_interactUI != null)
+            _interactUI.Hide();
+        if (_isContainerOpen)
+            CloseContainerLocal();
+
+        Util.Log($"[MatchExit] 이탈 시작 (reason={reason}) — {MATCH_EXIT_DELAY}초 뒤 연결을 종료한다");
+
+        // TODO: 사망 연출(탑뷰 카메라 전환) / 탈출 연출
+    }
+
+    private void CompleteMatchExit() {
+        Managers.Network.udpManager.Disconnect();
+        Util.Log($"[MatchExit] 연결 종료 (reason={_matchExitReason})");
+
+        // TODO: 게임 결과 씬으로 전환. 씬이 만들어지기 전까지는 인게임 씬에 그대로 남는다
+    }
+
+    public void HandleConnectionLost() {
+        BeginMatchExit(MatchExitReason.ConnectionLost);
     }
 
     // 킬러의 무기는 통보에 실려 오지 않는다 — 통보가 사격보다 한 틱 뒤라 그 사이 교체되면
@@ -818,6 +897,19 @@ public class IngameScene : BaseScene {
     protected void OnUpdate() {
         if (_operationFlag == false)
             return;
+
+        // 매치 이탈 유예 — 상단 MATCH_EXIT_DELAY 주석 참조.
+        // 상태 전송·상호작용 갱신은 멈추되 수신은 그대로 처리해 관전 화면을 유지한다
+        if (_matchExitStarted) {
+            if (!_matchExitCompleted) {
+                _matchExitTimer += Time.deltaTime;
+                if (_matchExitTimer >= MATCH_EXIT_DELAY) {
+                    _matchExitCompleted = true;
+                    CompleteMatchExit();
+                }
+            }
+            return;
+        }
 
         _playerStateTimer += Time.deltaTime;
         if (_playerStateTimer >= PLAYER_STATE_INTERVAL) {

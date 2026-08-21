@@ -44,7 +44,8 @@ public interface ICombatTarget {
 
 - 같은 무기면 파괴·재생성하지 않는다. 인벤토리 조작마다 호출되므로 없으면 손에 안 든 슬롯을 건드려도 무기가 다시 만들어진다
 - 프리팹 캐시에 없는 id는 에러 로그 — 조용히 return하면 맨손으로 보이기만 하고 원인이 남지 않는다
-- 발사 차단 조건에 `IngameScene.IsWeaponSwitchPending`이 포함된다(`IsShooting`). `_fireBlocked`는 마우스 재클릭으로 풀려서 이 용도로 쓸 수 없다
+- 발사 차단 조건에 `IngameScene.IsWeaponSwitchPending`과 `IngameScene.IsInputLocked`(매치 이탈)가 포함된다(`IsShooting`). `_fireBlocked`는 마우스 재클릭으로 풀려서 이 용도로 쓸 수 없다
+- **매치 이탈 중 입력 차단은 `IsInputLocked` 하나만 본다** — `IsShooting`·`ProcessMouseLook`·`ProcessMovement`·`ProcessAim`이 모두 이 값을 참조한다. 이동은 입력만 끊고 중력은 유지해 공중에서 죽어도 시신이 떠 있지 않게 한다. 사망 연출이 카메라를 가져가므로 시점 입력도 함께 끊긴다
 
 ### Fire() 흐름
 

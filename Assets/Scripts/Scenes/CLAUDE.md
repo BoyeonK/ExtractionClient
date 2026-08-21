@@ -55,9 +55,22 @@
 
 ## 킬 피드 (`HandlePlayerKilled`)
 
-`D2CNotifyPlayerKilled`는 **피해자 본인을 제외한** 룸 전체에 온다. 캐릭터 제거는 `D2CDespawnPlayerObject`가 담당하고 이 패킷은 표기만 다룬다.
+`D2CNotifyPlayerKilled`는 **피해자를 포함한** 룸 전체에 온다. 남의 캐릭터 제거는 `D2CDespawnPlayerObject`가 담당하고 이 패킷은 표기를 다룬다.
 
-- **내 죽음에는 이 패킷이 오지 않는다.** 내 사망 줄은 `HandleHealthChange`에서 `LastAttackerObjectId`로 만든다 — 킬 피드를 손볼 때 이 두 경로를 함께 볼 것
+- **이 패킷이 피해자 본인의 '사망 확정' 신호를 겸한다.** `victim_object_id`가 내 objectId면 자기 사망이고 그 시점부터 **5초 유예**가 시작된다. 사망 기점을 `D2CNotifyHealthChange`(HP 0)로 잡지 말 것 — 두 패킷이 모두 오므로 기점이 이중화된다
+- **자기 캐릭터의 디스폰 통보는 오지 않는다.** 유예 동안 화면에 남겨두고 스스로 치워야 한다
+- **사망 판정을 HP 0으로 하지 말 것.** `HandleHealthChange`에서 함께 감지하면 두 패킷이 모두 도착해 기점이 이중화되고 순서에 따라 흔들린다
+
+## 매치 이탈 (`BeginMatchExit` / `IsInputLocked`)
+
+사망·귀환 성공·연결 끊김 셋이 **하나의 출구**를 공유한다. `BeginMatchExit(reason)` → `MATCH_EXIT_DELAY`(4초) → `CompleteMatchExit()`(UDP 종료). 새 이탈 사유가 생기면 여기에 붙일 것.
+
+- **4초는 서버 계약(5초)보다 짧게 잡은 값이다.** 서버가 세션을 정리하기 전에 클라가 먼저 정리하고, 통보 ACK가 나갈 시간을 번다. 서버 값에 맞춰 5초로 늘리지 말 것
+- **이탈 시작 시 하트비트를 강제로 한 번 보낸다**(`SendHeartbeatNow`). ACK는 다음 송신에 piggyback되는데 유예 중에는 송신이 하트비트뿐이고 주기가 3초라, 그냥 두면 ACK가 최대 3초 늦는다
+- **입력 잠금은 `IsInputLocked` 하나로 본다** — 사격·시점·이동·조준/상호작용 판정과 패킷을 보내는 `RequestXXX` 전부. 서버가 하트비트를 뺀 모든 요청을 버리므로, 클라가 막지 않으면 반응 없는 조작이 된다. 이동은 입력만 끊고 **중력은 유지**한다
+- **수신은 막지 않는다.** 브로드캐스트가 계속 오는 것이 관전 유지의 근거다. `OnUpdate`는 이탈 중 상태 전송·상호작용 갱신만 건너뛴다
+- **연결 끊김 통보는 `UDPManager`의 수신 워치독 지점에 있다.** `Disconnect()` 안에 넣지 말 것 — 재연결 직전 정리에서도 불려 접속할 때마다 이탈 처리가 돈다
+- 씬 정리(커서·UDP)는 `IngameScene.Clear()` 오버라이드가 맡는다. `Managers.Clear()`가 씬 전환 때 자동으로 부르므로 유예를 다 쓰지 않는 경로에서도 보장된다
 - `killer_object_id == 0xFFFFFFFF`는 가해자 없는 죽음이며 `NO_ATTACKER_OBJECT_ID`와 같은 의미다(전투 문맥 공용). `0`은 실재 objectId
 - **킬러 무기는 실려 오지 않는다** — 통보가 사격보다 한 틱 뒤라 그 사이 교체되면 틀린 값이 되기 때문이다. `EquippedWeaponId`로 추적해둔 값을 쓴다
 - 모르는 **킬러**는 `RequestSpawnIfUnknown()`으로 채우고 **피해자는 요청하지 않는다**(같은 타이밍에 디스폰이 온다)

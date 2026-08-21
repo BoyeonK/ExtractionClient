@@ -69,10 +69,12 @@ public class PlayerController : GameObjectController, ICombatTarget {
     bool IsMoving => _w || _s || _a || _d;
     bool IsRunning => IsMoving && _shift;
     // 무기 교체가 확정되기 전에는 쏘지 않는다 — reliable(교체)과 unreliable(사격) 사이에
-    // 순서 보장이 없어, 사격이 먼저 처리되면 weapon_dbid 불일치로 조용히 버려진다
+    // 순서 보장이 없어, 사격이 먼저 처리되면 weapon_dbid 불일치로 조용히 버려진다.
+    // 매치 이탈(사망·탈출) 중에는 서버가 요청 자체를 버린다
     bool IsShooting => Mouse.current != null && Mouse.current.leftButton.isPressed
                        && !_ingameScene.IsAnyUIOpen && !IsRunning
-                       && !_ingameScene.IsWeaponSwitchPending;
+                       && !_ingameScene.IsWeaponSwitchPending
+                       && !_ingameScene.IsInputLocked;
 
     public override void Init() {
         base.Init();
@@ -170,6 +172,8 @@ public class PlayerController : GameObjectController, ICombatTarget {
     private void ProcessMouseLook() {
         if (_viewPoint == null) return;
         if (_ingameScene.IsAnyUIOpen) return;
+        // 사망 연출이 카메라를 가져가므로 시점 입력을 여기서 끊는다
+        if (_ingameScene.IsInputLocked) return;
 
         if (Mouse.current != null) {
             Vector2 mouseDelta = Mouse.current.delta.ReadValue();
@@ -212,18 +216,23 @@ public class PlayerController : GameObjectController, ICombatTarget {
             _velocity.y = -2f;
         }
 
-        Vector3 move = Vector3.zero;
-        if (_w) move += transform.forward;
-        if (_s) move -= transform.forward;
-        if (_d) move += transform.right;
-        if (_a) move -= transform.right;
+        // 이탈 중에는 이동 입력만 끊고 중력은 그대로 둔다 — 공중에서 죽어도 시신이 떠 있지 않도록
+        bool inputLocked = _ingameScene.IsInputLocked;
 
-        if (move.sqrMagnitude > 1f) move.Normalize();
+        Vector3 move = Vector3.zero;
+        if (!inputLocked) {
+            if (_w) move += transform.forward;
+            if (_s) move -= transform.forward;
+            if (_d) move += transform.right;
+            if (_a) move -= transform.right;
+
+            if (move.sqrMagnitude > 1f) move.Normalize();
+        }
 
         float moveSpeed = _shift ? runSpeed : walkSpeed;
 
         if (_jump) {
-            if (_controller.isGrounded) {
+            if (_controller.isGrounded && !inputLocked) {
                 _velocity.y = Mathf.Sqrt(jumpHeight * -2f * gravity);
             }
             _jump = false;
@@ -351,6 +360,8 @@ public class PlayerController : GameObjectController, ICombatTarget {
 
     private void ProcessAim() {
         if (_aimTarget == null || _camera == null) return;
+        // 이탈 중에는 조준·상호작용 판정을 멈춘다. 안 그러면 매 프레임 상호작용 대상이 다시 잡힌다
+        if (_ingameScene.IsInputLocked) return;
 
         Ray ray = _camera.ViewportPointToRay(new Vector3(0.5f, 0.5f, 0f));
         RaycastHit hit;

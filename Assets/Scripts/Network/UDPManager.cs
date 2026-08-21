@@ -129,6 +129,10 @@ public class UDPManager {
         float nowSec = Time.realtimeSinceStartup;
         if (nowSec - Handler.LastRecvSec >= RECV_TIMEOUT_SEC) {
             Util.LogError($"[UDP] 서버 무응답 {RECV_TIMEOUT_SEC}초 경과. 연결 종료.");
+            // 씬 통보는 Disconnect()가 아니라 여기에 둔다 — Disconnect()는 재연결 직전 정리
+            // (RegisterEndPointAndStart)에서도 불리므로 그쪽에 넣으면 접속할 때마다 이탈 처리가 돈다
+            if (Managers.Scene.CurrentScene is IngameScene ingameScene)
+                ingameScene.HandleConnectionLost();
             Disconnect();
             return;
         }
@@ -140,6 +144,15 @@ public class UDPManager {
             _lastHeartbeatSec = nowSec;
             SendC2DHeartBeat();
         }
+    }
+
+    // ACK는 다음 송신 패킷에 piggyback된다. 매치 이탈 유예 구간에서는 상태 전송이 멈춰
+    // 송신이 하트비트뿐이고 그 주기가 3초라, 통보의 ACK가 최대 3초 늦게 나간다.
+    // 사망·귀환 확정처럼 ACK를 서둘러야 하는 시점에 한 번 강제로 보낸다
+    public void SendHeartbeatNow() {
+        if (_socket == null) return;
+        _lastHeartbeatSec = Time.realtimeSinceStartup;
+        SendC2DHeartBeat();
     }
 
     public void Disconnect() {
