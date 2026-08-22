@@ -10,6 +10,14 @@
 
 `SceneManagerEx`가 `NextSceneStaticContext`(정적)와 `SceneDynamicContext`(동적) 두 인스턴스를 보유. `PacketHandler`에서 `AddObjectDatas()`로 누적, `IsComplete()`로 수신 완료 판정, `IngameScene.Init()`에서 소비.
 
+### 매치 결과 (`GameResult` / `LastGameResult`)
+
+`SceneManagerEx.cs` 파일 스코프의 `GameResult` 구조체(`MatchExitReason`도 같은 위치). `IngameScene.CompleteMatchExit()`이 `SetGameResult()`로 채우고 결과 씬이 소비한다.
+
+- `LastGameResult`는 `GameResult?` — null이 '결과 없음'. **`ResetLoadSceneOp()`에서 지우지 말 것** — 결과 씬 진입 초기화에서도 불려 소비 전에 날아간다. 제거는 소비자의 `ClearGameResult()` 또는 다음 매치 종료의 덮어쓰기로 한다
+- 내용: 이탈 사유 + 인벤토리 25슬롯(배치 유지, 빈 슬롯 null) + 무기 2·방어구(**탄창 제외**) + 킬수 2종. 인벤토리는 클라 로컬 상태 기준이라 서버와 어긋날 수 있으나 표시용으로 감수한다(서버 재조회 없음)
+- 같은 아이템 목록이라도 **사유별 의미가 다르다** — Recalled=반출 확정, Dead·ConnectionLost=잃은 것
+
 ## IngameScene 스폰 흐름
 
 1. `RequestSpawnMe()` → `C2DRequestSpawnMe` 전송
@@ -72,9 +80,18 @@
 - **연결 끊김 통보는 `UDPManager`의 수신 워치독 지점에 있다.** `Disconnect()` 안에 넣지 말 것 — 재연결 직전 정리에서도 불려 접속할 때마다 이탈 처리가 돈다
 - 사망 사유일 때 `DeathCameraController.Play()`로 탑뷰 연출을 시작한다. 자기 캐릭터는 디스폰 통보가 오지 않아 유예 동안 그 자리에 남으므로 그대로 연출 대상이 된다
 - 씬 정리(커서·UDP)는 `IngameScene.Clear()` 오버라이드가 맡는다. `Managers.Clear()`가 씬 전환 때 자동으로 부르므로 유예를 다 쓰지 않는 경로에서도 보장된다
+- **`CompleteMatchExit()`이 `GameResult` 스냅샷을 뜬 뒤 연결을 끊는다.** 스냅샷을 `BeginMatchExit`으로 당기지 말 것 — 킬 통보가 사격보다 한 틱 뒤라 죽기 직전에 쏜 탄의 킬(상호 킬)이 유예 중에 도착한다. 반대로 유예를 다 쓰지 않는 강제 씬 전환은 이 함수를 건너뛰어 결과가 저장되지 않으므로, **결과 씬 전환은 반드시 `CompleteMatchExit()`을 거칠 것**
 - `killer_object_id == 0xFFFFFFFF`는 가해자 없는 죽음이며 `NO_ATTACKER_OBJECT_ID`와 같은 의미다(전투 문맥 공용). `0`은 실재 objectId
 - **킬러 무기는 실려 오지 않는다** — 통보가 사격보다 한 틱 뒤라 그 사이 교체되면 틀린 값이 되기 때문이다. `EquippedWeaponId`로 추적해둔 값을 쓴다
 - 모르는 **킬러**는 `RequestSpawnIfUnknown()`으로 채우고 **피해자는 요청하지 않는다**(같은 타이밍에 디스폰이 온다)
+
+## 킬 카운트 (`RecordPlayerKill` / `RecordObjectKill`)
+
+내가 죽인 대상의 objectId를 담는 `HashSet<uint>` 2개(플레이어/오브젝트). 킬수는 `Count`로 읽는다.
+
+- **카운터 증가가 아니라 Set인 이유** — 수신 reliable에 중복 제거가 없어 재전송된 킬 통보가 두 번 디스패치될 수 있다. objectId는 재사용되지 않으므로 Set이면 멱등이다
+- 플레이어 킬은 `HandlePlayerKilled`에서만 기록. 가드는 `_spawnCompleted` → `killer == _myObjectId` → `victim != _myObjectId` 순 (`_myObjectId` 초기값 0은 실재 objectId)
+- **오브젝트 킬은 통보 패킷이 아직 없다** — `D2CNotifyDespawnObject`에 파괴자 정보가 실리지 않는다. `RecordObjectKill()`은 `D2CNotifyPlayerKilled` 동형 브로드캐스트를 가정하고 미리 둔 것(`TODO:`)이며, 패킷 확정 시 `PacketHandler`에서 잇고 스펙이 가정과 다르면 가드부터 재검토할 것
 
 ## 다른 플레이어 관리
 

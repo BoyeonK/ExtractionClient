@@ -28,6 +28,21 @@ public struct PlayerStateData {
     public uint ActionState;
 }
 
+public enum MatchExitReason { Dead, Recalled, ConnectionLost }
+
+// 매치 종료 결과 스냅샷. IngameScene.CompleteMatchExit()이 채우고 결과 씬이 소비한다.
+// 인벤토리는 클라이언트 로컬 상태 기준이라 서버와 어긋날 수 있으나 표시용으로 감수한다.
+// 같은 아이템 목록이라도 사유별 의미가 다르다 — Recalled=반출 확정, Dead·ConnectionLost=잃은 것
+public struct GameResult {
+    public MatchExitReason ExitReason;
+    public InventoryItem[] InventorySlots;   // 빈 슬롯은 null. 슬롯 배치를 유지한다 (탄창은 제외)
+    public InventoryItem PrimaryWeapon;
+    public InventoryItem SecondaryWeapon;
+    public InventoryItem Armor;
+    public int PlayerKillCount;
+    public int ObjectKillCount;
+}
+
 public class GameSceneContext {
     public List<ObjectData> ObjectDatas { get; } = new List<ObjectData>();
 
@@ -66,6 +81,19 @@ public class SceneManagerEx {
     
     public GameSceneContext NextSceneStaticContext { get; private set; } = new GameSceneContext();
     public GameSceneContext SceneDynamicContext { get; private set; } = new GameSceneContext();
+
+    // null이면 결과 없음 — default(GameResult)가 유효한 값처럼 보이는 것을 막는다.
+    // ResetLoadSceneOp()에서 지우지 않는다. 그 함수는 결과 씬 진입 초기화에서도 불리므로
+    // 소비 전에 날아간다. 제거는 소비자의 ClearGameResult() 또는 다음 매치 종료의 덮어쓰기로 한다
+    public GameResult? LastGameResult { get; private set; }
+
+    public void SetGameResult(GameResult result) {
+        LastGameResult = result;
+    }
+
+    public void ClearGameResult() {
+        LastGameResult = null;
+    }
 
     private LoadingState _loadingState = LoadingState.None;
     private Define.Scene _nextScene = Define.Scene.Undefined;

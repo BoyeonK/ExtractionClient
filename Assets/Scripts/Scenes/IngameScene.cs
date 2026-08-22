@@ -747,6 +747,8 @@ public class IngameScene : BaseScene {
         if (killerObjectId != NO_ATTACKER_OBJECT_ID)
             RequestSpawnIfUnknown(killerObjectId);
 
+        RecordPlayerKill(victimObjectId, killerObjectId);
+
         Util.Log($"[KillFeed] {DescribePlayer(killerObjectId)} → {DescribePlayer(victimObjectId)}");
 
         // 자기 캐릭터의 디스폰 통보는 오지 않는다 — 유예 동안 화면에 남겨두라는 뜻이며,
@@ -755,9 +757,34 @@ public class IngameScene : BaseScene {
             BeginMatchExit(MatchExitReason.Dead);
     }
 
+    // ── 킬 카운트 ──
+
+    // 내가 죽인 대상의 objectId. 킬수는 Count로 읽는다.
+    // 수신 reliable에 중복 제거가 없어(HandleWeaponChanged의 OPTION 주석 참고) 재전송된
+    // 킬 통보가 두 번 디스패치될 수 있다 — objectId는 재사용되지 않으므로 Set이면 멱등이다
+    private HashSet<uint> _playerKillVictims = new HashSet<uint>();
+    private HashSet<uint> _objectKillVictims = new HashSet<uint>();
+
+    private void RecordPlayerKill(uint victimObjectId, uint killerObjectId) {
+        // _myObjectId 초기값 0은 실재 objectId라 _spawnCompleted 전에는 비교가 성립하지 않는다.
+        // NO_ATTACKER_OBJECT_ID는 killer 비교에서 함께 걸러진다
+        if (!_spawnCompleted || killerObjectId != _myObjectId) return;
+        if (victimObjectId == _myObjectId) return;
+        _playerKillVictims.Add(victimObjectId);
+    }
+
+    // TODO: 비플레이어 오브젝트 킬 통보 패킷이 아직 없다. D2CNotifyPlayerKilled와 같은 형태
+    //       (victim·killer objectId, 가해자 없음=0xFFFFFFFF)로 브로드캐스트된다고 가정하고
+    //       기록 함수만 미리 둔다. 패킷이 확정되면 PacketHandler에서 이 함수로 잇고,
+    //       가정과 다른 스펙이면 여기 가드부터 다시 볼 것
+    public void RecordObjectKill(uint victimObjectId, uint killerObjectId) {
+        if (!_spawnCompleted || killerObjectId != _myObjectId) return;
+        _objectKillVictims.Add(victimObjectId);
+    }
+
     // ── 매치 이탈 ──
 
-    public enum MatchExitReason { Dead, Recalled, ConnectionLost }
+    // MatchExitReason은 GameResult가 함께 쓰므로 SceneManagerEx.cs 파일 스코프에 있다
 
     // 서버의 사망 유예는 5초다(proto 공통 사항 6). 4초를 쓰는 이유는 둘 —
     // 서버가 세션을 정리하기 전에 클라가 먼저 정리하고, 통보의 ACK가 나갈 시간을 번다.
@@ -803,10 +830,29 @@ public class IngameScene : BaseScene {
     }
 
     private void CompleteMatchExit() {
+        // 스냅샷은 유예가 끝난 여기서 뜬다 — 킬 통보가 사격보다 한 틱 뒤라, 죽기 직전에 쏜
+        // 탄의 킬(상호 킬)이 유예 중에 도착한다. BeginMatchExit으로 당기면 그 킬이 빠진다.
+        // 인벤토리는 이탈 시작 후 서버가 요청을 전부 버리므로 시점과 무관하게 같다
+        Managers.Scene.SetGameResult(BuildGameResult());
+
         Managers.Network.udpManager.Disconnect();
         Util.Log($"[MatchExit] 연결 종료 (reason={_matchExitReason})");
 
         // TODO: 게임 결과 씬으로 전환. 씬이 만들어지기 전까지는 인게임 씬에 그대로 남는다
+    }
+
+    private GameResult BuildGameResult() {
+        // 슬롯 배열은 얕은 복사 — InventoryItem은 순수 데이터라 씬이 죽어도 참조가 유효하고,
+        // 배열만 새로 떠서 IngameInventory 전체가 결과 씬까지 붙들리는 것을 막는다
+        return new GameResult {
+            ExitReason      = _matchExitReason,
+            InventorySlots  = (InventoryItem[])_inventory.InventorySlots.Clone(),
+            PrimaryWeapon   = _inventory.PrimaryWeapon,
+            SecondaryWeapon = _inventory.SecondaryWeapon,
+            Armor           = _inventory.Armor,
+            PlayerKillCount = _playerKillVictims.Count,
+            ObjectKillCount = _objectKillVictims.Count,
+        };
     }
 
     public void HandleConnectionLost() {
