@@ -45,3 +45,5 @@
 1. `External_Protocol.proto`에 메시지 정의 + `PktId` 항목 추가
 2. `PacketHandler` 생성자에 핸들러 등록
 3. `Handle_XXX` 구현 — Unity API는 `ExecuteAtMainThread`로, 데이터는 기본 타입으로 변환
+
+**서버에서 새 패킷을 받을 때는 `PktId` 등재 여부를 먼저 확인할 것.** 메시지 주석에는 번호가 적혀 있는데 `enum PktId`에는 빠져 있는 누락이 두 번 있었다(36~40, 41). 또한 생성된 `ExternalProtocol.cs`가 **메시지 클래스는 있는데 `PktId` 멤버는 없는 반쪽 상태**로 넘어온 적도 있으므로, 배선 전에 양쪽을 모두 확인해야 한다. `ExternalProtocol.cs`는 `.gitignore` 대상이라 git diff로는 드러나지 않는다.

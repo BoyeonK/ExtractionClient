@@ -773,13 +773,21 @@ public class IngameScene : BaseScene {
         _playerKillVictims.Add(victimObjectId);
     }
 
-    // TODO: 비플레이어 오브젝트 킬 통보 패킷이 아직 없다. D2CNotifyPlayerKilled와 같은 형태
-    //       (victim·killer objectId, 가해자 없음=0xFFFFFFFF)로 브로드캐스트된다고 가정하고
-    //       기록 함수만 미리 둔다. 패킷이 확정되면 PacketHandler에서 이 함수로 잇고,
-    //       가정과 다른 스펙이면 여기 가드부터 다시 볼 것
-    public void RecordObjectKill(uint victimObjectId, uint killerObjectId) {
+    private void RecordObjectKill(uint victimObjectId, uint killerObjectId) {
         if (!_spawnCompleted || killerObjectId != _myObjectId) return;
         _objectKillVictims.Add(victimObjectId);
+    }
+
+    // D2CNotifyObjectKilled. 비플레이어 오브젝트의 처치 통보이며 제거 신호를 겸한다 —
+    // 처치로 인한 제거에는 D2CNotifyDespawnObject가 오지 않으므로 여기서 직접 치운다.
+    // 킬러가 미스폰이어도 스폰을 요청하지 않는다. 표시부가 없어 쓸 곳이 없고,
+    // 근처 플레이어는 어차피 상태 스트림이 채운다 — 불필요한 reliable을 늘리지 않는다
+    public void HandleObjectKilled(uint victimObjectId, uint killerObjectId) {
+        RecordObjectKill(victimObjectId, killerObjectId);
+
+        Util.Log($"[ObjectKill] {DescribePlayer(killerObjectId)} → objectId={victimObjectId}");
+
+        DespawnObject(victimObjectId);
     }
 
     // ── 매치 이탈 ──

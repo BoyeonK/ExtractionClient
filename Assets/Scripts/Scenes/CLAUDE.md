@@ -91,7 +91,10 @@
 
 - **카운터 증가가 아니라 Set인 이유** — 수신 reliable에 중복 제거가 없어 재전송된 킬 통보가 두 번 디스패치될 수 있다. objectId는 재사용되지 않으므로 Set이면 멱등이다
 - 플레이어 킬은 `HandlePlayerKilled`에서만 기록. 가드는 `_spawnCompleted` → `killer == _myObjectId` → `victim != _myObjectId` 순 (`_myObjectId` 초기값 0은 실재 objectId)
-- **오브젝트 킬은 통보 패킷이 아직 없다** — `D2CNotifyDespawnObject`에 파괴자 정보가 실리지 않는다. `RecordObjectKill()`은 `D2CNotifyPlayerKilled` 동형 브로드캐스트를 가정하고 미리 둔 것(`TODO:`)이며, 패킷 확정 시 `PacketHandler`에서 잇고 스펙이 가정과 다르면 가드부터 재검토할 것
+- 오브젝트 킬은 `HandleObjectKilled`(`D2CNotifyObjectKilled`, PktId 41)에서 기록한다. 피해자가 내가 될 수 없어 `victim != _myObjectId` 가드가 없는 것 외에는 플레이어 킬과 같다
+- **`ObjectKillCount`는 `ICombatTarget` 보급에 종속된다** — 전투 오브젝트가 이 인터페이스를 구현하지 않으면 `PlayerController`가 `hit_object_id`에 `0xFFFFFFFF`를 실어 보내 서버가 데미지를 넣지 않는다. 패킷 배선이 끝나도 그때까지는 항상 0이다
+- **`HandleObjectKilled`는 제거까지 책임진다** — 처치로 인한 제거에는 `D2CNotifyDespawnObject`가 오지 않으므로 여기서 `DespawnObject()`를 부른다. 빠뜨리면 파괴된 오브젝트가 맵에 영원히 남는다
+- 오브젝트 킬에서는 **미스폰 킬러를 요청하지 않는다** — 표시부가 없어 소비처가 없고, 근처 플레이어는 상태 스트림이 채운다. 불필요한 reliable을 늘리지 않는다는 판단이며, 오브젝트 킬 피드를 붙이면 그때 재검토할 것
 
 ## 다른 플레이어 관리
 
@@ -142,7 +145,9 @@
 
 - `_sceneObjects`: objectId → `GameObjectController` 매핑
 - **`SpawnObject(ObjectData)`가 유일한 스폰 경로다.** 정적·동적 초기 스폰, 지연 스폰 응답(`D2CResponseSpawnByObjectId`), 런타임 스폰 통보(`D2CNotifySpawnObject`)가 전부 여기로 모인다. 새 스폰 경로가 생겨도 `Managers.Resource.InstantiateFromObjectDataStruct()`를 직접 부르지 말 것 — 레지스트리 등록과 차단 검사를 건너뛰게 된다
-- `DespawnObject(objectId)`: 차단 목록 등록 → 레지스트리 제거 → 파괴. 파괴된 컨테이너를 열어둔 상태였다면 `CloseContainerLocal()`로 UI만 닫고 **`C2DCloseContainer`는 보내지 않는다**(서버가 이미 없앤 오브젝트)
+- **`DespawnObject(objectId)`가 유일한 제거 경로다.** 차단 목록 등록 → 레지스트리 제거 → 파괴. 파괴된 컨테이너를 열어둔 상태였다면 `CloseContainerLocal()`로 UI만 닫고 **`C2DCloseContainer`는 보내지 않는다**(서버가 이미 없앤 오브젝트)
+- **제거 통보 패킷이 둘로 갈린다** — 처치는 `D2CNotifyObjectKilled`(41), 그 외 사유는 `D2CNotifyDespawnObject`(39). 후자는 **현재 서버가 보내지 않는다**(컨테이너가 게임 종료까지 유지되어 처치 외 제거 사유가 없다). 사유가 생길 때를 위한 예약이므로 핸들러는 유지하고, 새 제거 경로가 생겨도 둘 다 `DespawnObject()`로 모을 것
+- 컨테이너 닫기 가드는 위 이유로 지금은 도달하지 않지만 **제거하지 말 것** — 컨테이너가 파괴 대상이 되는 순간 되살아나는 방어 코드다
 - `Define.ObjectPaths`에 매핑이 없는 `object_type`은 에러 로그로 드러낸다. `Undefined`는 키가 있어도 경로가 null이므로 함께 걸러낸다
 
 ### 디스폰과 유령 재스폰 차단 (`_despawnedObjectIds`)
