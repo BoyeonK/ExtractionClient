@@ -2,11 +2,15 @@ using System.Collections.Generic;
 using UnityEngine;
 
 public static class Define {
+    // 항목 이름이 곧 씬 에셋 이름이다 (SceneManagerEx.GetSceneName이 enum 이름을 그대로 넘긴다).
+    // 씬 파일 이름은 모두 "Scene"으로 끝난다 — 새 씬을 추가하거나 리네임하면 여기도 함께 바꿀 것.
+    // 씬 담당 컴포넌트 클래스와 이름이 겹치지만(LoadingScene 등) enum 멤버는 항상 한정 접근이라 충돌하지 않는다
     public enum Scene {
         Undefined,
-        Lobby,
+        LobbyScene,
         LoadingScene,
-        TestIngame,
+        TestIngameScene,
+        GameResultScene,
         MaxCount,
     }
 

@@ -45,7 +45,7 @@ public class LobbyScene : BaseScene {
 
     protected override void Init() {
         base.Init();
-        SceneType = Define.Scene.Lobby;
+        SceneType = Define.Scene.LobbyScene;
         Managers.Scene.ResetLoadSceneOp();
 
         // UI 초기화, Header의 sortorder를 뒤로 두어야 함.
@@ -84,12 +84,57 @@ public class LobbyScene : BaseScene {
         Managers.Input.AddKeyListener(Key.Tab, OnTabInput, InputManager.KeyState.Up);
         InitDragGhost();
 
-        // TODO: 최초 실행인지, 한 게임 종료 후 재실행인지에 따라 분기 처리
+        // GameResultScene 경유 + 살아있는 세션이면 세션 유지 요청으로 Login 과정을 건너뛴다.
+        // 버전 체크(GetVersionCall)는 프로세스 재시작이 아니라 앱 시작 시 검증이 유효하므로 생략한다
+        bool tryResume = Managers.Scene.IsReturnFromGameResult
+            && Managers.Network.httpManager.AuthState != HTTPManager.LoginState.None
+            && !string.IsNullOrEmpty(Managers.Network.httpManager.SessionId);
+        Managers.Scene.IsReturnFromGameResult = false;  // 소비 후 리셋
+
         _lobbyState = LobbyState.BeforeConnect;
-        Managers.UI.ShowSceneUI<UI_TestStart>();
+        if (tryResume) {
+            TryResumeSession();
+        } else {
+            Managers.UI.ShowSceneUI<UI_TestStart>();
+        }
 
         Screen.SetResolution(1280, 720, FullScreenMode.Windowed);
         Application.runInBackground = true;
+    }
+
+    // GameResultScene 경유 복귀 시 기존 세션으로 Login 과정을 건너뛴다.
+    // 만료면 곧바로 폴백하고, 서버에 닿지 못한 경우에만 재시도를 물어본다 — 세션이 살아 있을 수 있어
+    // 여기서 로컬 인증 상태를 지우면 복구할 수 없는 상태로 만들기 때문이다
+    private async void TryResumeSession() {
+        Util.Log("[Lobby] GameResultScene 경유 진입 — 세션 유지 요청");
+        HTTPManager.ResumeResult result = await Managers.Network.httpManager.PostResumeSessionCall(_cts.Token);
+        switch (result) {
+            case HTTPManager.ResumeResult.Success:
+                UI_Header.HeaderState hState = Managers.Network.httpManager.AuthState == HTTPManager.LoginState.Guest
+                    ? UI_Header.HeaderState.Guest
+                    : UI_Header.HeaderState.Logined;
+                OnLoginComplete(hState);
+                break;
+
+            case HTTPManager.ResumeResult.Unreachable:
+                _lobbyReconfirmUI.ActiveConfirmOrCancel(
+                    "서버와 통신할 수 없어 세션을 이어받지 못했습니다.\n다시 시도하시겠습니까?\n(취소하면 로그인 화면으로 돌아갑니다)",
+                    TryResumeSession,
+                    FallbackToStartFlow);
+                break;
+
+            default:
+                FallbackToStartFlow();
+                // 폴백 UI를 먼저 띄운 뒤에 안내한다 — 팝업이 떠 있는 동안에는 다음 팝업이 무시된다
+                _lobbyReconfirmUI.ActiveOnlyConfirm("세션이 만료되었습니다.\n다시 로그인해주세요.");
+                break;
+        }
+    }
+
+    private void FallbackToStartFlow() {
+        Managers.Network.httpManager.ClearAuthStateLocal();
+        _lobbyState = LobbyState.BeforeConnect;
+        Managers.UI.ShowSceneUI<UI_TestStart>();
     }
 
     // -----------------------------------------------------

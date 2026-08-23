@@ -39,6 +39,7 @@ public class HTTPManager {
     private const string _signupUrl = "api/signup";
     private const string _loginUrl = "api/login";
     private const string _guestLoginUrl = "api/guest";
+    private const string _sessionResumeUrl = "api/session/resume";
     private const string _inventoryUrl = "api/items/inventory";
     private const string _purchaseUrl = "api/items/purchase";
 
@@ -60,8 +61,21 @@ public class HTTPManager {
     #endregion
 
     #region 통신 공통 헬퍼 함수
+    // 상태 코드까지 필요한 호출부를 위한 반환 타입.
+    // HasResponse가 false면 서버 응답 자체가 없었던 것(전송 실패·취소)이라 상태 코드가 의미 없다
+    private struct HttpCallResult {
+        public string Body;
+        public int StatusCode;
+        public bool HasResponse;
+    }
+
     // requireAuth가 true면 세션이 필요한 요청이므로 헤더에 세션 아이디를 넣어서 보냄 (로그아웃 등)
     private async Task<string> SendRequestAsync(HttpMethod method, string url, string jsonBody = null, bool requireAuth = false, CancellationToken cancelToken = default) {
+        HttpCallResult result = await SendRequestWithStatusAsync(method, url, jsonBody, requireAuth, cancelToken);
+        return result.Body;
+    }
+
+    private async Task<HttpCallResult> SendRequestWithStatusAsync(HttpMethod method, string url, string jsonBody = null, bool requireAuth = false, CancellationToken cancelToken = default) {
         try {
             using (HttpRequestMessage request = new HttpRequestMessage(method, url)) {
                 // 인증 헤더 추가 (로그아웃 등)
@@ -84,16 +98,20 @@ public class HTTPManager {
                     Managers.ExecuteAtMainThread(() => Util.LogWarning($"[{url}] 상태 코드 에러: {response.StatusCode}"));
                 }
 
-                return responseText;
+                return new HttpCallResult {
+                    Body = responseText,
+                    StatusCode = (int)response.StatusCode,
+                    HasResponse = true,
+                };
             }
         }
         catch (OperationCanceledException) {
             Managers.ExecuteAtMainThread(() => Util.LogWarning($"[{url}] 네트워크 요청이 사용자에 의해 안전하게 취소되었습니다."));
-            return null;
+            return default;
         }
         catch (Exception e) {
             Managers.ExecuteAtMainThread(() => Util.LogError($"[{url}] 네트워크 에러 발생: {e.Message}"));
-            return null;
+            return default;
         }
     }
     #endregion
@@ -280,15 +298,7 @@ public class HTTPManager {
 
             AuthResponse resData = JsonUtility.FromJson<AuthResponse>(responseText);
             if (resData != null && resData.success) {
-                SessionId = null;
-                GuestId = null;
-                Uid = 0;
-                Money = 0;
-                TicketId = null;
-                Inventory = null;
-                ShopItems = null;
-                _token = null;
-                AuthState = LoginState.None;
+                ClearAuthStateLocal();
                 Managers.ExecuteAtMainThread(() => {
                     Util.Log($"로그아웃 성공: {responseText}");
                 });
@@ -297,6 +307,80 @@ public class HTTPManager {
 
             Managers.ExecuteAtMainThread(() => Util.LogError("로그아웃 처리에 실패했습니다."));
             return false;
+        }
+        finally {
+            _isRequesting = false;
+        }
+    }
+
+    // 서버 호출 없이 로컬 인증 상태만 초기화한다.
+    // 세션이 서버에서 이미 만료된 경우(세션 유지 실패 등)에는 로그아웃 API를 부를 수 없으므로 분리한다
+    public void ClearAuthStateLocal() {
+        SessionId = null;
+        GuestId = null;
+        Uid = 0;
+        Money = 0;
+        TicketId = null;
+        Inventory = null;
+        ShopItems = null;
+        _token = null;
+        AuthState = LoginState.None;
+    }
+
+    // 세션 유지 결과. 실패를 둘로 나누는 이유는 후속 처리가 다르기 때문이다 —
+    // Expired는 서버에 세션이 없다는 확정이라 재로그인 외에 방법이 없고,
+    // Unreachable은 세션이 아직 살아 있을 수 있어 같은 요청을 다시 보낼 여지가 있다
+    public enum ResumeResult {
+        Success,
+        Expired,
+        Unreachable,
+    }
+
+    private const int HTTP_UNAUTHORIZED = 401;
+
+    // 매치 종료 후 로비 복귀 시 기존 세션 유효성 확인 + 매치 결과가 반영된 최신 로비 데이터 재조회.
+    // Success면 호출자가 Login 과정을 건너뛴다. Expired면 ClearAuthStateLocal() 후 일반 로그인으로 폴백하고,
+    // Unreachable이면 재시도할지 폴백할지는 호출자가 정한다
+    public async Task<ResumeResult> PostResumeSessionCall(CancellationToken cancelToken = default) {
+        if (_isRequesting) return ResumeResult.Unreachable;
+        if (IsMatching) return ResumeResult.Unreachable;
+
+        if (AuthState == LoginState.None || string.IsNullOrEmpty(SessionId)) {
+            Managers.ExecuteAtMainThread(() => Util.LogWarning("이어받을 세션이 없습니다."));
+            return ResumeResult.Expired;
+        }
+
+        _isRequesting = true;
+        try {
+            HttpCallResult call = await SendRequestWithStatusAsync(HttpMethod.Post, _sessionResumeUrl, null, true, cancelToken);
+            if (!call.HasResponse || string.IsNullOrEmpty(call.Body)) {
+                Managers.ExecuteAtMainThread(() => Util.LogWarning("세션 유지 요청이 서버에 닿지 않았습니다."));
+                return ResumeResult.Unreachable;
+            }
+
+            if (call.StatusCode == HTTP_UNAUTHORIZED) {
+                Managers.ExecuteAtMainThread(() => Util.LogWarning("세션이 만료되었습니다. 재로그인이 필요합니다."));
+                return ResumeResult.Expired;
+            }
+
+            SessionResumeResponse resData = JsonUtility.FromJson<SessionResumeResponse>(call.Body);
+            if (resData != null && resData.success && resData.data != null) {
+                Uid = resData.data.uid;
+                Money = resData.data.money;
+                Inventory = resData.data.inventory;
+                // ShopItems는 로그인 때 받은 캐시를 유지한다 (세션 중 불변이라 재전송하지 않는 스펙)
+                Managers.ExecuteAtMainThread(() => Util.Log($"세션 유지 성공 [Session: {SessionId}]"));
+                return ResumeResult.Success;
+            }
+
+            // 200으로 감싸 보내는 실패 응답도 있으므로 본문의 code로 한 번 더 만료를 가려낸다
+            if (resData != null && resData.code == HTTP_UNAUTHORIZED) {
+                Managers.ExecuteAtMainThread(() => Util.LogWarning("세션이 만료되었습니다. 재로그인이 필요합니다."));
+                return ResumeResult.Expired;
+            }
+
+            Managers.ExecuteAtMainThread(() => Util.LogWarning($"세션 유지에 실패했습니다. [status: {call.StatusCode}]"));
+            return ResumeResult.Unreachable;
         }
         finally {
             _isRequesting = false;
@@ -572,7 +656,7 @@ public class HTTPManager {
                         Managers.Network.udpManager.SendChannelOpenPkt();
                         BaseScene scene = Managers.Scene.CurrentScene;
                         if (scene is LobbyScene lobbyScene) {
-                            Managers.Scene.LoadSceneWithLoadingScene(Define.Scene.TestIngame, Define.Scene.LoadingScene);
+                            Managers.Scene.LoadSceneWithLoadingScene(Define.Scene.TestIngameScene, Define.Scene.LoadingScene);
                         }
                     });
 

@@ -846,7 +846,8 @@ public class IngameScene : BaseScene {
         Managers.Network.udpManager.Disconnect();
         Util.Log($"[MatchExit] 연결 종료 (reason={_matchExitReason})");
 
-        // TODO: 게임 결과 씬으로 전환. 씬이 만들어지기 전까지는 인게임 씬에 그대로 남는다
+        // 씬 전환은 잡큐로 예약해 다음 프레임에 수행한다 — 현재 업데이트 루프 안에서 씬을 내리지 않는다
+        Managers.ExecuteAtMainThread(() => Managers.Scene.LoadScene(Define.Scene.GameResultScene));
     }
 
     private GameResult BuildGameResult() {

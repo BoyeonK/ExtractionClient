@@ -95,6 +95,11 @@ public class SceneManagerEx {
         LastGameResult = null;
     }
 
+    // LobbyScene 진입이 GameResultScene 경유(true)인지 게임 최초 시작(false)인지 구분한다.
+    // ResetLoadSceneOp()에서 지우지 않는다 — 로비 초기화에서 소비 전에 날아간다.
+    // 소비자인 LobbyScene.Init()이 읽은 뒤 직접 false로 리셋한다
+    public bool IsReturnFromGameResult { get; set; } = false;
+
     private LoadingState _loadingState = LoadingState.None;
     private Define.Scene _nextScene = Define.Scene.Undefined;
     //private bool _sceneActiveImmidiately = false;

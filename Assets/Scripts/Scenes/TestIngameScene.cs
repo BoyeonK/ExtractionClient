@@ -2,7 +2,7 @@ using UnityEngine;
 
 public class TestIngameScene : IngameScene {
     protected override void Init() {
-        SceneType = Define.Scene.TestIngame;
+        SceneType = Define.Scene.TestIngameScene;
         base.Init();
     }
 

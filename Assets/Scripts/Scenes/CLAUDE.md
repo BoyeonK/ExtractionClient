@@ -4,7 +4,14 @@
 - **`LobbyScene`**: `LobbyState` enum 기반 상태 머신 (BeforeConnect → BeforeAuth → Lobby → Matching)
 - **`LoadingScene`**: 비동기 로딩 → 90% 도달 시 Blueprint 요청 → 응답 완료 시 씬 전환
 - **`IngameScene`**: 인게임 맵 씬들의 공통 베이스. 정적 오브젝트 스폰 + 씬 내장 UI 바인딩 + 스폰 요청. 실제 맵 씬은 이 클래스를 상속
+- **`GameResultScene`**: 매치 결과 표시 + 엔터로 로비 복귀. 진입 경로는 `IngameScene.CompleteMatchExit()` 하나뿐
 - 씬 전환: 반드시 `Managers.Scene` 사용
+
+## 씬 이름 규칙
+
+**`SceneManagerEx.GetSceneName()`이 `Define.Scene` 항목 이름을 그대로 `SceneManager.LoadScene()`에 넘긴다.** 따라서 enum 항목 이름 = `.unity` 파일 이름이어야 하며, 파일 이름은 모두 `Scene`으로 끝낸다. 씬을 추가·리네임하면 enum도 같이 고치고 Build Settings 등재를 확인할 것 — 어긋나면 컴파일은 통과하고 **전환 시점에 런타임으로 터진다**.
+
+씬 담당 컴포넌트 클래스와 이름이 겹치지만(`LobbyScene`, `LoadingScene`, `GameResultScene`, `TestIngameScene`) enum 멤버는 항상 `Define.Scene.X`로 한정 접근되므로 충돌하지 않는다. 깨지는 경우는 `using static Define.Scene;`뿐이니 쓰지 말 것.
 
 ## 씬 전환 페이로드 (`GameSceneContext`)
 
@@ -17,6 +24,16 @@
 - `LastGameResult`는 `GameResult?` — null이 '결과 없음'. **`ResetLoadSceneOp()`에서 지우지 말 것** — 결과 씬 진입 초기화에서도 불려 소비 전에 날아간다. 제거는 소비자의 `ClearGameResult()` 또는 다음 매치 종료의 덮어쓰기로 한다
 - 내용: 이탈 사유 + 인벤토리 25슬롯(배치 유지, 빈 슬롯 null) + 무기 2·방어구(**탄창 제외**) + 킬수 2종. 인벤토리는 클라 로컬 상태 기준이라 서버와 어긋날 수 있으나 표시용으로 감수한다(서버 재조회 없음)
 - 같은 아이템 목록이라도 **사유별 의미가 다르다** — Recalled=반출 확정, Dead·ConnectionLost=잃은 것
+
+### 로비 복귀와 세션 유지 (`IsReturnFromGameResult`)
+
+`GameResultScene.MoveToLobby()`가 플래그를 세우고 `LobbyScene.Init()`이 소비한다. 결과 씬 경유(true)와 게임 최초 시작(false)을 구분해, 경유일 때만 `TryResumeSession()`으로 Login 과정을 건너뛴다.
+
+- **`LastGameResult`와 같은 이유로 `ResetLoadSceneOp()`에서 지우지 말 것** — 로비 초기화에서도 불려 소비 전에 날아간다. 소비자인 `LobbyScene.Init()`이 읽은 뒤 직접 false로 되돌린다
+- 세션이 살아남는 근거는 `Managers.Clear()`가 `Sound`/`Input`/`Scene`/`UI`만 건드려 **HTTPManager의 `SessionId`·`AuthState`는 씬 전환에서 초기화되지 않는다**는 것이다. 여기에 매니저를 추가할 때 주의할 것
+- 버전 체크(`GetVersionCall`)는 프로세스 재시작이 아니므로 이 경로에서 생략한다
+- 성공하면 `OnLoginComplete(AuthState 기준 Logined/Guest)`를 재사용한다 — 별도 진입 경로를 만들지 말 것
+- 실패 처리와 폴백 정책은 `Network/CLAUDE.md`의 '세션 유지' 절 참조
 
 ## IngameScene 스폰 흐름
 

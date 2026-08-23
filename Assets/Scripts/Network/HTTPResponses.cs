@@ -52,6 +52,18 @@ public class AuthResponse : BaseResponse {
 }
 
 [Serializable]
+public class SessionResumeData {
+    public int uid;
+    public int money;
+    public InventoryItem[] inventory;
+}
+
+[Serializable]
+public class SessionResumeResponse : BaseResponse {
+    public SessionResumeData data;
+}
+
+[Serializable]
 public class GuestAuthData {
     public string sessionId;
     public string guestId;

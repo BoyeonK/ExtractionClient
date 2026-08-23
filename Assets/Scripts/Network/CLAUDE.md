@@ -5,9 +5,25 @@
 - 인증이 필요한 요청은 `x-session-id` 헤더 포함
 - `Gitignores.cs`는 git에서 제외된 파일 — **베이스 URL 하드코딩 금지**
 
-엔드포인트 전체 목록 및 요청/응답 스키마: `Assets/Scripts/Network/http-api-spec.yaml` (OpenAPI 3.0) 참고
+엔드포인트 전체 목록 및 요청/응답 스키마: `Assets/Scripts/Network/http-api-spec.yaml` (OpenAPI 3.0) 참고. **이 파일은 서버 사본과 동기화된다 — 한쪽만 수정하지 말 것**
 
 매칭 흐름: `StartMatchCall` → `CheckMatchStatusCall` 폴링 (WAITING → SUCCESS) → `TryConnectCall` → UDP 연결 시작
+
+### 상태 코드가 필요한 호출 (`SendRequestWithStatusAsync`)
+
+`SendRequestAsync`는 본문 문자열만 돌려주므로 상태 코드로 분기할 수 없다. 필요한 호출부는 `SendRequestWithStatusAsync`(본문 + 상태 코드 + `HasResponse`)를 쓴다. `SendRequestAsync`는 이 함수의 본문만 꺼내는 래퍼이므로 **둘 중 하나만 고치지 말 것**.
+
+`HasResponse == false`는 서버 응답 자체가 없었다는 뜻(전송 실패·취소)이며 이때 상태 코드는 의미가 없다.
+
+### 세션 유지 (`PostResumeSessionCall` / `ClearAuthStateLocal`)
+
+매치 종료 후 로비 복귀 시 `POST /api/session/resume`으로 세션 유효성을 확인하고 결과가 반영된 재화·인벤토리를 재조회한다. 호출 맥락은 `Scenes/CLAUDE.md`의 '로비 복귀와 세션 유지' 참조.
+
+- **반환은 `bool`이 아니라 `ResumeResult` 3상태다.** 실패를 뭉뚱그리면 막다른 길이 생긴다 — `PostLoginCall`이 `AuthState != None`이면 거부하므로, 네트워크 오류에서 인증 상태를 남기면 로그인이 아예 막히고 지워버리면 살아 있는 세션을 클라가 스스로 버린다
+  - `Expired`: HTTP 401 **또는** 200으로 감싸 온 본문의 `code == 401`. 재로그인 외에 방법이 없으므로 `ClearAuthStateLocal()` + 폴백 확정
+  - `Unreachable`: 응답 없음 또는 그 외 오류. 세션이 아직 살아 있을 수 있어 재시도 여지가 있다. **자동 재시도는 하지 않는다** — 타임아웃 5초가 그대로 검은 화면이 되므로 호출자가 사용자에게 묻는다
+- `ShopItems`는 응답에 실리지 않는다(세션 중 불변이라 재전송하지 않는 스펙). 로그인 때 받은 캐시를 유지할 것
+- `ClearAuthStateLocal()`은 **서버 호출 없는 로컬 인증 리셋**이다. 세션이 서버에서 이미 사라진 경우 로그아웃 API를 부를 수 없어 분리했으며 로그아웃 성공 블록과 공유한다
 
 ## UDP (`UDPManager`)
 - 전용 백그라운드 워커 스레드(`UDP_Network_Thread`) — 수신 + 송신 큐 소진
