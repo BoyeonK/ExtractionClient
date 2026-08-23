@@ -750,9 +750,13 @@ public class LobbyScene : BaseScene {
     }
 
     private void OnDestroy() {
-        Managers.Input.RemoveKeyListener(Key.Escape, OnEscapeInput, InputManager.KeyState.Up);
-        Managers.Input.RemoveKeyListener(Key.Enter, OnEnterInput, InputManager.KeyState.Up);
-        Managers.Input.RemoveKeyListener(Key.Tab, OnTabInput, InputManager.KeyState.Up);
+        // 종료 중에는 OnApplicationQuit이 먼저 돌아 Managers.Instance가 null이다.
+        // 취소 토큰 정리는 그 경우에도 해야 하므로 early return이 아니라 이 블록만 감싼다
+        if (Managers.Instance != null) {
+            Managers.Input.RemoveKeyListener(Key.Escape, OnEscapeInput, InputManager.KeyState.Up);
+            Managers.Input.RemoveKeyListener(Key.Enter, OnEnterInput, InputManager.KeyState.Up);
+            Managers.Input.RemoveKeyListener(Key.Tab, OnTabInput, InputManager.KeyState.Up);
+        }
         _cts.Cancel();
         _cts.Dispose();
         if (_dragGhost != null)

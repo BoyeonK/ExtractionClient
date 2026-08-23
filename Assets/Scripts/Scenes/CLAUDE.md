@@ -6,6 +6,7 @@
 - **`IngameScene`**: 인게임 맵 씬들의 공통 베이스. 정적 오브젝트 스폰 + 씬 내장 UI 바인딩 + 스폰 요청. 실제 맵 씬은 이 클래스를 상속
 - **`GameResultScene`**: 매치 결과 표시 + 엔터로 로비 복귀. 진입 경로는 `IngameScene.CompleteMatchExit()` 하나뿐
 - 씬 전환: 반드시 `Managers.Scene` 사용
+- **입력 리스너·업데이트 루프 안에서는 씬을 직접 내리지 말고 `Managers.ExecuteAtMainThread`로 예약할 것** — `LoadScene()`의 `Managers.Clear()`가 순회 중인 구독 목록을 비운다 (`Managers/CLAUDE.md` 참조)
 
 ## 씬 이름 규칙
 

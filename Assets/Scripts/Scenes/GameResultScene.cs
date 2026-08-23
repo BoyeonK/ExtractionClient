@@ -39,13 +39,17 @@ public class GameResultScene : BaseScene {
         MoveToLobby();
     }
 
+    // 씬 전환은 잡큐로 예약해 다음 프레임에 수행한다 — 키 리스너 안에서 바로 부르면
+    // LoadScene()의 Managers.Clear()가 InputManager의 순회 중인 _keyActions를 비워 예외가 난다
     public void MoveToLobby() {
         Managers.Scene.IsReturnFromGameResult = true;
         Managers.Scene.ClearGameResult();
-        Managers.Scene.LoadScene(Define.Scene.LobbyScene);
+        Managers.ExecuteAtMainThread(() => Managers.Scene.LoadScene(Define.Scene.LobbyScene));
     }
 
     private void OnDestroy() {
+        // 종료 중에는 OnApplicationQuit이 먼저 돌아 Managers.Instance가 null이다
+        if (Managers.Instance == null) return;
         Managers.Input.RemoveKeyListener(Key.Enter, OnEnterInput, InputManager.KeyState.Up);
     }
 }
