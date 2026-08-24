@@ -436,6 +436,8 @@ public class IngameScene : BaseScene {
             _shieldRegenPerSecond = 0;
         }
 
+        TryInitShield();
+
         if (_ingameHealthBarUI == null) return;
         _ingameHealthBarUI.SetMaxHP(MAX_HEALTH_POINT);
         _ingameHealthBarUI.SetMaxShield(_maxShieldPoint);
@@ -700,6 +702,7 @@ public class IngameScene : BaseScene {
     private int _maxShieldPoint;
     private int _shieldRegenPerSecond;
     private float _shieldRegenAccum;
+    private bool _initialShieldApplied = false;
 
     public int CurrentHealthPoint => _currentHealthPoint;
     public int CurrentShieldPoint => _currentShieldPoint;
@@ -904,6 +907,21 @@ public class IngameScene : BaseScene {
             _ingameHealthBarUI.SetArmor(_currentShieldPoint);
     }
 
+    // 서버는 스폰 시 실드를 최대치로 준다. 최대치의 출처가 방어구 스펙뿐이라 HP처럼 필드
+    // 초기값으로 둘 수 없고, 인벤토리가 도착해 _maxShieldPoint가 채워진 뒤에야 적용할 수 있다.
+    // _spawnCompleted는 보지 않는다 — 캐릭터가 서기 전에는 실드가 깎일 경로가 없고,
+    // 조건을 늘리면 스폰 완료 시점에도 호출부를 둬야 한다(도착 순서가 보장되지 않는다).
+    private void TryInitShield() {
+        if (_initialShieldApplied || !_itemLoaded) return;
+        _initialShieldApplied = true;
+        _currentShieldPoint = _maxShieldPoint;
+        _shieldRegenAccum = 0f;
+
+        Util.Log($"[ShieldInit] 스폰 실드 최대치 적용 — {_currentShieldPoint}");
+    }
+
+    // 최초 스폰과 달리 방어구 조작은 실드가 0에서 다시 찬다(서버 규칙).
+    // TryInitShield()의 일회성 플래그가 이 둘을 가른다
     private void ResetShieldPrediction() {
         _currentShieldPoint = 0;
         _shieldRegenAccum = 0f;

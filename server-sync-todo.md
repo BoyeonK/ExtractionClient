@@ -216,7 +216,9 @@ proto가 규칙을 명문화하면서(`C2DRequestEquipItem` 주석) T8 시점 �
 - (2026-08-20) **값은 정상적으로 들어오는데 이미지가 변하지 않았다.** 스크립트 경로는 `fillAmount` 대입 직전까지 정상이고, 원인은 `HealthBarFill`/`ArmorBarFill`의 **Image Type이 `Filled`가 아닌 것** 하나로 좁혀졌다(`Simple`/`Sliced`면 대입이 에러 없이 무시된다)
 - (2026-08-21) **Editor 작업 완료** — 두 Fill 이미지의 Type을 `Filled`로 맞추고 스프라이트를 신규 `Assets/Resources/White_Square.png`(Sprite, border 0)로 지정. 코드 변경 없음. 씬 오버라이드(`TestIngame.unity`)에는 한쪽 Image의 `m_Type`만 실리는데, 나머지는 프리팹 기본값이 이미 `Filled`라 정상이다. 이 제약은 앞으로 추가될 게이지에도 그대로 적용되므로 `Assets/Scripts/UI/CLAUDE.md`의 `IngameHealthBarUI` 항목에 상시 규칙으로 남겨둔다
 
-**남은 것**: 런타임 시각 검증만. 매치 진입 직후 HP 만피·실드 0 → 방어구 착용 후 초당 100(=1%) 상승 → 피격 시 서버값 점프(`[HealthChange]` 로그와 대조) → 방어구 해제 시 0. 이게 통과하면 T11·T12를 함께 종료 처리한다. **어긋나면 원인은 이제 스크립트 쪽이다** — Editor 설정이 유일한 잔여 변수였으므로, 남는 후보는 `SyncHealthBarMax()` 호출 시점과 실드 예측 누적 로직이다.
+**⚠ (2026-08-25) 서버 계약 추가 — 스폰 시 실드는 최대치다.** 0에서 차오르는 게 아니다. 최대치의 출처가 방어구 스펙뿐이라 인벤토리 도착 후에야 채울 수 있어, `SyncHealthBarMax()` 직후 일회성 `TryInitShield()`로 적용한다(`_itemLoaded` 가드 필수 — 없으면 최대치 0이 적용되며 플래그가 소진된다). **방어구 착용·해제·교체가 0에서 다시 차는 규칙은 그대로**이며 일회성 플래그가 둘을 가른다.
+
+**남은 것**: 런타임 시각 검증만. 매치 진입 직후 HP 만피 + **실드도 만피**(`[ShieldInit]` 로그와 대조) → 방어구 해제 시 0 → 재착용 후 초당 100(=1%) 상승 → 피격 시 서버값 점프(`[HealthChange]` 로그와 대조). 이게 통과하면 T11·T12를 함께 종료 처리한다. **어긋나면 원인은 이제 스크립트 쪽이다** — Editor 설정이 유일한 잔여 변수였으므로, 남는 후보는 `SyncHealthBarMax()` 호출 시점과 실드 예측 누적 로직이다.
 
 ### [ ] T13. `object_type = 3` (Corpse) 매핑 — **프리팹 대기**
 `Assets/Scripts/Utils/Define.cs:29-40`
