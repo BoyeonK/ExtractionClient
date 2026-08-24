@@ -261,6 +261,7 @@ public class PlayerController : GameObjectController, ICombatTarget {
         _anim.SetFloat("MovingSpeed", moveSpeed, 0.1f, Time.deltaTime);
     }
 
+    // TODO: 발사 연출·이펙트 미구현, 별도 작업 예정
     private void ProcessFire() {
         if (_fireInterval <= 0f) return;
 
@@ -290,13 +291,14 @@ public class PlayerController : GameObjectController, ICombatTarget {
             ? _ingameScene.Inventory.PrimaryWeaponMagazine
             : _ingameScene.Inventory.SecondaryWeaponMagazine;
 
-        // TEMP: 탄약 확인 비활성화
-        // if (magazine == null || magazine.quantity <= 0) {
-        //     EmptyAmmoFire();
-        //     return;
-        // }
+        if (magazine == null || magazine.quantity <= 0) {
+            EmptyAmmoFire();
+            return;
+        }
 
-        // magazine.quantity--; // TEMP: 탄약 차감 비활성화
+        // 매 발사마다 서버와 동기화하지 않는다(느슨한 동기화). 클라 값은 예측이고 최종 판정은
+        // 서버가 쥐므로, 장전 등 확실한 동기화 시점까지 양쪽 수치가 어긋나는 것은 정상 범위다
+        magazine.quantity--;
 
         // 2. 스프레드 적용 히트스캔
         Ray spreadRay = CalculateSpreadRay();
@@ -333,9 +335,11 @@ public class PlayerController : GameObjectController, ICombatTarget {
 
     private void EmptyAmmoFire() {
         _fireBlocked = true;
+        Util.Log("[Fire] 탄약이 없어 발사하지 않는다");   // TEMP: 연출·사운드 구현 전까지의 임시 출력
         // TODO: 빈 탄창 사운드, 재장전 유도 UI 등
     }
 
+    // TODO: 피격 이펙트·데미지 표시 미구현, 별도 작업 예정
     private void ProcessHit(RaycastHit hit, bool hasHit) {
         // '장착한' 무기가 아니라 '손에 든' 무기여야 한다. 인벤토리에서 다시 유도하면
         // 교체 확정 전 상태를 실을 수 있어, 서버가 확정해 장착시킨 값을 그대로 쓴다
@@ -348,6 +352,11 @@ public class PlayerController : GameObjectController, ICombatTarget {
             if (combatTarget != null)
                 hitObjectId = (uint)combatTarget.GetObjectId();
         }
+
+        // TEMP: 피격 대상 판정 확인용. 비플레이어 전투 오브젝트에 ICombatTarget이 보급되면
+        //       그 검증에도 쓰고 끝난 뒤 제거할 것 — 연사 중 명중할 때마다 찍힌다
+        if (hitObjectId != 0xFFFFFFFF)
+            Util.Log($"[Fire] 피격 대상 objectId={hitObjectId}");
 
         // 서버에 발사 패킷 전송
         Managers.Network.udpManager.SendC2DRequestWeaponFire(

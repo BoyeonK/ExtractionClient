@@ -48,6 +48,15 @@ public interface ICombatTarget {
 - **발사 차단**: UI 열림 전환 시 block, 마우스 재클릭(release→press) 시 해제. UI 닫힘 후 마우스 유지만으로는 해제되지 않음
 - **WeaponSpec 캐시**: `EquipWeapon()` 시 정수값을 `/100f`로 변환하여 도(degree) 단위로 캐싱
 
+#### 탄약 동기화 정책 (느슨한 동기화)
+
+`Fire()`가 발사 직전 `magazine.quantity`를 검사하고 차감한다. 탄창은 손에 든 슬롯 기준(`IsPrimaryWeaponApplyed`)으로 고른다.
+
+- **매 발사마다 서버와 동기화하지 않는다.** 발사 1회당 인벤토리 왕복은 낭비라는 판단이며, 장전 등 확실한 동기화 시점 전까지 **클라와 서버의 탄약 수치가 어긋나는 것을 정상 범위로 본다**
+- **최종 판정 권한은 서버에 있다.** 서버는 발사 패킷 수신 시 가능한 경우 차감하되 패킷 유실과 클라 값 조작을 전제로 판정한다. 클라의 차감은 예측이고 클라의 발사 차단은 UX·트래픽 절약용이다
+- 따라서 `D2CFullInventorySync`가 오면 탄약이 서버 값으로 덮이는 것이 **정상 동작**이다 — 버그로 보지 말 것
+- **재장전 수단이 아직 없다.** 탄창 교체 경로가 클라에 없고(`SetPrimaryWeaponMagazine`/`SetSecondaryWeaponMagazine`은 호출자 0개, 장비 슬롯은 `0/1/2`뿐) proto에도 관련 메시지가 없다. **탄창이 비면 그 판 내내 못 쏜다** — 전투 테스트 계획을 세울 때 이 제약을 먼저 볼 것
+
 ### 손에 든 무기 (`_equippedWeaponId`)
 
 `EquipWeapon()`이 갱신하는 '손에 든 무기' blueprint_id(0=맨손). `C2DRequestWeaponFire.weapon_dbid`는 **인벤토리에서 다시 유도하지 말고 이 값을 쓸 것** — 서버가 확정해 장착시킨 값이라야 발사가 버려지지 않는다.
@@ -72,10 +81,11 @@ public interface ICombatTarget {
 - **`ApplyViewRotation()`**: 두 값을 합산(`_aimPitch - _recoilPitch`, `_aimYaw + _recoilYaw`)하여 한 프레임에 **1회만** 회전 적용
 - **피치 클램프**: `ProcessMouseLook()`에서 `_aimPitch`를 `[-80 + _recoilPitch, 90 + _recoilPitch]`로 클램프 — 반동 누적 시에도 마우스 조작 범위 보장
 
-### 스텁 메서드 (미구현)
+### 미구현이 남은 메서드
 
-- `EmptyAmmoFire()`: 빈 탄창 사운드, UI 등
-- `ProcessHit()`: 데미지, 이펙트, 서버 히트 검증
+- `EmptyAmmoFire()`: 실동작은 `_fireBlocked = true` + `TEMP:` 로그 1줄뿐. 빈 탄창 사운드·재장전 유도 UI가 `TODO:`
+- `ProcessHit()`: **스텁이 아니다** — `SendC2DRequestWeaponFire()`로 발사 패킷을 보내는 본 기능을 수행한다. 남은 것은 탄착 이펙트·데미지 표시
+- `ProcessFire()`: 타이머·차단·발사 트리거는 동작한다. 남은 것은 발사 연출·이펙트
 
 ## OppoPlayerController
 
