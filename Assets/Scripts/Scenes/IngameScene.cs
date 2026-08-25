@@ -687,8 +687,9 @@ public class IngameScene : BaseScene {
     private const uint NO_ATTACKER_OBJECT_ID = 0xFFFFFFFF;
     private const float ATTACKER_TRACK_DURATION = 5f;
 
-    // 서버가 HP 최대치를 어떤 패킷으로도 보내지 않아 이 상수가 유일한 출처다
-    private const int MAX_HEALTH_POINT = 100000;
+    // 서버가 HP 최대치를 어떤 패킷으로도 보내지 않아 이 상수가 유일한 출처다.
+    // 서버 PlayerObject::DEFAULT_MAX_HP(200.00 HP)와 반드시 같은 값이어야 한다
+    private const int MAX_HEALTH_POINT = 20000;
 
     // 실드 재생 서버 규칙: (재생량 × 경과ms)를 누적해 이 값에 도달할 때마다 1 회복
     private const float SHIELD_REGEN_ACCUM_UNIT = 1000f;
