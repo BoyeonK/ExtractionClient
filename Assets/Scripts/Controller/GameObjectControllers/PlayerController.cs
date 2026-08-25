@@ -154,6 +154,7 @@ public class PlayerController : GameObjectController, ICombatTarget {
         _equippedWeaponGo = Object.Instantiate(weaponPrefab, _weaponSocketTr);
         _equippedWeaponGo.transform.localPosition = Vector3.zero;
         _equippedWeaponGo.transform.localRotation = Quaternion.identity;
+        DisableWeaponColliders(_equippedWeaponGo);
 
         if (ItemDBHelper.TryGetWeaponSpec(weaponId, out WeaponSpec spec)) {
             _fireInterval = 60f / spec.Rpm;

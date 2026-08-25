@@ -12,6 +12,7 @@ GameObjectController (MonoBehaviour)
       └── RecallSpotController
 ```
 
+- **`GameObjectController.DisableWeaponColliders()`**: 손에 든 무기의 콜라이더를 끄는 공용 헬퍼. 양쪽 `EquipWeapon()`이 인스턴스화 직후 호출한다. **무기 프리팹에 딸려 오는 콜라이더는 쓰이는 용도가 없는데**(`Weapon_1_AK`는 4개, `Weapon_2_M4`·`Weapon_3_M16`은 3개) 켜둔 채로 손에 들면 ① 몸 대신 총에 히트스캔이 걸리고 — 총은 `ICombatTarget` 하위라 **그대로 피격 판정이 된다** ② 발사 원점이 가슴팍이라 자기 무기에 자탄이 걸린다. 프리팹에서 지우지 않고 장착 시점에만 끄는 것은 바닥 무기 습득 용도가 생기면 되살리기 위함이다
 - **`InteractableGameObjectController`**: `_onInteract` 델리게이트 패턴. `Interact()` 호출 시 구독된 액션 실행
 - **`ContainerController`**: `_onInteract`에 `RequestOpenContainer` 구독
 - **`RecallSpotController`**: `_onInteract`에 `RequestRecall` 구독. 서버 스폰(`ObjectData`) 대상이 아니라 **맵 씬에 직접 배치**하고 `[SerializeField] _recallSpotIndex`로 맵별 귀환 영역 테이블 인덱스를 부여한다. `_objectId`는 사용하지 않음
@@ -39,6 +40,8 @@ public interface ICombatTarget {
 ```
 
 히트스캔 피격 판정 시 `GetComponentInParent<ICombatTarget>()`으로 탐색. `ICombatTarget`을 구현하지 않은 오브젝트(컨테이너, 지형 등)는 null → `hitObjectId = 0xFFFFFFFF`(미피격)으로 처리된다. 새 전투 대상 오브젝트 추가 시 반드시 이 인터페이스를 구현할 것. `GetObjectId()`는 `GameObjectController`에 이미 구현되어 있으므로 상속 계층 내 클래스는 별도 구현 불필요.
+
+**부모로 거슬러 올라가므로 하위에 붙은 것이면 무엇이든 피격 판정이 된다.** 손에 든 무기가 대표적인 사고 사례였다(위 `DisableWeaponColliders` 참조) — 전투 대상 하위에 콜라이더를 새로 붙일 때는 그것이 피격 부위로 취급되어도 되는지 먼저 볼 것.
 
 ## PlayerController
 
@@ -100,6 +103,21 @@ public interface ICombatTarget {
 - `ProcessFire()`: 타이머·차단·발사 트리거는 동작한다. 남은 것은 발사 연출·이펙트
 
 ## OppoPlayerController
+
+### 히트박스 (`BuildHitboxes`) — 적을 맞힐 수 있는 유일한 수단
+
+**프리팹에는 콜라이더가 없다.** `OppoPlayerObject`·`HB0/1/2OppoPlayer` 어느 쪽에도 없으므로, `Setup()`이 모델 인스턴스화 직후 **본에 캡슐 11개를 코드로 붙인다**(머리 / 상체 / 골반 / 상완·전완 ×2 / 허벅지·정강이 ×2). 이게 없으면 총알이 적을 그대로 통과한다.
+
+- **루트 캡슐 하나로 대체하지 말 것** — 애니메이션을 따라가지 못해 뻗은 팔·손이 판정에서 빠진다. 본에 붙어야 스킨드 메시와 같은 트랜스폼을 따라간다
+- **치수를 하드코딩하지 않는다.** 길이는 본↔자식 본 실측 거리, 반지름은 **골반→머리 거리에 대한 비율**(`HITBOX_DEFS.RadiusFactor`). 둘 다 모델에서 유도되므로 `HB0/1/2`의 비율·스케일이 서로 달라도, 모델이 교체돼도 따라간다. **튜닝 대상은 비율뿐이다**
+- `height = 본 길이`, `center = 길이/2`라 인접 캡슐이 관절에서 맞물린다 — 부위 사이에 틈이 없다. 손·발은 전완·정강이 캡슐이 관절 너머를 덮어 별도로 두지 않았다
+- **`isTrigger = true`** — 오포는 `Rigidbody` 없이 매 프레임 `Lerp`로 위치가 강제되므로, 일반 콜라이더면 로컬 플레이어 `CharacterController`와 밀어내기가 싸워 떨린다. **대신 Project Settings의 `Queries Hit Triggers`에 의존한다**(Unity 기본 켜짐). 꺼면 히트박스가 통째로 죽는다
+- 처리한 함정 둘: **`LookRotation`의 up 힌트** — 척추·다리 본은 축이 거의 수직이라 기본 `Vector3.up`과 평행해진다(대부분의 히트박스가 해당). **본 스케일** — 콜라이더 치수는 로컬 단위인데 길이는 월드에서 재므로 `lossyScale`로 나눈다(균등 스케일 가정)
+- 본을 못 찾거나 하나도 만들어지지 않으면 `LogError`. 조용히 넘어가면 "그 적만 안 맞는" 상태가 원인 없이 남는다
+
+**로컬 `PlayerController`에는 만들지 않는다 — 의도된 비대칭이다.** 내 클라이언트가 나를 대상으로 레이캐스트할 일이 없고(내가 맞았다는 판정은 상대 클라이언트가 자기 쪽 `OppoPlayer`에 대고 하며, 서버는 발사선을 검증하지 않는다), 발사 원점이 가슴팍이라 **내 팔 히트박스가 내 총알을 막는다.** 대칭으로 맞추려 들지 말 것.
+
+### 그 외
 
 - `PlayerController`와 동일 모델/Rig 패턴 (Camera/ViewPoint/CharacterController 제외)
 - `ApplyState()`: 첫 수신 또는 대규모 이동(sqrMagnitude>100) 시 즉시 텔레포트, 그 외 매 프레임 Lerp 보간
