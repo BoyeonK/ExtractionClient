@@ -95,6 +95,9 @@ public interface ICombatTarget {
 - **`_recoilPitch` / `_recoilYaw`**: 반동에 의한 오프셋. `ProcessRecoil()`에서 Lerp 보간(`_recoilApplySpeed` 기본 15)
 - **`ApplyViewRotation()`**: 두 값을 합산(`_aimPitch - _recoilPitch`, `_aimYaw + _recoilYaw`)하여 한 프레임에 **1회만** 회전 적용
 - **피치 클램프**: `ProcessMouseLook()`에서 `_aimPitch`를 `[-80 + _recoilPitch, 90 + _recoilPitch]`로 클램프 — 반동 누적 시에도 마우스 조작 범위 보장
+- **반동은 시간 경과로 회복하지 않는다 — 플레이어가 마우스로 직접 잡는 것이 확정된 설계다.** `_recoilTarget`은 `Fire()`의 `+=`로만 커지고 줄어드는 경로가 없는데 **이건 결함이 아니다**(한 번 결함으로 오진된 적이 있다). 자동 복귀를 추가하지 말 것 — 넣으면 플레이어가 보정한 만큼 시점이 아래로 처진다
+- 누적이 무한히 커져도 **위 피치 클램프가 `_recoilPitch`만큼 같이 밀리므로 가동 범위는 보존된다.** 이 클램프에서 `_recoilPitch` 항을 빼면 그때 실제로 조작 범위가 잘린다
+- `_recoilApplySpeed`의 Lerp는 **회복이 아니라 킥을 몇 프레임에 걸쳐 얹는 용도**다. 반면 `_currentSpread`는 `_spreadRecoveryRate`로 자동 회복한다 — **스프레드와 반동은 회복 정책이 다르며, 비대칭을 맞추려 들지 말 것**
 
 ### 미구현이 남은 메서드
 
