@@ -13,6 +13,7 @@ GameObjectController (MonoBehaviour)
 ```
 
 - **`GameObjectController.DisableWeaponColliders()`**: 손에 든 무기의 콜라이더를 끄는 공용 헬퍼. 양쪽 `EquipWeapon()`이 인스턴스화 직후 호출한다. **무기 프리팹에 딸려 오는 콜라이더는 쓰이는 용도가 없는데**(`Weapon_1_AK`는 4개, `Weapon_2_M4`·`Weapon_3_M16`은 3개) 켜둔 채로 손에 들면 ① 몸 대신 총에 히트스캔이 걸리고 — 총은 `ICombatTarget` 하위라 **그대로 피격 판정이 된다** ② 발사 원점이 가슴팍이라 자기 무기에 자탄이 걸린다. 프리팹에서 지우지 않고 장착 시점에만 끄는 것은 바닥 무기 습득 용도가 생기면 되살리기 위함이다
+- **`GameObjectController.FindMuzzlePoint()`**: 무기 프리팹의 `MuzzlePoint`를 찾는 공용 헬퍼. 양쪽 `EquipWeapon()`이 `DisableWeaponColliders()` 직후에 호출한다. **재귀 탐색이다**(`Util.FindChild<Transform>(..., recursive: true)`) — 모델 하위에 중첩돼 있을 수 있어 `transform.Find`로는 못 찾는다. 못 찾으면 `LogError` — 조용히 넘어가면 "그 무기만 궤적이 안 보인다"가 원인 없이 남는다
 - **`InteractableGameObjectController`**: `_onInteract` 델리게이트 패턴. `Interact()` 호출 시 구독된 액션 실행
 - **`ContainerController`**: `_onInteract`에 `RequestOpenContainer` 구독
 - **`RecallSpotController`**: `_onInteract`에 `RequestRecall` 구독. 서버 스폰(`ObjectData`) 대상이 아니라 **맵 씬에 직접 배치**하고 `[SerializeField] _recallSpotIndex`로 맵별 귀환 영역 테이블 인덱스를 부여한다. `_objectId`는 사용하지 않음
@@ -28,6 +29,17 @@ GameObjectController (MonoBehaviour)
 - 화각·클리핑·컬링 마스크는 원본 카메라에서 복사한다. **로컬 플레이어 모델이 원본 카메라의 컬링에서 빠져 있으면 탑뷰에도 안 보인다**
 - 도착 시점 시선이 수직이라 `LookRotation`의 up 힌트를 원래 보던 수평 방향으로 잡는다. 안 그러면 forward와 up이 평행해져 회전이 튄다
 - 연출 시간은 `IngameScene.MATCH_EXIT_DELAY`보다 짧아야 한다
+
+## BulletTracer (독립 MonoBehaviour)
+
+`Assets/Scripts/Controller/BulletTracer.cs` — 총알 궤적 시각화. `DeathCameraController`와 같은 패턴이다(`GameObjectController` 계층이 아니고 프리팹도 없으며, 정적 `BulletTracer.Play(from, to)`가 런타임에 `@BulletTracer` 리그를 만든다).
+
+- **그리는 선과 판정선은 다르다.** 궤적은 `MuzzlePoint` → 탄착점, 피격 판정은 `_shotPoint`(가슴팍) → 탄착점이다. 판정과 표현을 일부러 분리한 것이므로 **맞추려 들지 말 것**(아래 '발사선' 참조)
+- **`LineRenderer` 풀 16개를 링버퍼로 돌린다.** 한 프레임에 나와 여러 오포가 동시에 쏠 수 있어 하나로는 부족하다
+- **1프레임 지속은 `Time.frameCount` 비교다.** `Play()`가 프레임 번호를 기록하고 `Update()`가 번호가 다른 것만 끈다. **`LateUpdate`로 옮기지 말 것 — 렌더링보다 먼저 돌아서 선이 한 번도 그려지지 않는다.** `Update()` 실행 순서가 발사부보다 앞이든 뒤든 프레임 번호로 비교하므로 결과는 같다
+- 끄는 조건이 `Update()` 한 곳뿐이다. 지속을 시간 기반 + 페이드로 바꾸게 되면 거기만 고친다
+- 씬 오브젝트라 씬 전환에 파괴되는데, 파괴된 오브젝트에도 `== null`이 true라 다음 `Play()`에서 자연히 재생성된다 — **별도 정리 코드를 넣지 말 것**
+- 머티리얼은 `Shader.Find("Sprites/Default")`로 만들어 **프로세스당 하나만 공유한다**(매치마다 만들면 그만큼 쌓인다). **빌드에서 선이 마젠타면 셰이더가 스트립된 것** — Graphics Settings의 Always Included Shaders를 볼 것
 
 ## ICombatTarget 인터페이스
 
@@ -50,6 +62,19 @@ public interface ICombatTarget {
 - **발사 타이머**: `_fireInterval = 60f / RPM`, 차감 방식(`-= _fireInterval`)으로 프레임 오차 보정
 - **발사 차단**: UI 열림 전환 시 block, 마우스 재클릭(release→press) 시 해제. UI 닫힘 후 마우스 유지만으로는 해제되지 않음
 - **WeaponSpec 캐시**: `EquipWeapon()` 시 정수값을 `/100f`로 변환하여 도(degree) 단위로 캐싱
+- **`_fireInterval`이 맨손 차단을 겸한다** — `EquipWeapon()`이 무기 GO를 없애는 자리에서 0으로 비우고 스펙 조회에 성공할 때만 다시 채운다. 이게 없으면 맨손·프리팹 미스로 조기 return할 때 **직전 무기의 값이 남아 총도 없는데 발사가 나간다**(탄약 차감·반동·`weapon_dbid=0` 패킷까지). `ProcessFire()`는 맨손이어도 **중간에 빠져나가지 않는다** — 나가면 `_fireBlocked` 갱신과 스프레드 회복까지 멈추므로, 발사 조건에서만 막는다
+
+#### `IsFireInput` / `IsShooting` — 갈라 놔야 하는 두 개념
+
+| 프로퍼티 | 뜻 | 쓰는 곳 |
+|---|---|---|
+| `IsFireInput` | **쏘려는 의사** — 마우스 + UI 안 열림 + 안 달림 + 교체 대기 아님 + 이탈 중 아님 | `ProcessFire()`의 발사 게이트 |
+| `IsShooting` | **실제로 총알이 나가는 중** — 위 + `!_fireBlocked` + 무기 있음 + 탄약 있음 | 발사 모션(`_anim.SetBool("IsShooting", …)`), `ActionState` |
+
+- **탄약·무기 조건을 `IsFireInput`에 합치지 말 것.** 그러면 `Fire()`에 도달하지 못해 **`EmptyAmmoFire()`가 영영 불려지지 않고**, 빈 탄창 사운드·재장전 유도 UI가 설 자리가 사라진다
+- **`IsShooting`은 `ActionState`를 겸한다** — 이 값이 상태 스트림으로 나가 상대 클라의 `OppoPlayerController`가 `_anim.SetBool("IsShooting", _actionState == 1)`로 쓴다. 즉 **발사 모션 조건을 잘못 잡으면 남의 화면에도 그대로 보인다.** 반대로 여기만 고치면 오포 쪽은 손대지 않아도 따라온다
+- `_fireTimer >= _fireInterval`은 `IsShooting`에 넣지 않는다 — 발사 간격 사이에도 연사 모션은 이어져야 한다
+- 탄창 선택 규칙은 `CurrentMagazine` 한 곳에 있고 `Fire()`도 같은 것을 쓴다. 두 벌로 만들면 판정과 표시가 갈린다
 
 #### 탄약 동기화 정책 (느슨한 동기화)
 
@@ -64,10 +89,11 @@ public interface ICombatTarget {
 
 `EquipWeapon()`이 갱신하는 '손에 든 무기' blueprint_id(0=맨손). `C2DRequestWeaponFire.weapon_dbid`는 **인벤토리에서 다시 유도하지 말고 이 값을 쓸 것** — 서버가 확정해 장착시킨 값이라야 발사가 버려지지 않는다.
 
-- 같은 무기면 파괴·재생성하지 않는다. 인벤토리 조작마다 호출되므로 없으면 손에 안 든 슬롯을 건드려도 무기가 다시 만들어진다
+- 같은 무기면 파괴·재생성하지 않는다. 인벤토리 조작마다 호출되므로 없으면 손에 안 든 슬롯을 건드려도 무기가 다시 만들어진다(이 경로는 무기 GO가 살아 있어 `_muzzlePointTr` 캐시도 그대로 유효하다)
+- **`_muzzlePointTr`(궤적 원점)는 무기 GO가 사라지는 경로마다 함께 비운다** — 기존 무기 파괴 시 한 번 비우면 맨손 return과 프리팹 캐시 미스 return이 모두 그 뒤라 한 자리로 커버된다. 새 조기 return을 추가할 때는 이 지점보다 뒤인지 확인할 것. 빠뜨리면 **파괴된 트랜스폼을 가리킨 채 남는다**. 피격 판정에는 쓰이지 않는 시각화 전용 값이다
 - 프리팹 캐시에 없는 id는 에러 로그 — 조용히 return하면 맨손으로 보이기만 하고 원인이 남지 않는다
-- 발사 차단 조건에 `IngameScene.IsWeaponSwitchPending`과 `IngameScene.IsInputLocked`(매치 이탈)가 포함된다(`IsShooting`). `_fireBlocked`는 마우스 재클릭으로 풀려서 이 용도로 쓸 수 없다
-- **매치 이탈 중 입력 차단은 `IsInputLocked` 하나만 본다** — `IsShooting`·`ProcessMouseLook`·`ProcessMovement`·`ProcessAim`이 모두 이 값을 참조한다. 이동은 입력만 끊고 중력은 유지해 공중에서 죽어도 시신이 떠 있지 않게 한다. 사망 연출이 카메라를 가져가므로 시점 입력도 함께 끊긴다
+- 발사 차단 조건에 `IngameScene.IsWeaponSwitchPending`과 `IngameScene.IsInputLocked`(매치 이탈)가 포함된다(`IsFireInput`). `_fireBlocked`는 마우스 재클릭으로 풀려서 이 용도로 쓸 수 없다
+- **매치 이탈 중 입력 차단은 `IsInputLocked` 하나만 본다** — `IsFireInput`·`ProcessMouseLook`·`ProcessMovement`·`ProcessAim`이 모두 이 값을 참조한다. 이동은 입력만 끊고 중력은 유지해 공중에서 죽어도 시신이 떠 있지 않게 한다. 사망 연출이 카메라를 가져가므로 시점 입력도 함께 끊긴다
 
 ### Fire() 흐름
 
@@ -80,7 +106,7 @@ public interface ICombatTarget {
 
 **원점은 카메라가 아니라 `_shotPoint`(플레이어 루트 직속, 가슴팍)이고, 방향은 `_aimTarget`으로 수렴한다.** 카메라 축과 평행하지 않다.
 
-- `_shotPoint`는 **피치를 따라가지 않는다**(루트 자식이라 요만 따라감). 피격 판정용 원점이라 의도된 것이고, 시각 이펙트는 추후 총구 기준으로 별도 처리한다
+- `_shotPoint`는 **피치를 따라가지 않는다**(루트 자식이라 요만 따라감). 피격 판정용 원점이라 의도된 것이고, **시각 표현은 총구(`MuzzlePoint`) 기준으로 따로 간다** — `DrawTracer()`가 총구에서 탄착점까지를 그린다(위 `BulletTracer`). 두 선이 근거리에서 눈에 띄게 벌어지는 것은 정상이다
 - 엄폐물 뒤에서 카메라는 위를 보고 총구는 가려져 있으면 **총구 앞의 벽에 맞는다 — 의도된 동작이다.** 조준점과 탄착이 다를 수 있다
 - 조준점이 총구보다 뒤에 있거나 `MIN_CONVERGE_DIST`(0.5m)보다 가까우면 수렴이 성립하지 않으므로 카메라 forward로 대체한다
 - **`Update()`에서 `ProcessAim()`이 `ProcessFire()`보다 먼저 와야 한다.** `_aimTarget`을 전자가 쓰고 후자가 읽으므로, 순서가 뒤집히면 발사가 직전 프레임 조준점을 쓴다

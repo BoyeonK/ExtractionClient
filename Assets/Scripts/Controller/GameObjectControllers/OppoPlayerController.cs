@@ -50,6 +50,10 @@ public class OppoPlayerController : GameObjectController, ICombatTarget {
     int _equippedWeaponId;
     public int EquippedWeaponId => _equippedWeaponId;
 
+    // 궤적 시각화 전용 원점. 맨손이면 null
+    Transform _muzzlePointTr;
+    public Transform MuzzlePoint => _muzzlePointTr;
+
     Vector3 _velocity;
     float _yaw;
     float _pitch;
@@ -161,13 +165,16 @@ public class OppoPlayerController : GameObjectController, ICombatTarget {
     }
 
     public void EquipWeapon(int weaponId) {
+        // 무기 GO가 사라지는 경로마다 총구 캐시를 함께 비운다.
+        // 빠뜨리면 파괴된 트랜스폼을 가리킨 채 남는다
         if (_equippedWeaponGo != null) {
             Managers.Resource.Destroy(_equippedWeaponGo);
             _equippedWeaponGo = null;
         }
+        _muzzlePointTr = null;
 
         _equippedWeaponId = weaponId;
-        if (weaponId == 0) return;   // 맨손
+        if (weaponId == 0) return;   // 맨손 — 총이 없으니 총구도 없다
 
         IngameScene scene = Managers.Scene.CurrentScene as IngameScene;
         if (!scene.WeaponPrefabCache.TryGetValue(weaponId, out GameObject weaponPrefab)) {
@@ -179,6 +186,7 @@ public class OppoPlayerController : GameObjectController, ICombatTarget {
         _equippedWeaponGo.transform.localPosition = Vector3.zero;
         _equippedWeaponGo.transform.localRotation = Quaternion.identity;
         DisableWeaponColliders(_equippedWeaponGo);
+        _muzzlePointTr = FindMuzzlePoint(_equippedWeaponGo);
     }
 
     public void ApplyState(PlayerStateData data) {

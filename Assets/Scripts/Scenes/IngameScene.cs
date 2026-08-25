@@ -934,12 +934,22 @@ public class IngameScene : BaseScene {
     }
 
     public void HandleWeaponFireBroadcast(uint shooterObjectId, bool hasHitPoint, Vector3 hitPoint) {
+        // 룸 전체 브로드캐스트라 내 발사도 여기로 돌아오지만, 나는 _oppoPlayers에 없어서
+        // 이 반환에 걸린다. 내 궤적은 PlayerController가 직접 그리므로
+        // 이 가드를 풀면 내 발사가 두 겹으로 그려진다.
+        // 모르는 발사자에게 스폰을 요청하지도 않는다 — 발사는 빈도가 높아 reliable이 폭주하고,
+        // 근처 플레이어라면 상태 스트림이 곧 채운다
         if (!_oppoPlayers.TryGetValue(shooterObjectId, out OppoPlayerController shooter))
             return;
 
         // TODO: 발사자 총구 이펙트 (머즐 플래시, 총성 등)
 
         if (hasHitPoint) {
+            // 빗나간 발사는 hit_point가 실리지 않아 방향 자체를 모르므로 그리지 않는다.
+            // 내 궤적은 레이를 직접 갖고 있어 빗나가도 그리는데, 정보량 차이에서 오는 비대칭이다
+            if (shooter.MuzzlePoint != null)
+                BulletTracer.Play(shooter.MuzzlePoint.position, hitPoint);
+
             // TODO: 탄착 이펙트 재생 (hitPoint 좌표에)
         }
     }

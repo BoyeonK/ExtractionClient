@@ -33,6 +33,10 @@ public class PlayerController : GameObjectController, ICombatTarget {
     int _equippedWeaponId;
     public int EquippedWeaponId => _equippedWeaponId;
 
+    // 궤적 시각화 전용 원점. 맨손이면 null이며 피격 판정에는 쓰이지 않는다(그쪽은 _shotPoint)
+    Transform _muzzlePointTr;
+    public Transform MuzzlePoint => _muzzlePointTr;
+
     // 발사 타이머
     float _fireTimer = 0f;
     float _fireInterval = 0f; // 60f / RPM
@@ -73,13 +77,29 @@ public class PlayerController : GameObjectController, ICombatTarget {
 
     bool IsMoving => _w || _s || _a || _d;
     bool IsRunning => IsMoving && _shift;
+    // '쏘려는 의사'. ProcessFire의 발사 게이트가 이걸 본다.
+    //
     // 무기 교체가 확정되기 전에는 쏘지 않는다 — reliable(교체)과 unreliable(사격) 사이에
     // 순서 보장이 없어, 사격이 먼저 처리되면 weapon_dbid 불일치로 조용히 버려진다.
     // 매치 이탈(사망·탈출) 중에는 서버가 요청 자체를 버린다
-    bool IsShooting => Mouse.current != null && Mouse.current.leftButton.isPressed
-                       && !_ingameScene.IsAnyUIOpen && !IsRunning
-                       && !_ingameScene.IsWeaponSwitchPending
-                       && !_ingameScene.IsInputLocked;
+    bool IsFireInput => Mouse.current != null && Mouse.current.leftButton.isPressed
+                        && !_ingameScene.IsAnyUIOpen && !IsRunning
+                        && !_ingameScene.IsWeaponSwitchPending
+                        && !_ingameScene.IsInputLocked;
+
+    // '실제로 총알이 나가는 중'. 발사 모션과 ActionState가 이걸 본다.
+    //
+    // 탄약·무기 조건을 위의 IsFireInput에 합치지 말 것 — 그러면 Fire()에 도달하지 못해
+    // EmptyAmmoFire()가 영영 불려지지 않고, 빈 탄창 사운드·재장전 유도 UI가 설 자리가 사라진다.
+    // '쏘려는 의사'와 '실제로 나가는 중'은 별개이며 이 파일에서 갈리는 유일한 지점이다
+    bool IsShooting => IsFireInput && !_fireBlocked
+                       && _equippedWeaponId != 0
+                       && CurrentMagazine != null && CurrentMagazine.quantity > 0;
+
+    // 손에 든 슬롯의 탄창. Fire()의 탄약 검사와 같은 규칙을 써야 하므로 한 곳에 둔다
+    InventoryItem CurrentMagazine => _ingameScene.Inventory.IsPrimaryWeaponApplyed
+        ? _ingameScene.Inventory.PrimaryWeaponMagazine
+        : _ingameScene.Inventory.SecondaryWeaponMagazine;
 
     public override void Init() {
         base.Init();
@@ -134,16 +154,24 @@ public class PlayerController : GameObjectController, ICombatTarget {
     }
 
     public void EquipWeapon(int weaponId) {
-        // 인벤토리 조작마다 호출되므로 같은 무기면 파괴·재생성하지 않는다
+        // 인벤토리 조작마다 호출되므로 같은 무기면 파괴·재생성하지 않는다.
+        // 이 경로는 _equippedWeaponGo가 살아 있으므로 _muzzlePointTr 캐시도 그대로 유효하다
         if (_equippedWeaponId == weaponId && _equippedWeaponGo != null) return;
 
+        // 무기 GO가 사라지는 경로마다 총구 캐시를 함께 비운다.
+        // 빠뜨리면 파괴된 트랜스폼을 가리킨 채 남는다
         if (_equippedWeaponGo != null) {
             Managers.Resource.Destroy(_equippedWeaponGo);
             _equippedWeaponGo = null;
         }
+        _muzzlePointTr = null;
+
+        // 아래 스펙 조회에 성공할 때만 다시 채워진다. 여기서 비우지 않으면 맨손·프리팹 미스로
+        // 조기 return할 때 직전 무기의 값이 남아, 총도 없는데 ProcessFire가 발사까지 간다
+        _fireInterval = 0f;
 
         _equippedWeaponId = weaponId;
-        if (weaponId == 0) return;   // 맨손
+        if (weaponId == 0) return;   // 맨손 — 총이 없으니 총구도 없다
 
         IngameScene scene = Managers.Scene.CurrentScene as IngameScene;
         if (!scene.WeaponPrefabCache.TryGetValue(weaponId, out GameObject weaponPrefab)) {
@@ -155,6 +183,7 @@ public class PlayerController : GameObjectController, ICombatTarget {
         _equippedWeaponGo.transform.localPosition = Vector3.zero;
         _equippedWeaponGo.transform.localRotation = Quaternion.identity;
         DisableWeaponColliders(_equippedWeaponGo);
+        _muzzlePointTr = FindMuzzlePoint(_equippedWeaponGo);
 
         if (ItemDBHelper.TryGetWeaponSpec(weaponId, out WeaponSpec spec)) {
             _fireInterval = 60f / spec.Rpm;
@@ -273,7 +302,8 @@ public class PlayerController : GameObjectController, ICombatTarget {
 
     // TODO: 발사 연출·이펙트 미구현, 별도 작업 예정
     private void ProcessFire() {
-        if (_fireInterval <= 0f) return;
+        // 맨손(_fireInterval == 0)이어도 여기서 빠져나가지 않는다 — _fireBlocked 갱신과
+        // 스프레드 회복까지 함께 멈춰버린다. 발사만 아래 조건에서 막는다
 
         // UI 열림 전환 감지 → block
         if (!_wasUIOpen && _ingameScene.IsAnyUIOpen)
@@ -289,7 +319,8 @@ public class PlayerController : GameObjectController, ICombatTarget {
         _fireTimer = Mathf.Min(_fireTimer + Time.deltaTime, _fireInterval);
         _currentSpread = Mathf.Max(_currentSpread - _spreadRecoveryRate * Time.deltaTime, _spreadBase);
 
-        if (!_fireBlocked && IsShooting && _fireTimer >= _fireInterval) {
+        // _fireInterval은 무기를 들 때만 채워진다. 맨손이면 0이라 여기서 걸린다
+        if (_fireInterval > 0f && !_fireBlocked && IsFireInput && _fireTimer >= _fireInterval) {
             _fireTimer -= _fireInterval;
             Fire();
         }
@@ -297,9 +328,7 @@ public class PlayerController : GameObjectController, ICombatTarget {
 
     private void Fire() {
         // 1. 탄약 확인
-        InventoryItem magazine = _ingameScene.Inventory.IsPrimaryWeaponApplyed
-            ? _ingameScene.Inventory.PrimaryWeaponMagazine
-            : _ingameScene.Inventory.SecondaryWeaponMagazine;
+        InventoryItem magazine = CurrentMagazine;
 
         if (magazine == null || magazine.quantity <= 0) {
             EmptyAmmoFire();
@@ -316,6 +345,7 @@ public class PlayerController : GameObjectController, ICombatTarget {
         Ray fireRay = CalculateFireRay();
         bool hasHit = Physics.Raycast(fireRay, out RaycastHit hit, 1000f);
         ProcessHit(hit, hasHit);
+        DrawTracer(fireRay, hit, hasHit);
         DrawFireRayDebug(fireRay, hit, hasHit);   // TEMP: 발사 원점·수렴 검증 후 제거
 
         // 3. 반동 목표값 누적 (실제 적용은 ProcessRecoil에서 보간)
@@ -356,6 +386,17 @@ public class PlayerController : GameObjectController, ICombatTarget {
                           + (right * Mathf.Cos(rotation) + up * Mathf.Sin(rotation)) * Mathf.Sin(angle);
 
         return new Ray(origin, spreadDir);
+    }
+
+    // 총알 궤적. 시작점이 판정선(fireRay.origin = _shotPoint, 가슴팍)과 다르게 총구다 —
+    // 판정과 표현을 일부러 분리한 것이므로 맞추려 들지 말 것.
+    // 빗나가도 그린다. 안 그리면 "왜 안 나갔지"가 되어 궤적을 넣은 목적이 반감된다
+    // (상대 궤적은 좌표가 안 와서 생략하는데, 정보량 차이에서 오는 의도된 비대칭이다.
+    //  IngameScene.HandleWeaponFireBroadcast 참조)
+    private void DrawTracer(Ray fireRay, RaycastHit hit, bool hasHit) {
+        if (_muzzlePointTr == null) return;   // 맨손
+
+        BulletTracer.Play(_muzzlePointTr.position, hasHit ? hit.point : fireRay.GetPoint(1000f));
     }
 
     // TEMP: 발사선 시각화. Scene 뷰(또는 Game 뷰 Gizmos ON)에서 보인다. 잔상 2분

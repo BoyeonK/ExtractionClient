@@ -162,6 +162,14 @@
 - 남의 통보에는 `inventory_version`이 `0xFFFFFFFF`로 온다. `0`은 실재하는 버전(세션 시작값)이라 미설정으로 읽으면 안 된다
 - 남의 방어구·실드·HP는 어떤 패킷으로도 오지 않는다(`armor_id`는 스펙에서 삭제됨)
 
+## 발사 브로드캐스트 (`HandleWeaponFireBroadcast`)
+
+`D2CBroadcastWeaponFire`(발사자 objectId + 탄착 좌표)를 받아 **상대의 총알 궤적**을 그린다. 내 궤적은 `PlayerController.DrawTracer()`가 직접 그리며 이 경로를 타지 않는다.
+
+- **미등록 발사자에서 반환하는 것이 이중 렌더를 막는 가드를 겸한다.** 룸 전체 브로드캐스트라 내 발사도 여기로 돌아오는데, 나는 `_oppoPlayers`에 없어서 걸러진다. **이 가드를 풀면 내 발사가 두 겹으로 그려진다**
+- **모르는 발사자에게 `RequestSpawnIfUnknown()`을 부르지 않는다** — 발사는 빈도가 높아 reliable이 폭주하고, 근처 플레이어라면 상태 스트림이 곧 채운다. 오브젝트 킬 피드와 같은 판단이다
+- **`hit_point`가 없으면(빗나감) 궤적을 그리지 않는다.** 좌표가 안 오면 방향 자체를 모른다. 내 궤적은 레이를 직접 갖고 있어 빗나가도 그리는데, **정보량 차이에서 오는 의도된 비대칭**이므로 맞추려 들지 말 것
+
 ## 비플레이어 오브젝트 관리
 
 - `_sceneObjects`: objectId → `GameObjectController` 매핑

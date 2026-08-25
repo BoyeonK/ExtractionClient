@@ -23,6 +23,19 @@ public class GameObjectController : MonoBehaviour {
 			col.enabled = false;
 	}
 
+	private const string MUZZLE_POINT_NAME = "MuzzlePoint";
+
+	// 궤적 시각화의 시작점. 모델 하위에 중첩돼 있을 수 있어 재귀로 찾는다
+	// (transform.Find는 직계 자식만 본다).
+	// 못 찾으면 그 무기만 궤적이 안 보이는데 원인이 남지 않으므로 에러로 드러낸다
+	protected static Transform FindMuzzlePoint(GameObject weaponGo) {
+		Transform muzzle = Util.FindChild<Transform>(weaponGo, MUZZLE_POINT_NAME, recursive: true);
+		if (muzzle == null)
+			Util.LogError($"{weaponGo.name}에 {MUZZLE_POINT_NAME}가 없어 총알 궤적이 그려지지 않는다");
+
+		return muzzle;
+	}
+
 	public void SetObjectId(int objectId) {
 		_objectId = objectId;
 	}
