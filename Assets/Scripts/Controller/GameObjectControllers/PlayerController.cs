@@ -9,10 +9,13 @@ public class PlayerController : GameObjectController, ICombatTarget {
     // 카메라 및 Raycast
     Camera _camera;
     GameObject _viewPoint;
+    GameObject _shotPoint;
     // 사망 연출이 같은 시점의 카메라를 새로 만들 때 화각·클리핑을 물려받는다
     public Camera ViewCamera => _camera;
-    Vector3 _raycastDir = new Vector3(0.05f, 0.15f, -0.4f);
     Transform _aimTarget;
+
+    // 조준점이 총구보다 뒤에 있거나 붙어 있으면 수렴이 성립하지 않는다
+    const float MIN_CONVERGE_DIST = 0.5f;
 
     // 사옹할 모델 및 애니메이션 및 Rig
     RigBuilder _rigBuilder;
@@ -102,6 +105,10 @@ public class PlayerController : GameObjectController, ICombatTarget {
         Transform camTransform = transform.Find("ViewPoint");
         if (camTransform != null) _viewPoint = camTransform.gameObject;
 
+        Transform shotTransform = transform.Find("ShotPoint");
+        if (shotTransform != null) _shotPoint = shotTransform.gameObject;
+        else Util.LogError("ShotPoint가 없어 발사 원점을 카메라로 대체한다 — PlayerObject 프리팹에 ShotPoint 필요");
+
         _aimTarget = transform.Find("Aim");
         _camera = _viewPoint.GetComponentInChildren<Camera>();
 
@@ -167,8 +174,10 @@ public class PlayerController : GameObjectController, ICombatTarget {
         ProcessRecoil();
         ApplyViewRotation();
         ProcessAnimation();
-        ProcessFire();
+        // ProcessAim이 갱신하는 _aimTarget을 ProcessFire가 읽는다 — 순서가 뒤집히면
+        // 발사가 직전 프레임의 조준점을 쓰게 되어 반동 중에 각도가 어긋난다
         ProcessAim();
+        ProcessFire();
     }
 
     private void ProcessMouseLook() {
@@ -301,9 +310,12 @@ public class PlayerController : GameObjectController, ICombatTarget {
         magazine.quantity--;
 
         // 2. 스프레드 적용 히트스캔
-        Ray spreadRay = CalculateSpreadRay();
-        bool hasHit = Physics.Raycast(spreadRay, out RaycastHit hit, 1000f);
+        // TODO: 자기 PlayerObject를 레이캐스트 대상에서 제외할 것 — 전용 레이어를 파고
+        //       layerMask로 거른다. 에디터에서 레이어 설정이 선행되어야 한다
+        Ray fireRay = CalculateFireRay();
+        bool hasHit = Physics.Raycast(fireRay, out RaycastHit hit, 1000f);
         ProcessHit(hit, hasHit);
+        DrawFireRayDebug(fireRay, hit, hasHit);   // TEMP: 발사 원점·수렴 검증 후 제거
 
         // 3. 반동 목표값 누적 (실제 적용은 ProcessRecoil에서 보간)
         float vRecoil = Random.Range(_vRecoilMin, _vRecoilMax);
@@ -315,22 +327,67 @@ public class PlayerController : GameObjectController, ICombatTarget {
         _currentSpread = Mathf.Min(_currentSpread + _spreadIncreasePerShot, _spreadMax);
     }
 
-    private Ray CalculateSpreadRay() {
-        Ray baseRay = _camera.ViewportPointToRay(new Vector3(0.5f, 0.5f, 0f));
+    // 총알은 카메라가 아니라 몸(_shotPoint, 가슴팍)에서 나가되, 카메라가 보고 있는 지점
+    // (_aimTarget)으로 수렴한다. 카메라 축과 평행하지 않으므로 엄폐물 뒤에서는 총구 앞의
+    // 벽에 맞는다 — 의도된 동작이다
+    private Ray CalculateFireRay() {
+        Vector3 origin = _shotPoint != null ? _shotPoint.transform.position : _camera.transform.position;
+        Vector3 camForward = _camera.transform.forward;
+
+        Vector3 toAim = _aimTarget.position - origin;
+        Vector3 dir = (toAim.sqrMagnitude < MIN_CONVERGE_DIST * MIN_CONVERGE_DIST
+                       || Vector3.Dot(toAim, camForward) <= 0f)
+            ? camForward
+            : toAim.normalized;
 
         if (_currentSpread <= 0f)
-            return baseRay;
+            return new Ray(origin, dir);
+
+        // dir이 월드 up과 평행하면 Cross가 영벡터가 된다. 시점 피치가 ±90에 닿으므로 실제로 밟는다
+        Vector3 axis = Mathf.Abs(dir.y) < 0.99f ? Vector3.up : Vector3.right;
+        Vector3 right = Vector3.Cross(dir, axis).normalized;
+        Vector3 up = Vector3.Cross(right, dir);
 
         float angle = Random.Range(0f, _currentSpread) * Mathf.Deg2Rad;
         float rotation = Random.Range(0f, 360f) * Mathf.Deg2Rad;
 
-        Vector3 right = Vector3.Cross(baseRay.direction, Vector3.up).normalized;
-        Vector3 up = Vector3.Cross(right, baseRay.direction).normalized;
+        Vector3 spreadDir = dir * Mathf.Cos(angle)
+                          + (right * Mathf.Cos(rotation) + up * Mathf.Sin(rotation)) * Mathf.Sin(angle);
 
-        Vector3 offset = (right * Mathf.Cos(rotation) + up * Mathf.Sin(rotation)) * Mathf.Sin(angle);
-        Vector3 spreadDir = (baseRay.direction + offset).normalized;
+        return new Ray(origin, spreadDir);
+    }
 
-        return new Ray(baseRay.origin, spreadDir);
+    // TEMP: 발사선 시각화. Scene 뷰(또는 Game 뷰 Gizmos ON)에서 보인다. 잔상 2분
+    //       발사선  초록=유효 대상 / 노랑=맞았지만 대상 아님 / 빨강=미명중
+    //       흰 십자=발사 원점(_shotPoint), 청록 십자=조준점(_aimTarget), 파랑=카메라 중심축
+    //       발사 원점·수렴 검증 후 제거
+    private void DrawFireRayDebug(Ray ray, RaycastHit hit, bool hasHit) {
+        const float DRAW_SEC = 120f;
+        const float M = 0.06f;
+
+        Color color = Color.red;
+        if (hasHit) {
+            var target = hit.collider.GetComponentInParent<ICombatTarget>();
+            bool valid = target != null && (uint)target.GetObjectId() != ObjectId;
+            color = valid ? Color.green : Color.yellow;
+        }
+
+        Vector3 end = hasHit ? hit.point : ray.origin + ray.direction * 20f;
+        Debug.DrawLine(ray.origin, end, color, DRAW_SEC);
+
+        DrawDebugCross(ray.origin, M, Color.white, DRAW_SEC);
+        if (hasHit) DrawDebugCross(hit.point, M, color, DRAW_SEC);
+        if (_aimTarget != null) DrawDebugCross(_aimTarget.position, M * 2f, Color.cyan, DRAW_SEC);
+
+        Ray center = _camera.ViewportPointToRay(new Vector3(0.5f, 0.5f, 0f));
+        Debug.DrawLine(center.origin, center.origin + center.direction * 20f, Color.blue, DRAW_SEC);
+    }
+
+    // TEMP: 발사 원점·수렴 검증 후 제거
+    private static void DrawDebugCross(Vector3 point, float size, Color color, float sec) {
+        Debug.DrawLine(point - Vector3.right * size, point + Vector3.right * size, color, sec);
+        Debug.DrawLine(point - Vector3.up * size, point + Vector3.up * size, color, sec);
+        Debug.DrawLine(point - Vector3.forward * size, point + Vector3.forward * size, color, sec);
     }
 
     private void EmptyAmmoFire() {

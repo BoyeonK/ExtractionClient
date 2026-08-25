@@ -69,9 +69,21 @@ public interface ICombatTarget {
 ### Fire() 흐름
 
 1. 탄약 확인 → 없으면 `EmptyAmmoFire()` + `_fireBlocked = true`
-2. 히트스캔: `CalculateSpreadRay()`로 원뿔형 랜덤 오프셋 적용
+2. 히트스캔: `CalculateFireRay()`로 발사선 산출 + 원뿔형 랜덤 오프셋 적용
 3. 반동 목표 누적: `_recoilTarget`에만 추가, 즉시 적용하지 않음
 4. 스프레드 증가
+
+#### 발사선 (`CalculateFireRay`)
+
+**원점은 카메라가 아니라 `_shotPoint`(플레이어 루트 직속, 가슴팍)이고, 방향은 `_aimTarget`으로 수렴한다.** 카메라 축과 평행하지 않다.
+
+- `_shotPoint`는 **피치를 따라가지 않는다**(루트 자식이라 요만 따라감). 피격 판정용 원점이라 의도된 것이고, 시각 이펙트는 추후 총구 기준으로 별도 처리한다
+- 엄폐물 뒤에서 카메라는 위를 보고 총구는 가려져 있으면 **총구 앞의 벽에 맞는다 — 의도된 동작이다.** 조준점과 탄착이 다를 수 있다
+- 조준점이 총구보다 뒤에 있거나 `MIN_CONVERGE_DIST`(0.5m)보다 가까우면 수렴이 성립하지 않으므로 카메라 forward로 대체한다
+- **`Update()`에서 `ProcessAim()`이 `ProcessFire()`보다 먼저 와야 한다.** `_aimTarget`을 전자가 쓰고 후자가 읽으므로, 순서가 뒤집히면 발사가 직전 프레임 조준점을 쓴다
+- 스프레드 기저축은 `dir.y` 크기를 보고 `Vector3.up`/`Vector3.right` 중에 고른다 — 시점 피치가 ±90에 닿으면 `Cross`가 영벡터가 된다
+- **자기 PlayerObject 제외가 아직 없다**(`TODO:`). 전용 레이어 + `layerMask`가 필요하고 에디터 작업이 선행되어야 한다
+- 서버는 발사선을 검증하지 않는다. `hit_object_id`·`hit_point`만 본다
 
 ### 시점 시스템 (View Separation)
 
