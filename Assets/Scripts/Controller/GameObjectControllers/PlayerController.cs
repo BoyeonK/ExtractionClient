@@ -351,8 +351,11 @@ public class PlayerController : GameObjectController, ICombatTarget {
         magazine.quantity--;
 
         // 2. 스프레드 적용 히트스캔
-        // TODO: 자기 PlayerObject를 레이캐스트 대상에서 제외할 것 — 전용 레이어를 파고
-        //       layerMask로 거른다. 에디터에서 레이어 설정이 선행되어야 한다
+        // 자기 제외 layerMask가 없는 것은 의도다(2026-08-27 플레이 검증에서 자탄 0건 확인).
+        // 자기 하위에 남아 있는 콜라이더가 CharacterController 하나뿐이고 — 무기 콜라이더는
+        // 장착 시 꺼지며 로컬에는 히트박스를 만들지 않는다 — 레이가 그 캡슐 '안에서' 출발해
+        // Unity가 보고하지 않는다. 세 전제 중 하나라도 깨지면(로컬 히트박스 추가, 무기 콜라이더
+        // 유지, 발사 원점을 몸 밖으로 이동) 그때 전용 레이어 + layerMask가 필요해진다
         Ray fireRay = CalculateFireRay();
         bool hasHit = Physics.Raycast(fireRay, out RaycastHit hit, 1000f);
         ProcessHit(hit, hasHit);
