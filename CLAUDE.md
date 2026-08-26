@@ -72,4 +72,5 @@ This file provides guidance to Claude Code (claude.ai/code) when working with co
 - Asset/LowPolyAssetBundle 폴더를 절대 읽지 말 것. 참조가 필요하면 나에게 먼저 물어볼 것
 - .gitignore 파일은 읽기만 가능, 절대 수정하지 말 것
 - Asset/Scripts/Utils/Gitignores.cs는 절대 읽거나, 수정하거나, 문서화하지 말 것
+- `Assets/Scripts/Utils/ItemDBHelper.cs`는 **DB 자료를 긁어 생성되는 스크립트다. 읽는 것은 자유롭게 하되 절대 수정하지 말 것** — 아이템·무기·방어구 수치는 DB 쪽이 주도하며, 이 세션에서 값을 고치면 다음 생성 때 덮여 사라진다. 수치 조정이 필요해 보이면 코드를 고치지 말고 나에게 말할 것
 - 스크립트 작업 시 탐색·수정 범위는 `Assets/Scripts/` 이내로 제한할 것. 다른 폴더(씬, 프리팹, 에셋 등)를 읽어야 할 필요가 생기면 먼저 나에게 물어볼 것

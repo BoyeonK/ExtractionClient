@@ -33,7 +33,18 @@ UIManager가 아닌 씬 자체에 존재하는 MonoBehaviour UI 오브젝트. `I
 | `IngameInventoryUI` | `Init(IngameScene)` | 인게임 인벤토리 그리드 + 장비 슬롯. `SyncMyInventory()`·`SyncEquipment()`·`SyncContainer()`로 `IngameInventory` 데이터→UI 동기화 |
 | `IngameDragGhost` | `Init()` | 드래그 중 아이템 고스트 이미지 |
 | `InteractUI` | `Init(IngameScene)` | 상호작용 안내 텍스트 — `Show(text)`로 텍스트 설정+활성화, `Hide()`로 비활성화. `IngameScene.OnUpdate()`에서 `_canInteract` 상태에 따라 호출 |
+| `IngameCrosshair` | `static Create(IngameScene)` | **TEMP — 이 표에서 유일하게 씬 오브젝트가 없는 항목.** 아래 절 참조 |
 | `IngameHealthBarUI` | `Init()` | HP/방어구 게이지. Fill 이미지의 `fillAmount`를 조작하므로 **대상 Image의 Type이 `Filled`여야 한다** — `Simple`이면 대입이 조용히 무시된다. 최대치는 `SetMaxHP`/`SetMaxShield`로 별도 주입하며, 최대 실드가 0이면(방어구 해제) 바를 비운다 |
+
+### `IngameCrosshair` — 규칙의 유일한 예외 (TEMP, 대체 예정)
+
+**씬 오브젝트도 프리팹도 스프라이트도 없이 코드가 런타임에 세운다.** 자기 `Canvas`를 만들고 스프라이트 없는 `Image` 4개를 배치한다(스프라이트를 안 준 `Image`는 단색 사각형으로 그려져 자산이 필요 없다).
+
+- **이 예외를 선례로 삼지 말 것.** 히트박스 반지름 튜닝에 조준 기준선이 급해서 씬 오브젝트 제작을 기다리지 않으려고 택한 방식이고, **정식 `IngameSceneUI` 자산이 만들어지면 통째로 대체된다.** 모양·색·두께를 에디터에서 못 만지는 것이 대가다
+- **대체·롤백은 세 곳뿐이다** — 파일 삭제 / `IngameScene.Init()`의 `IngameCrosshair.Create(this)` 한 줄 / `PlayerController.CurrentSpread` 접근자(새 UI도 스프레드를 읽으므로 대체 시에는 남긴다). **`IngameScene`이 필드로 들고 있지 않은 것도 같은 이유** — 이 클래스가 씬을 참조해 스스로 갱신하므로 지울 때 씬 쪽에 남는 상태가 없다
+- **`CanvasScaler`를 붙이지 않는다** — 1 유닛 = 1 픽셀이어야 각도 → 픽셀 환산이 스케일러 설정에 휘둘리지 않는다. 정식 자산으로 옮길 때 스케일러를 쓰면 **환산식을 캔버스 기준으로 다시 잡아야 한다**
+- 벌어진 정도는 `PlayerController.CurrentSpread`(발사 원뿔 **반각**, 도)를 화면 절반 높이 기준으로 환산한다 — 같은 각도라도 화각·해상도에 따라 화면에서 차지하는 크기가 다르기 때문
+- 숨김 조건은 `IsAnyUIOpen`과 `IsInputLocked`(사망 연출이 카메라를 가져간다) 둘뿐이다. **달리는 중에는 발사가 막히지만 숨기지 않는다** — 이동할 때마다 깜빡여 거슬린다
 
 ## 씬 내장 UI (`LobbySceneUI/`)
 

@@ -100,6 +100,10 @@ public class IngameScene : BaseScene {
             _ingameHealthBarUI.Init();
         }
 
+        // TEMP: 씬 오브젝트 없이 코드로 세우는 잠정 크로스헤어.
+        //       IngameSceneUI 자산으로 대체되면 이 줄을 지운다 (IngameCrosshair.cs 상단 참조)
+        IngameCrosshair.Create(this);
+
         Managers.Input.AddKeyListener(Key.I, TryCloseContainerUI, InputManager.KeyState.Down);
         Managers.Input.AddKeyListener(Key.Digit1, SwitchToPrimaryWeapon, InputManager.KeyState.Down);
         Managers.Input.AddKeyListener(Key.Digit2, SwitchToSecondaryWeapon, InputManager.KeyState.Down);

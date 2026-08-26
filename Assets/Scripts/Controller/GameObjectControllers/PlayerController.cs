@@ -47,6 +47,8 @@ public class PlayerController : GameObjectController, ICombatTarget {
 
     // 스프레드 상태
     float _currentSpread = 0f;
+    // 발사 원뿔의 반각(도). 크로스헤어가 벌어진 정도를 여기서 유도한다
+    public float CurrentSpread => _currentSpread;
 
     // 반동 보간 상태
     Vector2 _recoilTarget = Vector2.zero;   // 목표 반동 (x=수직, y=수평)

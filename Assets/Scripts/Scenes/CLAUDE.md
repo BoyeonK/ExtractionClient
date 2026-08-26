@@ -78,7 +78,6 @@
 - `SyncHealthBarMax()`는 최대치를 넣은 뒤 현재값까지 게이지로 민다. 이게 없으면 첫 피격 전까지 프리팹에 저장된 `fillAmount`가 그대로 보인다. **최대치 → 현재값 순서를 지킬 것** — 뒤집으면 `SetArmor`가 최대 실드 0에 걸린다
 - `_currentHealthPoint`의 초기값은 `MAX_HEALTH_POINT`다. HP는 스폰 시 어떤 패킷으로도 오지 않으므로 0으로 두면 사망으로 오판해 재생이 멈춘다
 - **`MAX_HEALTH_POINT`(20000 = 200.00 HP)는 서버 `PlayerObject::DEFAULT_MAX_HP`와 손으로 맞추는 값이다.** 최대치를 보내는 패킷이 없어 클라 쪽 유일한 출처이며, 어긋나도 컴파일·통신은 정상이고 체력바 비율만 조용히 틀어진다. 한쪽만 고치지 말 것. 전투 수치는 전부 1/100 고정소수점(실제값 × 100)이라 HP 관련 로직에 숫자 리터럴을 쓰면 출처가 갈린다
-- 방어구 수치(`ItemDBHelper._armorSpecs`)도 서버 `ItemDataManager`에 복제된 같은 종류의 수동 동기화 지점이다
 - **스폰 시 실드는 최대치다(서버 규칙).** 최대치의 출처가 방어구 스펙뿐이라 HP처럼 필드 초기값으로 둘 수 없어, `SyncHealthBarMax()`가 `_maxShieldPoint`를 채운 직후 `TryInitShield()`가 일회성으로 적용한다. **`_itemLoaded` 가드를 빼지 말 것** — 인벤토리 도착 전 호출에서는 방어구가 null이라 최대치가 0이고, 그대로 플래그가 소진되면 실드가 끝까지 0이 된다
 - 방어구는 착용·해제·교체 어느 경로든 실드가 0에서 다시 찬다(서버 규칙). `ApplyEquipItem`의 `equipmentSlotType == 2`에서 `ResetShieldPrediction()`. **최초 스폰과 갈리는 지점이며 `TryInitShield()`의 일회성 플래그가 이 둘을 가른다**
 
