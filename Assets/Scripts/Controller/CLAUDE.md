@@ -114,6 +114,7 @@ public interface ICombatTarget {
 - **`Update()`에서 `ProcessAim()`이 `ProcessFire()`보다 먼저 와야 한다.** `_aimTarget`을 전자가 쓰고 후자가 읽으므로, 순서가 뒤집히면 발사가 직전 프레임 조준점을 쓴다
 - 스프레드 기저축은 `dir.y` 크기를 보고 `Vector3.up`/`Vector3.right` 중에 고른다 — 시점 피치가 ±90에 닿으면 `Cross`가 영벡터가 된다
 - **자기 PlayerObject 제외 `layerMask`가 없는 것은 의도다**(2026-08-27 검증에서 자탄 0건). 자기 하위에 남은 콜라이더가 `CharacterController` 하나뿐인데 **레이가 그 캡슐 안에서 출발해 Unity가 보고하지 않는다.** 전제 셋(무기 콜라이더는 장착 시 꺼짐 / 로컬에는 히트박스를 만들지 않음 / 발사 원점이 몸 안) 중 하나라도 깨지면 그때 전용 레이어가 필요해진다
+  - **그때 비용을 잘못 잡지 말 것 — 이 프로젝트에는 쓸 수 있는 레이어가 없다.** 커스텀 레이어가 `ClickableUI` 하나뿐이고 `Assets/Scripts` 전체에 `LayerMask`·`gameObject.layer` 코드가 0건이라, 레이어 기반 해법은 **신설부터 해야 하고 에디터 작업이 선행된다**
 - 서버는 발사선을 검증하지 않는다. `hit_object_id`·`hit_point`만 본다
 
 ### 시점 시스템 (View Separation)
