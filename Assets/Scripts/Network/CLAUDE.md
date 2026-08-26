@@ -57,6 +57,18 @@
 - `GameProtocol.*` 타입은 `Handle_XXX` 밖으로 노출하지 않는다
 - 핸들러 내부에서 Unity/C# 기본 타입으로 변환 후 전달
 
+### `fire_sequence` (`C2DRequestWeaponFire`)
+
+`PacketHandler._fireSequence`. **서버 판정은 '기대값보다 작으면 거부, 같거나 크면 수락 후 기대값 이동'** 이다(완전 일치 요구는 옛 규칙). 발사는 unreliable이라 재전송이 없고 `uSeqNum`을 이동 패킷과 공유해 재정렬만으로 한 장이 드롭되는데, 예전에는 그 한 장 때문에 이후 발사가 영구히 거부됐다. **번호가 건너뛰는 것은 정상이며 서버가 따라붙는다.**
+
+- 클라 계약은 **매 발사 무조건 증가 / 되돌리거나 재사용 금지** 둘뿐이다. 유실을 감지했다고 되돌리지 말 것 — 되돌린 번호는 '낡은 시퀀스'로 거부되고, 복구 경로는 `D2CResponseReload.fire_sequence` 하나뿐이라 그때까지 그 무기의 발사가 계속 거부된다
+- 반영은 `RaiseFireSequenceTo()`의 `max()` 단조 상승만. **대입 setter를 만들지 말 것** — 요청을 보낸 뒤 응답 전에 쏜 발사가 이미 번호를 올려놨을 수 있다
+- 접근자는 `NextFireSequence()`(송신, 메인 스레드)와 `RaiseFireSequenceTo()`(수신 반영) 둘이며, 후자를 **`ExecuteAtMainThread` 안에서만** 부른다. 단일 스레드 소유라 lock이 없으므로 워커 스레드에서 직접 부르면 그 전제가 깨진다
+
+### `D2CFullInventorySync`가 실리는 패킷은 둘이다
+
+전체 동기화(30)와 재장전 응답(43, `D2CResponseReload.inventory`)이 같은 메시지를 쓴다. 변환은 `ToInventoryItem()`/`ToInventorySlotArray()`로 공유하되 **핸들러는 공유하지 않는다** — 전체 동기화 쪽에는 최초 1회용 초기화가 딸려 있고 버전 비교가 없다(`Scenes/CLAUDE.md`의 '재장전' 참조).
+
 ### 새 UDP 패킷 타입 추가 절차
 1. `External_Protocol.proto`에 메시지 정의 + `PktId` 항목 추가
 2. `PacketHandler` 생성자에 핸들러 등록

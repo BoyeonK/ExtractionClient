@@ -119,6 +119,7 @@ public class PacketHandler {
         _handlers.Add((ushort)PktId.D2CNotifyWeaponChanged, Handle_D2CNotifyWeaponChanged);
         _handlers.Add((ushort)PktId.D2CNotifyPlayerKilled, Handle_D2CNotifyPlayerKilled);
         _handlers.Add((ushort)PktId.D2CNotifyObjectKilled, Handle_D2CNotifyObjectKilled);
+        _handlers.Add((ushort)PktId.D2CResponseReload, Handle_D2CResponseReload);
     }
 
     // ==========================================
@@ -126,6 +127,16 @@ public class PacketHandler {
     // ==========================================
 
     public uint NextFireSequence() => _fireSequence++;
+
+    // D2CResponseReload가 실어 오는 '서버가 기대하는 다음 발사 번호'를 반영한다.
+    // 단조 상승만 허용한다 — 요청을 보낸 뒤 응답이 오기 전에 쏜 발사가 이미 번호를 올려놨을 수 있고,
+    // 응답 값으로 되돌리면 그 발사들이 전부 '낡은 시퀀스'로 거부된다. 대입 setter를 만들지 말 것.
+    // 호출은 반드시 메인 스레드에서 — _fireSequence의 다른 접근자(NextFireSequence)가 메인 전용이라
+    // 반영도 메인으로 모으면 단일 스레드 소유가 되어 별도 동기화가 필요 없다
+    private void RaiseFireSequenceTo(uint serverExpected) {
+        if (serverExpected > _fireSequence)
+            _fireSequence = serverExpected;
+    }
 
     public void SetSessionVariable(ushort sessionId, uint securityKey) {
         _sessionId   = sessionId;
@@ -758,6 +769,30 @@ public class PacketHandler {
         });
     }
 
+    // D2CFullInventorySync가 실린 패킷이 둘(전체 동기화 / 재장전 응답)이라 변환을 공유한다.
+    // Protobuf 타입은 여기서 끊고 밖으로는 기본 타입만 넘긴다
+    private const int INVENTORY_SLOT_COUNT = 25;
+
+    private static InventoryItem ToInventoryItem(InventorySlot slot) {
+        if (slot == null || slot.Item == null) return null;
+        return new InventoryItem {
+            item_id    = (int)slot.Item.BlueprintId,
+            slot_index = slot.SlotIndex,
+            quantity   = slot.Item.Quantity
+        };
+    }
+
+    // 빈 슬롯은 null로 남는다. 배치를 유지해야 하므로 slot_index를 인덱스로 쓴다
+    private static InventoryItem[] ToInventorySlotArray(IEnumerable<InventorySlot> protoSlots) {
+        InventoryItem[] slots = new InventoryItem[INVENTORY_SLOT_COUNT];
+        foreach (InventorySlot slot in protoSlots) {
+            InventoryItem item = ToInventoryItem(slot);
+            if (item != null && slot.SlotIndex >= 0 && slot.SlotIndex < INVENTORY_SLOT_COUNT)
+                slots[slot.SlotIndex] = item;
+        }
+        return slots;
+    }
+
     private void Handle_D2CFullInventorySync(ReadOnlySpan<byte> payloadSpan) {
         D2CFullInventorySync pkt = null;
 
@@ -773,21 +808,7 @@ public class PacketHandler {
             return;
         }
 
-        InventoryItem ToInventoryItem(InventorySlot slot) {
-            if (slot == null || slot.Item == null) return null;
-            return new InventoryItem {
-                item_id    = (int)slot.Item.BlueprintId,
-                slot_index = slot.SlotIndex,
-                quantity   = slot.Item.Quantity
-            };
-        }
-
-        InventoryItem[] slots = new InventoryItem[25];
-        foreach (InventorySlot slot in pkt.InventorySlots) {
-            InventoryItem item = ToInventoryItem(slot);
-            if (item != null && slot.SlotIndex >= 0 && slot.SlotIndex < 25)
-                slots[slot.SlotIndex] = item;
-        }
+        InventoryItem[] slots = ToInventorySlotArray(pkt.InventorySlots);
 
         InventoryItem primaryWeapon            = ToInventoryItem(pkt.PrimaryWeapon);
         InventoryItem secondaryWeapon          = ToInventoryItem(pkt.SecondaryWeapon);
@@ -816,6 +837,62 @@ public class PacketHandler {
             ingameScene._itemLoaded = true;
             ingameScene.TryInitWeapon();
             ingameScene.SyncInventoryUI();
+        });
+    }
+
+    // D2CResponseReload. 성공·거부 모두 '처리 후의 인벤토리 전체'가 inventory에 실려 온다.
+    // Handle_D2CFullInventorySync를 재사용하지 않는다 — 담긴 메시지는 같아도 도착 의미가 달라서,
+    // 전체 동기화에 딸린 최초 1회용 초기화(_itemLoaded·TryInitWeapon)가 재장전마다 돌게 되고
+    // 무엇보다 그쪽에는 낡은 스냅샷을 버릴 버전 비교가 없다
+    private void Handle_D2CResponseReload(ReadOnlySpan<byte> payloadSpan) {
+        D2CResponseReload pkt = null;
+
+        try {
+            pkt = D2CResponseReload.Parser.ParseFrom(payloadSpan);
+        }
+        catch (InvalidProtocolBufferException e) {
+            Managers.ExecuteAtMainThread(() => { Util.LogError($"D2CResponseReload 파싱 실패: {e.Message}"); });
+            return;
+        }
+        catch (Exception e) {
+            Managers.ExecuteAtMainThread(() => { Util.LogError($"D2CResponseReload 처리 중 알 수 없는 에러: {e.Message}"); });
+            return;
+        }
+
+        bool result         = pkt.Result;
+        uint denyReasonMask = pkt.DenyReasonMask;
+        uint fireSequence   = pkt.FireSequence;
+        D2CFullInventorySync inv = pkt.Inventory;
+
+        // 거부에도 채워져 오는 것이 스펙이다. 비어 왔다면 인벤토리를 통째로 지우는 대신 드러낸다
+        if (inv == null) {
+            Managers.ExecuteAtMainThread(() => {
+                RaiseFireSequenceTo(fireSequence);
+                Util.LogError($"D2CResponseReload에 inventory가 비어 있다 (result={result}, deny=0x{denyReasonMask:X4})");
+            });
+            return;
+        }
+
+        uint inventoryVersion                  = inv.InventoryVersion;
+        InventoryItem[] slots                  = ToInventorySlotArray(inv.InventorySlots);
+        InventoryItem primaryWeapon            = ToInventoryItem(inv.PrimaryWeapon);
+        InventoryItem secondaryWeapon          = ToInventoryItem(inv.SecondaryWeapon);
+        InventoryItem armor                    = ToInventoryItem(inv.Armor);
+        InventoryItem primaryWeaponMagazine    = ToInventoryItem(inv.PrimaryWeaponMagazine);
+        InventoryItem secondaryWeaponMagazine  = ToInventoryItem(inv.SecondaryWeaponMagazine);
+
+        Managers.ExecuteAtMainThread(() => {
+            // 인벤토리와 무관한 값이라 씬 판정·버전 가드보다 먼저 반영한다.
+            // 스냅샷을 버리는 응답에서도 이 값은 살려야 되돌아간 시퀀스가 복구된다
+            RaiseFireSequenceTo(fireSequence);
+
+            if (Managers.Scene.CurrentScene is not IngameScene ingameScene) return;
+
+            Util.Log($"[D2CResponseReload] result={result}, deny=0x{denyReasonMask:X4}, " +
+                     $"version={inventoryVersion}, fireSeq={fireSequence}");
+
+            ingameScene.HandleReloadResponse(result, denyReasonMask, inventoryVersion, slots,
+                primaryWeapon, secondaryWeapon, armor, primaryWeaponMagazine, secondaryWeaponMagazine);
         });
     }
 

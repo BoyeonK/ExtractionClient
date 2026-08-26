@@ -68,13 +68,14 @@ public interface ICombatTarget {
 
 | 프로퍼티 | 뜻 | 쓰는 곳 |
 |---|---|---|
-| `IsFireInput` | **쏘려는 의사** — 마우스 + UI 안 열림 + 안 달림 + 교체 대기 아님 + 이탈 중 아님 | `ProcessFire()`의 발사 게이트 |
+| `IsFireInput` | **쏘려는 의사** — 마우스 + UI 안 열림 + 안 달림 + **행동 중 아님**(`IngameScene.IsActionBusy`) + 이탈 중 아님 | `ProcessFire()`의 발사 게이트 |
 | `IsShooting` | **실제로 총알이 나가는 중** — 위 + `!_fireBlocked` + 무기 있음 + 탄약 있음 | 발사 모션(`_anim.SetBool("IsShooting", …)`), `ActionState` |
 
 - **탄약·무기 조건을 `IsFireInput`에 합치지 말 것.** 그러면 `Fire()`에 도달하지 못해 **`EmptyAmmoFire()`가 영영 불려지지 않고**, 빈 탄창 사운드·재장전 유도 UI가 설 자리가 사라진다
 - **`IsShooting`은 `ActionState`를 겸한다** — 이 값이 상태 스트림으로 나가 상대 클라의 `OppoPlayerController`가 `_anim.SetBool("IsShooting", _actionState == 1)`로 쓴다. 즉 **발사 모션 조건을 잘못 잡으면 남의 화면에도 그대로 보인다.** 반대로 여기만 고치면 오포 쪽은 손대지 않아도 따라온다
 - `_fireTimer >= _fireInterval`은 `IsShooting`에 넣지 않는다 — 발사 간격 사이에도 연사 모션은 이어져야 한다
 - 탄창 선택 규칙은 `CurrentMagazine` 한 곳에 있고 `Fire()`도 같은 것을 쓴다. 두 벌로 만들면 판정과 표시가 갈린다
+- **`IsRunning`은 `public`이다** — `IngameScene`이 재장전의 진입·유지 조건으로 읽는다(달리면 재장전이 취소된다). 이 파일 안에서만 쓰이는 값으로 보고 다시 감추지 말 것
 
 #### 탄약 동기화 정책 (느슨한 동기화)
 
@@ -83,7 +84,8 @@ public interface ICombatTarget {
 - **매 발사마다 서버와 동기화하지 않는다.** 발사 1회당 인벤토리 왕복은 낭비라는 판단이며, 장전 등 확실한 동기화 시점 전까지 **클라와 서버의 탄약 수치가 어긋나는 것을 정상 범위로 본다**
 - **최종 판정 권한은 서버에 있다.** 서버는 발사 패킷 수신 시 가능한 경우 차감하되 패킷 유실과 클라 값 조작을 전제로 판정한다. 클라의 차감은 예측이고 클라의 발사 차단은 UX·트래픽 절약용이다
 - 따라서 `D2CFullInventorySync`가 오면 탄약이 서버 값으로 덮이는 것이 **정상 동작**이다 — 버그로 보지 말 것
-- **재장전 수단이 아직 없다.** 탄창 교체 경로가 클라에 없고(`SetPrimaryWeaponMagazine`/`SetSecondaryWeaponMagazine`은 호출자 0개, 장비 슬롯은 `0/1/2`뿐) proto에도 관련 메시지가 없다. **탄창이 비면 그 판 내내 못 쏜다** — 전투 테스트 계획을 세울 때 이 제약을 먼저 볼 것
+- **확실한 동기화 시점이 곧 재장전이다.** `R` 키 → `IngameScene.RequestReload()` → `D2CResponseReload`가 인벤토리 전체 스냅샷을 실어 오며, 그 시점에 어긋나 있던 탄약 수치가 서버 값으로 정렬된다 (`Scenes/CLAUDE.md`의 '재장전' 참조)
+- **`_ingameScene.Inventory` 참조는 매번 다시 읽는다.** 재장전 응답이 `ApplyFullSync`로 `InventoryItem` 인스턴스를 통째로 갈아치우므로, `CurrentMagazine`처럼 그때그때 조회하는 형태를 유지할 것 — 인스턴스를 필드에 캐시하면 재장전 뒤에도 버려진 옛 탄창을 차감하게 된다
 
 ### 손에 든 무기 (`_equippedWeaponId`)
 
@@ -92,7 +94,7 @@ public interface ICombatTarget {
 - 같은 무기면 파괴·재생성하지 않는다. 인벤토리 조작마다 호출되므로 없으면 손에 안 든 슬롯을 건드려도 무기가 다시 만들어진다(이 경로는 무기 GO가 살아 있어 `_muzzlePointTr` 캐시도 그대로 유효하다)
 - **`_muzzlePointTr`(궤적 원점)는 무기 GO가 사라지는 경로마다 함께 비운다** — 기존 무기 파괴 시 한 번 비우면 맨손 return과 프리팹 캐시 미스 return이 모두 그 뒤라 한 자리로 커버된다. 새 조기 return을 추가할 때는 이 지점보다 뒤인지 확인할 것. 빠뜨리면 **파괴된 트랜스폼을 가리킨 채 남는다**. 피격 판정에는 쓰이지 않는 시각화 전용 값이다
 - 프리팹 캐시에 없는 id는 에러 로그 — 조용히 return하면 맨손으로 보이기만 하고 원인이 남지 않는다
-- 발사 차단 조건에 `IngameScene.IsWeaponSwitchPending`과 `IngameScene.IsInputLocked`(매치 이탈)가 포함된다(`IsFireInput`). `_fireBlocked`는 마우스 재클릭으로 풀려서 이 용도로 쓸 수 없다
+- 발사 차단 조건에 `IngameScene.IsActionBusy`(재장전·무기 교체 진행 중)와 `IngameScene.IsInputLocked`(매치 이탈)가 포함된다(`IsFireInput`). `_fireBlocked`는 마우스 재클릭으로 풀려서 이 용도로 쓸 수 없다
 - **매치 이탈 중 입력 차단은 `IsInputLocked` 하나만 본다** — `IsFireInput`·`ProcessMouseLook`·`ProcessMovement`·`ProcessAim`이 모두 이 값을 참조한다. 이동은 입력만 끊고 중력은 유지해 공중에서 죽어도 시신이 떠 있지 않게 한다. 사망 연출이 카메라를 가져가므로 시점 입력도 함께 끊긴다
 
 ### Fire() 흐름

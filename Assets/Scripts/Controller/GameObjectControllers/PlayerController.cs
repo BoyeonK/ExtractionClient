@@ -84,15 +84,17 @@ public class PlayerController : GameObjectController, ICombatTarget {
     Vector3 _velocity;
 
     bool IsMoving => _w || _s || _a || _d;
-    bool IsRunning => IsMoving && _shift;
+    // IngameScene이 재장전의 진입·유지 조건으로 읽는다 (달리면 재장전이 성립하지 않는다)
+    public bool IsRunning => IsMoving && _shift;
     // '쏘려는 의사'. ProcessFire의 발사 게이트가 이걸 본다.
     //
-    // 무기 교체가 확정되기 전에는 쏘지 않는다 — reliable(교체)과 unreliable(사격) 사이에
-    // 순서 보장이 없어, 사격이 먼저 처리되면 weapon_dbid 불일치로 조용히 버려진다.
+    // 행동(재장전·무기 교체) 중에는 쏘지 않는다 — 교체는 reliable(교체)과 unreliable(사격) 사이에
+    // 순서 보장이 없어 사격이 먼저 처리되면 weapon_dbid 불일치로 조용히 버려지고,
+    // 재장전은 유예 구간이 곧 모션 시간이다.
     // 매치 이탈(사망·탈출) 중에는 서버가 요청 자체를 버린다
     bool IsFireInput => Mouse.current != null && Mouse.current.leftButton.isPressed
                         && !_ingameScene.IsAnyUIOpen && !IsRunning
-                        && !_ingameScene.IsWeaponSwitchPending
+                        && !_ingameScene.IsActionBusy
                         && !_ingameScene.IsInputLocked;
 
     // '실제로 총알이 나가는 중'. 발사 모션과 ActionState가 이걸 본다.

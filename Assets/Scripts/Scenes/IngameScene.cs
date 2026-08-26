@@ -2,6 +2,20 @@ using System.Collections.Generic;
 using UnityEngine;
 using UnityEngine.InputSystem;
 
+// 한 번에 하나만 진행되는 플레이어 행동. 잠금이 '사유'까지 들고 있어야
+// 같은 사유의 재요청(R 중 R)과 다른 사유의 개입(재장전 중 무기 교체)이 갈린다
+public enum PlayerActionKind {
+    None,
+    Reload,
+    WeaponSwitch,
+}
+
+// 취소 가능 여부를 가르는 단계. 패킷이 나간 뒤에는 서버가 이미 처리했으므로 되돌릴 수 없다
+public enum PlayerActionPhase {
+    Local,    // 유예 중(모션 자리). 아직 전송 전이라 취소·재타게팅이 자유롭다
+    Pending,  // 전송 후 서버 응답 대기
+}
+
 public class IngameScene : BaseScene {
     private bool _operationFlag = false;
     private bool _spawnCompleted = false;
@@ -117,6 +131,7 @@ public class IngameScene : BaseScene {
         Managers.Input.AddKeyListener(Key.Escape, OnEscapeInput, InputManager.KeyState.Down);
         Managers.Input.AddKeyListener(Key.Digit1, SwitchToPrimaryWeapon, InputManager.KeyState.Down);
         Managers.Input.AddKeyListener(Key.Digit2, SwitchToSecondaryWeapon, InputManager.KeyState.Down);
+        Managers.Input.AddKeyListener(Key.R, RequestReload, InputManager.KeyState.Down);
     }
 
     // Managers.Clear() → Scene.Clear() → 여기. 씬 전환 시 자동으로 불린다.
@@ -133,6 +148,7 @@ public class IngameScene : BaseScene {
         Managers.Input.RemoveKeyListener(Key.Escape, OnEscapeInput, InputManager.KeyState.Down);
         Managers.Input.RemoveKeyListener(Key.Digit1, SwitchToPrimaryWeapon, InputManager.KeyState.Down);
         Managers.Input.RemoveKeyListener(Key.Digit2, SwitchToSecondaryWeapon, InputManager.KeyState.Down);
+        Managers.Input.RemoveKeyListener(Key.R, RequestReload, InputManager.KeyState.Down);
     }
 
     private void SwitchToPrimaryWeapon() => RequestSwitchWeapon(0);
@@ -309,39 +325,205 @@ public class IngameScene : BaseScene {
         }
     }
 
-    // ── 무기 교체 ──
+    // ── 행동 잠금 ──
+    //
+    // 재장전·무기 교체처럼 '유예를 거쳐 서버로 나가는' 행동을 하나의 잠금으로 묶는다.
+    // 잠금이 사유(PlayerActionKind)와 단계(PlayerActionPhase)를 함께 들고 있어야 다음이 갈린다.
+    //   같은 사유 + 같은 대상 → 무시   : 재요청이 자기 행동을 스스로 무효화하지 않게 한다(R 중 R, 1 중 1)
+    //   같은 사유 + 다른 대상 → 재타게팅 : 전송 전이라 자유롭게 갈아탄다
+    //   다른 사유 + Local     → 취소 후 진입 : 재장전 유예 중 무기 교체가 우선한다
+    //   Pending               → 전부 무시 : 서버가 확정하기 전에는 새 행동의 전제(손에 든 무기,
+    //                                       인벤토리 버전)가 미정이라 무엇을 보내도 어긋난다
+    //
+    // in-flight 요청은 여전히 항상 1개다 — 재타게팅이 Local(전송 전)에서만 일어나므로
+    // 응답 순서 역전이 정상 경로에서 발생하지 않는다. rSeqNum 기반 순서 방어를 끌어올 필요가 없는
+    // 근거가 이것이므로, Pending 중 재전송을 허용하는 변경은 그 방어를 함께 가져와야 한다.
+    private const float RELOAD_LOCAL_SEC = 2f;    // TODO: 재장전 애니메이션이 붙으면 클립 길이로 대체
+    private const float SWITCH_LOCAL_SEC = 0.5f;  // TODO: 무기 교체 애니메이션이 붙으면 클립 길이로 대체
+
+    // TEMP: 응답 워치독. 응답이 오지 않으면 발사가 그 판 내내 막히므로 잠금만 풀어둔다.
+    //       결과를 추측하지 않고 로컬 잠금만 해제하므로 판정 권한은 서버에 그대로 있다.
+    //       서버 응답 신뢰성이 검증되면 이 상수와 UpdateAction()의 TEMP 블록을 함께 제거할 것.
+    private const float ACTION_PENDING_TIMEOUT = 3f;
+
+    private PlayerActionKind  _actionKind  = PlayerActionKind.None;
+    private PlayerActionPhase _actionPhase = PlayerActionPhase.Local;
+    private float             _actionTimer = 0f;
 
     // 대기 중인 교체 요청이 없음을 뜻한다. 슬롯 값(0/1)과 겹치지 않기만 하면 된다
     private const uint NO_PENDING_SLOT = 0xFFFFFFFF;
+    private uint _switchPendingSlot = NO_PENDING_SLOT;   // WeaponSwitch 행동의 대상 슬롯
 
-    // TEMP: 교체 응답 워치독. 통보가 오지 않으면 발사가 그 판 내내 막히므로 잠금만 풀어둔다.
-    //       결과를 추측하지 않고 로컬 잠금만 해제하므로 판정 권한은 서버에 그대로 있다.
-    //       서버 통보 신뢰성이 검증되면 이 상수·타이머와 OnUpdate()의 TEMP 블록을 함께 제거할 것.
-    private const float SWITCH_WEAPON_TIMEOUT = 3f;
-    private float _switchWeaponTimer = 0f;
+    // 행동 중에는 발사를 막는다. 교체는 reliable(교체)과 unreliable(사격) 사이에 순서 보장이 없어
+    // 사격이 먼저 처리되면 weapon_dbid 불일치로 조용히 버려지고, 재장전은 유예가 곧 모션 시간이다
+    public bool IsActionBusy => _actionKind != PlayerActionKind.None;
 
-    private uint _switchPendingSlot = NO_PENDING_SLOT;
+    private bool IsPlayerRunning => _playerController != null && _playerController.IsRunning;
 
-    // 교체가 확정되기 전에는 발사를 막는다. reliable(교체)과 unreliable(사격) 사이에는
-    // 순서 보장이 없어, 사격이 먼저 처리되면 weapon_dbid 불일치로 조용히 버려진다
-    public bool IsWeaponSwitchPending => _switchPendingSlot != NO_PENDING_SLOT;
+    // 행동 진입의 유일한 경로. 같은 사유의 재요청은 여기서 무시되므로,
+    // 대상이 있는 행동(무기 교체)의 재타게팅은 호출부가 먼저 취소하고 들어온다
+    private bool TryBeginAction(PlayerActionKind kind) {
+        if (IsInputLocked) return false;
+        if (!_spawnCompleted) return false;
+
+        if (IsActionBusy) {
+            if (_actionPhase == PlayerActionPhase.Pending) return false;
+            if (_actionKind == kind) return false;
+            ClearAction();
+        }
+
+        _actionKind  = kind;
+        _actionPhase = PlayerActionPhase.Local;
+        _actionTimer = 0f;
+        return true;
+    }
+
+    // 취소·완료·워치독 만료가 공유하는 유일한 해제 경로
+    private void ClearAction() {
+        _actionKind  = PlayerActionKind.None;
+        _actionPhase = PlayerActionPhase.Local;
+        _actionTimer = 0f;
+        _switchPendingSlot = NO_PENDING_SLOT;
+    }
+
+    // 유예(Local) → 전송(Pending) → 응답. 응답에 의한 해제는 각 결과 핸들러가 한다
+    private void UpdateAction() {
+        if (!IsActionBusy) return;
+
+        _actionTimer += Time.deltaTime;
+
+        if (_actionPhase == PlayerActionPhase.Pending) {
+            // TEMP: 응답 워치독 — 상단 ACTION_PENDING_TIMEOUT 주석 참조. 제거 시 함께 삭제할 것
+            if (_actionTimer >= ACTION_PENDING_TIMEOUT) {
+                Util.LogWarning($"[Action] {_actionKind} 응답 미수신 ({ACTION_PENDING_TIMEOUT}초) — 행동 잠금 해제");
+                ClearAction();
+            }
+            return;
+        }
+
+        // 달리기는 재장전의 진입 조건이자 유지 조건이다. 매 프레임 같은 식을 보므로
+        // RequestReload()의 진입 판정과 여기의 취소가 한 규칙으로 묶인다
+        if (_actionKind == PlayerActionKind.Reload && IsPlayerRunning) {
+            ClearAction();
+            return;
+        }
+
+        float localSec = _actionKind == PlayerActionKind.Reload ? RELOAD_LOCAL_SEC : SWITCH_LOCAL_SEC;
+        if (_actionTimer < localSec) return;
+
+        SendActionRequest();
+    }
+
+    // 유예 동안 인벤토리가 바뀌었을 수 있다. 버전과 대상 검증은 반드시 전송 시점 값으로 한다 —
+    // 시작 시점 값을 캐시하면 자기 조작 때문에 DENY_VERSION_MISMATCH로 거부된다
+    private void SendActionRequest() {
+        switch (_actionKind) {
+            case PlayerActionKind.Reload:
+                Managers.Network.udpManager.SendC2DRequestReload(_inventory.InventoryVersion);
+                break;
+
+            case PlayerActionKind.WeaponSwitch: {
+                uint heldSlot = _inventory.IsPrimaryWeaponApplyed ? 0u : 1u;
+                // 유예 중 장착 조작으로 대상이 비거나 이미 손에 들린 슬롯이 되었으면 보낼 것이 없다
+                if (_switchPendingSlot == heldSlot || _inventory.GetEquipmentSlot(_switchPendingSlot) == null) {
+                    ClearAction();
+                    return;
+                }
+                Managers.Network.udpManager.SendC2DRequestSwitchWeapon(_switchPendingSlot, _inventory.InventoryVersion);
+                break;
+            }
+        }
+
+        _actionPhase = PlayerActionPhase.Pending;
+        _actionTimer = 0f;
+    }
+
+    // ── 재장전 ──
+
+    // D2CResponseReload.deny_reason_mask 비트
+    private const uint DENY_RELOAD_VERSION_MISMATCH = 0x0001;
+
+    // DENY_VERSION_MISMATCH 재요청을 판당 무한히 반복하지 않기 위한 1회 한정 플래그.
+    // 응답에 실린 스냅샷이 곧 재동기화이므로 새 버전으로 한 번 더 시도하는 것이 proto의 지시지만,
+    // 인벤토리 버전이 계속 바뀌는 상황에서는 그대로 두면 자동 재시도가 루프가 된다
+    private bool _reloadRetried = false;
+
+    // R 키. 탄창 잔량과 무관하게 보낸다 — 가득 찼는지, 해당 탄종이 있는지는 서버가 판정한다
+    public void RequestReload() {
+        // 달리는 중에는 시작하지 않는다. UpdateAction()의 취소 조건과 같은 식이라
+        // '달리면 재장전이 성립하지 않는다'는 규칙이 진입·유지 양쪽에서 한 벌로 유지된다
+        if (IsPlayerRunning) return;
+        if (!TryBeginAction(PlayerActionKind.Reload)) return;
+        _reloadRetried = false;
+    }
+
+    // D2CResponseReload. 성공·거부 모두 '처리 후의 인벤토리 전체'가 실려 온다.
+    // D2CFullInventorySync와 담긴 메시지는 같지만 수신 경로를 공유하지 않는다 —
+    // 전체 동기화 쪽에는 버전 비교가 없어 낡은 스냅샷을 버릴 자리가 없다
+    public void HandleReloadResponse(bool result, uint denyReasonMask, uint inventoryVersion,
+        InventoryItem[] slots, InventoryItem primaryWeapon, InventoryItem secondaryWeapon,
+        InventoryItem armor, InventoryItem primaryWeaponMagazine, InventoryItem secondaryWeaponMagazine) {
+
+        // reliable은 전달과 중복 제거만 보장하고 순서는 보장하지 않는다.
+        // 낡은 스냅샷이 최신 상태를 덮지 않도록 통째로 버린다(fire_sequence는 인벤토리와 무관해
+        // PacketHandler가 이 가드보다 앞에서 이미 반영했다)
+        if (inventoryVersion < _inventory.InventoryVersion) {
+            Util.LogWarning($"[Reload] 낡은 스냅샷 폐기 (응답={inventoryVersion}, 로컬={_inventory.InventoryVersion})");
+            return;
+        }
+
+        if (_actionKind == PlayerActionKind.Reload)
+            ClearAction();
+
+        // 최초 1회용 초기화(_itemLoaded·TryInitWeapon)는 건드리지 않는다.
+        // 재장전은 탄창마다 오므로 전투 중 매번 돌게 된다
+        _inventory.ApplyFullSync(inventoryVersion, slots, primaryWeapon, secondaryWeapon, armor,
+            primaryWeaponMagazine, secondaryWeaponMagazine);
+        SyncInventoryUI();
+
+        if (result) return;
+
+        // DENY_SLOT_EMPTY(맨손·이미 가득·탄종 없음)는 재요청해도 결과가 같다.
+        // 표시는 위의 스냅샷 반영으로 이미 서버 값에 맞춰졌으므로 따로 되돌릴 것이 없다
+        if ((denyReasonMask & DENY_RELOAD_VERSION_MISMATCH) == 0) return;
+        if (_reloadRetried) return;
+
+        // 워치독이 먼저 잠금을 풀고 그 사이에 다른 행동이 시작됐다면 재요청이 그것을 밀어낸다.
+        // 유저가 직접 시작한 행동을 뒤늦은 응답이 가로채지 않도록 여기서 포기한다
+        if (IsActionBusy) return;
+
+        // 방금 반영한 스냅샷이 재동기화 그 자체다. 유예를 다시 두지 않고 새 버전으로 곧바로 보낸다
+        if (!TryBeginAction(PlayerActionKind.Reload)) return;
+        _reloadRetried = true;
+        Managers.Network.udpManager.SendC2DRequestReload(_inventory.InventoryVersion);
+        _actionPhase = PlayerActionPhase.Pending;
+        _actionTimer = 0f;
+    }
+
+    // ── 무기 교체 ──
 
     // 1/2 키. target_slot은 절대 지정이라 같은 슬롯을 다시 요청하는 것은 의미가 없다
     public void RequestSwitchWeapon(uint targetSlot) {
         if (IsInputLocked) return;
-        if (IsWeaponSwitchPending) return;
         if (!_spawnCompleted) return;
+
+        // 유예 중 대상이 바뀐 경우. 취소하고 아래 공통 경로에서 새 대상으로 다시 시작한다.
+        // 슬롯이 0/1뿐인 지금은 '다른 대상' = '손에 든 슬롯' 이라 아래에서 그대로 소멸하지만,
+        // 슬롯이 셋 이상으로 늘면 이 경로가 진짜 재타게팅이 된다
+        if (_actionKind == PlayerActionKind.WeaponSwitch && _actionPhase == PlayerActionPhase.Local) {
+            if (targetSlot == _switchPendingSlot) return;
+            ClearAction();
+        }
 
         uint heldSlot = _inventory.IsPrimaryWeaponApplyed ? 0u : 1u;
         if (targetSlot == heldSlot) return;
 
-        // 서버 거부 조건(대상 슬롯이 비어 있음)을 미리 걸러내 불필요한 왕복을 없앤다.
+        // 서버 거부 조건(대상 슬롯이 비어 있음)을 미리 걸러내 불필요한 유예와 왕복을 없앤다.
         // equipmentSlotType과 target_slot은 0=주무기, 1=보조무기로 값이 같다
         if (_inventory.GetEquipmentSlot(targetSlot) == null) return;
 
+        if (!TryBeginAction(PlayerActionKind.WeaponSwitch)) return;
         _switchPendingSlot = targetSlot;
-        _switchWeaponTimer = 0f;   // TEMP: 워치독 시작
-        Managers.Network.udpManager.SendC2DRequestSwitchWeapon(targetSlot, _inventory.InventoryVersion);
     }
 
     // D2CNotifyWeaponChanged. 도착 경로가 셋이며 object_id로 갈린다.
@@ -364,7 +546,10 @@ public class IngameScene : BaseScene {
             ApplyServerWeaponState(slot, (int)weaponId);
 
             bool rejected = slot != _switchPendingSlot;
-            _switchPendingSlot = NO_PENDING_SLOT;
+
+            // 워치독이 먼저 잠금을 풀고 그 사이에 다른 행동이 시작됐다면 그것까지 지우면 안 된다
+            if (_actionKind == PlayerActionKind.WeaponSwitch)
+                ClearAction();
 
             // 버전이 어긋나 거부된 경우에만 재동기화한다. 버전만 통보값으로 맞추면
             // 슬롯 내용은 낡은 채로 다음 요청이 통과하므로, 갱신은 재동기화 응답에 맡긴다.
@@ -561,6 +746,10 @@ public class IngameScene : BaseScene {
 
     // 귀환 요청은 판당 1회만 유효하다. 스팟별이 아닌 씬 단위로 막아야
     // 다른 스팟으로 이동해 재요청하는 경로가 생기지 않는다.
+    //
+    // TODO: 귀환·상호작용을 행동 잠금(PlayerActionKind)에 편입할지 미결. 귀환은 _recallRequested가
+    //       사실상 같은 구조라 그대로 흡수되지만, 상호작용은 컨테이너가 열려 있는 동안 지속되는
+    //       상태라 Pending으로 잡으면 여는 내내 모든 행동이 잠긴다. 편입 범위를 정한 뒤 옮길 것
     public void RequestRecall(uint recallSpotIndex) {
         if (IsInputLocked) return;
         if (_recallRequested) return;
@@ -900,6 +1089,7 @@ public class IngameScene : BaseScene {
             Managers.Network.udpManager.SendHeartbeatNow();
 
         // 조작 안내와 열린 컨테이너를 정리한다. 서버는 이미 내 요청을 받지 않는다
+        ClearAction();
         SetInteractState(false, null);
         if (_interactUI != null)
             _interactUI.Hide();
@@ -1096,14 +1286,7 @@ public class IngameScene : BaseScene {
             }
         }
 
-        // TEMP: 교체 응답 워치독 — 상단 SWITCH_WEAPON_TIMEOUT 주석 참조. 제거 시 함께 삭제할 것
-        if (IsWeaponSwitchPending) {
-            _switchWeaponTimer += Time.deltaTime;
-            if (_switchWeaponTimer >= SWITCH_WEAPON_TIMEOUT) {
-                _switchPendingSlot = NO_PENDING_SLOT;
-                Util.LogWarning($"무기 교체 응답 미수신 ({SWITCH_WEAPON_TIMEOUT}초) — 발사 잠금 해제");
-            }
-        }
+        UpdateAction();
 
         // 인터랙션 UI 업데이트
         if (_interactUI != null) {

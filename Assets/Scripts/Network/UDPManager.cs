@@ -283,6 +283,15 @@ public class UDPManager {
         SendReliable((ushort)GameProtocol.PktId.C2DRequestSwitchWeapon, pkt);
     }
 
+    // 재장전. 대상은 '손에 든 무기'라 슬롯을 싣지 않는다 — 서버가 정한다.
+    // my_inventory_version은 다른 인벤토리 조작과의 순서 역전을 막는 용도라 전송 시점 값이어야 한다
+    public void SendC2DRequestReload(uint myInventoryVersion) {
+        C2DRequestReload pkt = new C2DRequestReload {
+            MyInventoryVersion = myInventoryVersion
+        };
+        SendReliable((ushort)GameProtocol.PktId.C2DRequestReload, pkt);
+    }
+
     public void SendC2DRequestRecentInventoryInfo(uint objectId) {
         C2DRequestRecentInventoryInfo pkt = new C2DRequestRecentInventoryInfo {
             ObjectId = objectId
