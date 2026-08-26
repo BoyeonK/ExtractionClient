@@ -114,6 +114,11 @@ public class IngameSettingUI : MonoBehaviour {
         _isOpen = false;
         gameObject.SetActive(false);
         _scene.OnUIClosed();
+
+        // 이 창은 슬라이더를 움직이는 즉시 반영하므로 '적용'이 확정 지점이 아니다.
+        // 조작이 끝나는 시점은 '닫힘' 하나뿐이고, CancelAndHide()도 되돌린 뒤 여기로 오므로
+        // 취소까지 한 자리로 덮인다 — 취소를 빠뜨리면 메모리와 디스크가 어긋난 채 남는다
+        Managers.Setting.Save();
     }
 
     public void CancelAndHide() {

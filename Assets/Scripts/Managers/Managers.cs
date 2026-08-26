@@ -104,6 +104,12 @@ public class Managers : MonoBehaviour {
 
     // 애플리케이션이 종료될 때 싱글톤 인스턴스가 파괴되는 것을 방지하기 위한 플래그를 설정
     private void OnApplicationQuit() {
+        // 설정 저장의 backstop. 정상 종료에서만 불리므로 이것만으로는 부족하고,
+        // 설정 창을 닫는 시점에도 저장한다(SettingManager.Save() 주석 참조).
+        // s_isQuitting을 세우기 전에 부른다 — 세운 뒤에는 Instance 게터가 null을 반환해
+        // Managers.Setting으로 접근할 수 없다
+        _setting.Save();
+
         s_isQuitting = true;
     }
 }

@@ -271,6 +271,10 @@ public class LobbySettingUI : MonoBehaviour {
         Managers.Setting.SetMasterVolume((int)_masterVolumeSlider.value);
         Managers.Setting.SetVolume((int)_effectVolumeSlider.value, Define.Sound.Effect);
         Managers.Setting.SetVolume((int)_bgmVolumeSlider.value, Define.Sound.Bgm);
+
+        // 여기가 이 창의 확정 지점이다. setter는 메모리에만 쓰므로 여기서 디스크로 내린다 —
+        // 종료 시 backstop만 두면 비정상 종료에서 방금 확정한 설정이 통째로 날아간다
+        Managers.Setting.Save();
     }
 
     private void ChangeTab(SelectedTab tab) {
