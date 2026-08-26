@@ -117,6 +117,7 @@ public interface ICombatTarget {
 ### 시점 시스템 (View Separation)
 
 마우스 에임과 반동을 별도 변수로 분리하여 간섭 방지:
+- **마우스 감도**: `MouseSensitivity` = `Managers.Setting.GetMouseSensitivity()` × `MOUSE_SENSITIVITY_DEG_PER_PIXEL`(0.1). 앞이 설정 슬라이더 값(기본 1.0), 뒤가 **슬라이더 1.0에서의 도/픽셀**이다. 계수가 없던 시절엔 1픽셀 = 1도라 세로 가동 범위 170도 전체가 마우스 170픽셀이었다. **매 프레임 설정에서 읽는다** — 캐시하면 설정 창(`IngameSettingUI`)에서 바꾼 값이 다음 매치까지 반영되지 않는다
 - **`_aimPitch` / `_aimYaw`**: 마우스 입력에 의한 순수 에임 각도. 즉시 반영, Lerp 없음
 - **`_recoilPitch` / `_recoilYaw`**: 반동에 의한 오프셋. `ProcessRecoil()`에서 Lerp 보간(`_recoilApplySpeed` 기본 15)
 - **`ApplyViewRotation()`**: 두 값을 합산(`_aimPitch - _recoilPitch`, `_aimYaw + _recoilYaw`)하여 한 프레임에 **1회만** 회전 적용

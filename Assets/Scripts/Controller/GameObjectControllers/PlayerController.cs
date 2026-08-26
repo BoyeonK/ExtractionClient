@@ -72,7 +72,13 @@ public class PlayerController : GameObjectController, ICombatTarget {
     float jumpHeight = 0.6f;
     float gravity = -9.81f;
 
-    float mouseSensitivity = 1f;
+    // 설정 슬라이더 1.0에서의 '도/픽셀'. 마우스 raw 델타(픽셀)에 곱해지는 최종 계수는
+    // 슬라이더 값 × 이 상수다. 이 계수가 없던 시절엔 1픽셀 = 1도라 세로 가동 범위
+    // 170도 전체가 마우스 170픽셀이었다 — 조준이 성립하지 않는 값이었다
+    const float MOUSE_SENSITIVITY_DEG_PER_PIXEL = 0.1f;
+
+    // 설정에서 매 프레임 읽는다. 캐시하면 설정 창에서 바꾼 값이 다음 매치까지 반영되지 않는다
+    float MouseSensitivity => Managers.Setting.GetMouseSensitivity() * MOUSE_SENSITIVITY_DEG_PER_PIXEL;
 
     bool _w = false, _a = false, _s = false, _d = false, _shift = false, _jump = false;
     Vector3 _velocity;
@@ -220,9 +226,10 @@ public class PlayerController : GameObjectController, ICombatTarget {
 
         if (Mouse.current != null) {
             Vector2 mouseDelta = Mouse.current.delta.ReadValue();
-            _aimPitch -= mouseDelta.y * mouseSensitivity;
+            float sensitivity = MouseSensitivity;
+            _aimPitch -= mouseDelta.y * sensitivity;
             _aimPitch = Mathf.Clamp(_aimPitch, -80f + _recoilPitch, 90f + _recoilPitch);
-            _aimYaw += mouseDelta.x * mouseSensitivity;
+            _aimYaw += mouseDelta.x * sensitivity;
         }
     }
 

@@ -9,6 +9,7 @@ public class IngameScene : BaseScene {
     public bool _itemLoaded = false;
     private bool _weaponInitialized = false;
     private bool _isContainerOpen = false;
+    private bool _isInventoryOpen = false;
     private bool _recallRequested = false;
     private int _uiOpenCount = 0;
     public bool IsAnyUIOpen => _uiOpenCount > 0;
@@ -68,6 +69,7 @@ public class IngameScene : BaseScene {
     IngameInventoryUI _ingameInventoryUI;
     InteractUI _interactUI;
     IngameHealthBarUI _ingameHealthBarUI;
+    IngameSettingUI _ingameSettingUI;
 
     protected override void Init() {
         base.Init();
@@ -100,11 +102,19 @@ public class IngameScene : BaseScene {
             _ingameHealthBarUI.Init();
         }
 
-        // TEMP: 씬 오브젝트 없이 코드로 세우는 잠정 크로스헤어.
-        //       IngameSceneUI 자산으로 대체되면 이 줄을 지운다 (IngameCrosshair.cs 상단 참조)
+        GameObject settingObj = GameObject.Find("IngameSettingUI");
+        if (settingObj != null) {
+            _ingameSettingUI = settingObj.GetComponent<IngameSettingUI>();
+            _ingameSettingUI.Init(this);
+        }
+
+        // OPTION: 씬 오브젝트 없이 코드로 세운 크로스헤어. 정식 IngameSceneUI 자산으로
+        //         다시 만들게 되면 이 줄을 지운다 (IngameCrosshair.cs 상단 참조)
         IngameCrosshair.Create(this);
 
-        Managers.Input.AddKeyListener(Key.I, TryCloseContainerUI, InputManager.KeyState.Down);
+        Managers.Input.AddKeyListener(Key.I, ToggleMyInventory, InputManager.KeyState.Down);
+        Managers.Input.AddKeyListener(Key.Tab, ToggleMyInventory, InputManager.KeyState.Down);
+        Managers.Input.AddKeyListener(Key.Escape, OnEscapeInput, InputManager.KeyState.Down);
         Managers.Input.AddKeyListener(Key.Digit1, SwitchToPrimaryWeapon, InputManager.KeyState.Down);
         Managers.Input.AddKeyListener(Key.Digit2, SwitchToSecondaryWeapon, InputManager.KeyState.Down);
     }
@@ -118,7 +128,9 @@ public class IngameScene : BaseScene {
 
     private void OnDestroy() {
         if (Managers.Instance == null) return;
-        Managers.Input.RemoveKeyListener(Key.I, TryCloseContainerUI, InputManager.KeyState.Down);
+        Managers.Input.RemoveKeyListener(Key.I, ToggleMyInventory, InputManager.KeyState.Down);
+        Managers.Input.RemoveKeyListener(Key.Tab, ToggleMyInventory, InputManager.KeyState.Down);
+        Managers.Input.RemoveKeyListener(Key.Escape, OnEscapeInput, InputManager.KeyState.Down);
         Managers.Input.RemoveKeyListener(Key.Digit1, SwitchToPrimaryWeapon, InputManager.KeyState.Down);
         Managers.Input.RemoveKeyListener(Key.Digit2, SwitchToSecondaryWeapon, InputManager.KeyState.Down);
     }
@@ -411,14 +423,65 @@ public class IngameScene : BaseScene {
             CloseContainer();
             return;
         }
+        // 컨테이너 외의 UI가 떠 있으면 상호작용을 막는다. 커서가 풀리면 시점이 멈춘 채
+        // 직전 조준 대상이 그대로 남아, 창을 띄운 상태로 컨테이너·귀환이 눌린다
+        if (IsAnyUIOpen) return;
         if (!_canInteract || _interactTarget == null)
             return;
         _interactTarget.Interact();
     }
 
-    public void TryCloseContainerUI() {
-        if (IsContainerOpen)
+    // Tab·I 공용. 컨테이너를 뒤지는 중이면 그 상호작용을 끝내는 것이 먼저다
+    public void ToggleMyInventory() {
+        if (IsInputLocked) return;
+        if (IsContainerOpen) {
             CloseContainer();
+            return;
+        }
+        // 설정 창 위에 겹쳐 열지 않는다. ESC로 설정을 닫은 뒤가 순서다
+        if (_ingameSettingUI != null && _ingameSettingUI.IsOpen) return;
+
+        if (_isInventoryOpen) CloseMyInventory();
+        else ShowMyInventory();
+    }
+
+    // ESC는 항상 '가장 위에 있는 것'을 닫고, 닫을 것이 없을 때만 설정을 연다.
+    // 매치 이탈 중에도 막지 않는다 — 설정은 서버로 나가는 요청이 없다
+    private void OnEscapeInput() {
+        if (_ingameSettingUI != null && _ingameSettingUI.IsOpen) {
+            _ingameSettingUI.CancelAndHide();
+            return;
+        }
+        if (IsContainerOpen) {
+            CloseContainer();
+            return;
+        }
+        if (_isInventoryOpen) {
+            CloseMyInventory();
+            return;
+        }
+        if (_ingameSettingUI != null)
+            _ingameSettingUI.Show();
+    }
+
+    private void ShowMyInventory() {
+        if (_ingameInventoryUI == null) return;
+        if (_isInventoryOpen) return;
+
+        _ingameInventoryUI.SyncMyInventory();
+        _ingameInventoryUI.SyncEquipment();
+        _ingameInventoryUI.ActiveMyInventory();
+        _isInventoryOpen = true;
+        OnUIOpened();
+    }
+
+    private void CloseMyInventory() {
+        if (!_isInventoryOpen) return;
+
+        _isInventoryOpen = false;
+        if (_ingameInventoryUI != null)
+            _ingameInventoryUI.DeactiveThis();
+        OnUIClosed();
     }
 
     public void SyncInventoryUI() {
@@ -465,6 +528,14 @@ public class IngameScene : BaseScene {
         _ingameInventoryUI.ActiveLootBox();
         _isContainerOpen = true;
         OnUIOpened();
+
+        // 내 인벤토리와 같은 오브젝트를 컨테이너 레이아웃으로 바꿔 다는 것이라, 열려 있었다면
+        // 그 열림을 반납해야 컨테이너를 닫을 때 _uiOpenCount가 1로 남지 않는다.
+        // 반납을 OnUIOpened 뒤에 두는 것은 카운트가 0으로 떨어져 커서가 한 번 잠기는 것을 피하려는 것
+        if (_isInventoryOpen) {
+            _isInventoryOpen = false;
+            OnUIClosed();
+        }
     }
 
     public void CloseContainer() {
@@ -834,6 +905,10 @@ public class IngameScene : BaseScene {
             _interactUI.Hide();
         if (_isContainerOpen)
             CloseContainerLocal();
+        CloseMyInventory();
+        // 값은 이미 반영된 뒤라 되돌리지 않고 그대로 닫는다
+        if (_ingameSettingUI != null)
+            _ingameSettingUI.Hide();
 
         Util.Log($"[MatchExit] 이탈 시작 (reason={reason}) — {MATCH_EXIT_DELAY}초 뒤 연결을 종료한다");
 

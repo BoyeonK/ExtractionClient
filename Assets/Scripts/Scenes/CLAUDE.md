@@ -191,13 +191,30 @@
 
 레퍼런스 카운팅 방식. 새 UI 추가 시 반드시 따를 패턴:
 - 열 때 `OnUIOpened()`, 닫을 때 `OnUIClosed()` 호출
-- `IsAnyUIOpen`이 true이면 마우스룩·발사 차단
+- `IsAnyUIOpen`이 true이면 마우스룩·발사 차단, 커서 잠금 해제
+
+**세는 대상은 컨테이너(`_isContainerOpen`) · 내 인벤토리(`_isInventoryOpen`) · 설정 창(`IngameSettingUI.IsOpen`) 셋이다.** 각자 자기 플래그를 갖고 열고 닫을 때 짝을 맞춘다 — **카운트가 0으로 안 떨어지면 그 판 내내 커서가 풀린 채 총이 안 나간다.**
+
+- **컨테이너와 내 인벤토리는 같은 오브젝트(`IngameInventoryUI`)를 레이아웃만 바꿔 쓴다.** 그래서 `ShowOpenedContainer()`는 인벤토리가 열려 있었다면 **그 열림을 반납**해야 한다(안 하면 컨테이너를 닫아도 카운트가 1로 남는다). 반납을 `OnUIOpened()` **뒤**에 두는 것은 카운트가 0을 찍어 커서가 한 번 잠기는 것을 피하려는 것
+- `BeginMatchExit()`이 셋을 모두 정리한다. 설정 창은 `CancelAndHide()`가 아니라 **`Hide()`** — 이미 반영된 값을 되돌릴 이유가 없다
+
+### 인게임 키 라우팅
+
+| 키 | 동작 |
+|---|---|
+| `Tab` / `I` | `ToggleMyInventory()` — **컨테이너 상호작용 중이면 그 상호작용 종료가 우선**(사용자 확정 규칙), 아니면 내 인벤토리 토글. 설정 창이 떠 있으면 무시 |
+| `Esc` | `OnEscapeInput()` — **가장 위에 있는 것부터 닫는다**(설정 → 컨테이너 → 인벤토리). 닫을 것이 없을 때만 설정을 연다 |
+| `E` | `TryInteract()` |
+| `1` / `2` | 무기 전환 |
+
+- **`Esc`는 `IsInputLocked`(매치 이탈 중)에도 막지 않는다** — 설정은 서버로 나가는 요청이 없어 잠글 이유가 없다. 반대로 `Tab`/`I`는 잠근다(인벤토리는 조작이 서버 요청으로 이어진다)
+- **로비의 `Esc`와 같은 동작이 아니다.** `LobbyScene.OnEscapeInput()`은 상태별 뒤로가기·종료 확인이고 설정은 `UI_Header` 버튼으로 연다. 통일 대상으로 보지 말 것
 
 ## 상호작용 상태 관리
 
 `IngameScene`이 `_canInteract`/`_interactTarget`을 중앙 보유. `PlayerController.CheckInteractable()`이 매 프레임 갱신.
 
-- `TryInteract()`: 컨테이너 열려있으면 닫기, 아니면 대상의 `Interact()` 호출 (E키)
+- `TryInteract()`: 컨테이너 열려있으면 닫기, 아니면 대상의 `Interact()` 호출 (E키). **컨테이너 외의 UI가 떠 있으면 막는다** — 커서가 풀리면 시점이 멈춘 채 직전 조준 대상이 그대로 남아, 창을 띄운 상태로 컨테이너·귀환이 눌린다
 - `_isContainerOpen`: objectId가 0일 수 있으므로 별도 bool 플래그 사용
 - Deny 수신 시 `RequestRecentInventoryInfo()`로 재동기화
 
