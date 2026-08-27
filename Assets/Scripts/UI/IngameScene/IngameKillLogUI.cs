@@ -11,6 +11,8 @@ public class IngameKillLogUI : MonoBehaviour {
     public void Init(IngameScene scene) {
         _scene = scene;
         _killLogContainer = transform.Find("KillLogContainer");
+        if (_killLogContainer == null)
+            Util.LogError($"{name} 하위에 KillLogContainer가 없다 — 킬 로그가 캔버스 루트에 붙는다");
     }
 
     public void MakeSingleKillLog(string killerId, string victimId) {

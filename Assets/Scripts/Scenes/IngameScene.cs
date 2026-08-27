@@ -126,7 +126,10 @@ public class IngameScene : BaseScene {
         GameObject killLogObj = GameObject.Find("IngameKillLogUI");
         if (killLogObj != null) {
             _ingameKillLogUI = killLogObj.GetComponent<IngameKillLogUI>();
-            _ingameKillLogUI.Init(this);
+            if (_ingameKillLogUI != null)
+                _ingameKillLogUI.Init(this);
+            else
+                Util.LogError("씬의 IngameKillLogUI 오브젝트에 IngameKillLogUI 스크립트가 붙어 있지 않다");
         }
 
         // OPTION: 씬 오브젝트 없이 코드로 세운 크로스헤어. 정식 IngameSceneUI 자산으로
