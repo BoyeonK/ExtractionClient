@@ -34,13 +34,23 @@ public static class Define {
         Undefined = 0,
         Player,
         TestItemBox,
+        PlayerLoot, //Corpse의 역할을 하는 컨테이너
+        GreenBoxContainer,
+        YellowBoxContainer,
+        SmallYellowBoxContainer,
+        SmallWhiteBoxContainer,
         MaxCount,
     }
 
     public static readonly Dictionary<int, string> ObjectPaths = new Dictionary<int, string>() {
         { (int)ObjectType.Undefined, null },
-        { (int)ObjectType.Player, "GameObject/TestItemBox" },
+        { (int)ObjectType.Player, "GameObject/OppoPlayerObject" },
         { (int)ObjectType.TestItemBox, "GameObject/TestItemBox" },
+        { (int)ObjectType.PlayerLoot, "GameObject/PlayerLoot" },
+        { (int)ObjectType.GreenBoxContainer, "GameObject/GreenBoxContainer" },
+        { (int)ObjectType.YellowBoxContainer, "GameObject/YellowBoxContainer" },
+        { (int)ObjectType.SmallYellowBoxContainer, "GameObject/SmallYellowBoxContainer" },
+        { (int)ObjectType.SmallWhiteBoxContainer, "GameObject/SmallWhiteBoxContainer" },
     };
 
     public enum Resolution {

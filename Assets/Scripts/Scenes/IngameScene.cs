@@ -84,6 +84,7 @@ public class IngameScene : BaseScene {
     InteractUI _interactUI;
     IngameHealthBarUI _ingameHealthBarUI;
     IngameSettingUI _ingameSettingUI;
+    IngameKillLogUI _ingameKillLogUI;
 
     protected override void Init() {
         base.Init();
@@ -120,6 +121,12 @@ public class IngameScene : BaseScene {
         if (settingObj != null) {
             _ingameSettingUI = settingObj.GetComponent<IngameSettingUI>();
             _ingameSettingUI.Init(this);
+        }
+
+        GameObject killLogObj = GameObject.Find("IngameKillLogUI");
+        if (killLogObj != null) {
+            _ingameKillLogUI = killLogObj.GetComponent<IngameKillLogUI>();
+            _ingameKillLogUI.Init(this);
         }
 
         // OPTION: 씬 오브젝트 없이 코드로 세운 크로스헤어. 정식 IngameSceneUI 자산으로
@@ -1012,7 +1019,6 @@ public class IngameScene : BaseScene {
     // D2CNotifyPlayerKilled. 피해자를 포함한 룸 전체가 받으며,
     // 피해자에게는 '사망 확정' 신호를 겸한다(공통 사항 6).
     // 남의 캐릭터 제거 연출은 D2CDespawnPlayerObject(T7)가 담당한다.
-    // TODO: 킬 피드 UI. 프리팹이 준비되면 로그를 표시부로 교체할 것
     public void HandlePlayerKilled(uint victimObjectId, uint killerObjectId) {
         // 킬러는 살아있는 플레이어이므로 모르는 objectId면 채워둔다.
         // 피해자는 같은 타이밍에 디스폰 통보가 오므로 요청하지 않는다
@@ -1022,6 +1028,9 @@ public class IngameScene : BaseScene {
         RecordPlayerKill(victimObjectId, killerObjectId);
 
         Util.Log($"[KillFeed] {DescribePlayer(killerObjectId)} → {DescribePlayer(victimObjectId)}");
+
+        if (_ingameKillLogUI != null)
+            _ingameKillLogUI.MakeSingleKillLog(KillLogName(killerObjectId), KillLogName(victimObjectId));
 
         // 자기 캐릭터의 디스폰 통보는 오지 않는다 — 유예 동안 화면에 남겨두라는 뜻이며,
         // 정리는 이탈 흐름이 담당한다
@@ -1147,6 +1156,20 @@ public class IngameScene : BaseScene {
 
     // 킬러의 무기는 통보에 실려 오지 않는다 — 통보가 사격보다 한 틱 뒤라 그 사이 교체되면
     // 틀린 값이 되기 때문이다. 스폰·무기 변경 통보로 추적해둔 값을 쓴다
+    // 킬 피드에 찍을 표시명. 서버가 표시명을 보내지 않아 objectId가 유일한 재료다 —
+    // TODO: 표시명이 생기면 이 함수만 갈아끼울 것. 호출부를 늘리지 말고 여기 한 곳으로 모을 것.
+    // 로그용 DescribePlayer()와 나누는 이유는 그쪽이 weaponId·미스폰 여부까지 붙여
+    // 화면에 올리기에는 길기 때문이다
+    private string KillLogName(uint objectId) {
+        if (objectId == NO_ATTACKER_OBJECT_ID)
+            return "가해자 없음";
+
+        if (_spawnCompleted && objectId == _myObjectId)
+            return "나";
+
+        return $"objectId={objectId}";
+    }
+
     private string DescribePlayer(uint objectId) {
         if (objectId == NO_ATTACKER_OBJECT_ID)
             return "가해자 없음";

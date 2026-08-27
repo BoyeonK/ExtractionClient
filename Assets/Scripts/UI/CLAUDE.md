@@ -36,6 +36,25 @@ UIManager가 아닌 씬 자체에 존재하는 MonoBehaviour UI 오브젝트. `I
 | `IngameCrosshair` | `static Create(IngameScene)` | **이 표에서 유일하게 씬 오브젝트가 없는 항목.** 아래 절 참조 |
 | `IngameHealthBarUI` | `Init()` | HP/방어구 게이지. Fill 이미지의 `fillAmount`를 조작하므로 **대상 Image의 Type이 `Filled`여야 한다** — `Simple`이면 대입이 조용히 무시된다. 최대치는 `SetMaxHP`/`SetMaxShield`로 별도 주입하며, 최대 실드가 0이면(방어구 해제) 바를 비운다 |
 | `IngameSettingUI` | `Init(IngameScene)` | 인게임 설정 창(ESC). 마우스 감도 + 볼륨 3종. 아래 절 참조 |
+| `IngameKillLogUI` | `Init(IngameScene)` | 킬 피드. `SingleKillLog`를 찍어내고 목록으로 관리한다. 아래 절 참조 |
+
+### `IngameKillLogUI` / `SingleKillLog` — 킬 피드
+
+**이 표에서 유일하게 자식 프리팹을 런타임에 찍어내는 항목이다.** `IngameScene.HandlePlayerKilled()`가 `MakeSingleKillLog(killer, victim)`를 부르면 `KillLogContainer` 하위에 `SingleKillLog`가 하나 생기고, 각 로그가 5초 뒤 스스로 사라진다.
+
+- **부모가 목록을 들고 자식이 자기 수명을 관리한다.** `SingleKillLog`는 `Invoke`로 시간을 재다가 **스스로 파괴하지 않고 `_parentUI.RemoveSingleKillLog(_idx)`를 거친다** — 목록에서 빼는 것과 파괴가 한 곳에서 일어나야 딕셔너리에 죽은 참조가 남지 않는다
+- **`_killLogs` 등록은 `Init()`보다 먼저 해야 한다** — `Init()`이 수명 타이머를 거는 지점이라, 등록이 늦으면 만료 시점에 목록에서 못 찾아 오브젝트가 화면에 영영 남는다
+- **표시명은 `IngameScene.KillLogName()` 한 곳에서만 만든다.** 서버가 킬 피드용 표시명을 보내지 않아 지금은 `가해자 없음`/`나`/`objectId=N`뿐이며, **표시명이 생기면 그 함수만 갈아끼운다.** 로그용 `DescribePlayer()`와 나눈 것은 그쪽이 `weaponId`·미스폰 여부까지 붙여 화면에 올리기엔 길어서다
+
+**프리팹 계층 규격** (전부 `transform.Find`라 **직계 자식만 본다** — 어긋나면 `Init()`에서 NRE):
+
+```
+IngameKillLogUI                 ← GameObject.Find로 잡으므로 이름 고정 + 씬에서 활성
+└ KillLogContainer              ← SingleKillLog가 이 아래에 붙는다
+SingleKillLog                   ← Resources/Prefabs/UI/IngameSceneUI/
+├ KillerId                      (TextMeshProUGUI)
+└ VictimId                      (TextMeshProUGUI)
+```
 
 ### `IngameCrosshair` — 규칙의 유일한 예외 (유지 확정)
 
