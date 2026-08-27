@@ -53,13 +53,18 @@ UIManager가 아닌 씬 자체에 존재하는 MonoBehaviour UI 오브젝트. `I
 
 **프리팹 계층 규격** (전부 `transform.Find`라 **직계 자식만 본다** — 어긋나면 `Init()`에서 NRE):
 
+> **이 트리는 `Assets/Resources/CLAUDE.md`에도 같은 내용이 있다. 한쪽만 고치지 말 것.** 그쪽이 자산을 만들 때의 규격이고, 여기는 코드가 그것을 어떻게 찾는지와 어겼을 때의 증상이다.
+
 ```
 IngameKillLogUI                 ← GameObject.Find로 잡으므로 이름 고정 + 씬에서 활성
 └ KillLogContainer              ← SingleKillLog가 이 아래에 붙는다
 SingleKillLog                   ← Resources/Prefabs/UI/IngameSceneUI/
+├ KillIcon                      코드가 찾지 않는 장식 오브젝트
 ├ KillerId                      (TextMeshProUGUI)
 └ VictimId                      (TextMeshProUGUI)
 ```
+
+- **가해자 이름이 비면 `KillerId`만 빈 문자열이 되고 `KillIcon`은 그대로 남는다** — 가해자 없는 죽음은 `[아이콘] [피해자]` 꼴로 보인다. 아이콘까지 숨기려면 `SingleKillLog.Init()`에서 함께 꺼야 한다
 
 ### `IngameCrosshair` — 규칙의 유일한 예외 (유지 확정)
 
@@ -82,6 +87,8 @@ SingleKillLog                   ← Resources/Prefabs/UI/IngameSceneUI/
 - 매치 이탈이 시작되면 `BeginMatchExit()`이 `Hide()`로 닫는다 — **`CancelAndHide()`가 아니다.** 이미 반영된 값을 되돌릴 이유가 없다
 
 **프리팹 계층 규격** (`LobbySettingWindow`를 복제해 그래픽 탭을 들어낸 형태. 경로가 하나라도 어긋나면 `Util.BindComponent`가 `LogError`를 남기고 그 항목만 죽는다):
+
+> **이 트리는 `Assets/Resources/CLAUDE.md`에도 같은 내용이 있다. 한쪽만 고치지 말 것.**
 
 ```
 IngameSettingUI                         ← 루트. GameObject.Find로 잡으므로 이름 고정 + 씬에서 활성
