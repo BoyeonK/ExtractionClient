@@ -34,7 +34,7 @@ public static class Define {
         Undefined = 0,
         Player,
         TestItemBox,
-        PlayerLoot, //Corpse의 역할을 하는 컨테이너
+        PlayerLoot, // 사망 지점에 스폰되는 전리품 컨테이너
         GreenBoxContainer,
         YellowBoxContainer,
         SmallYellowBoxContainer,

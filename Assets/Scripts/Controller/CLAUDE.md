@@ -9,7 +9,7 @@ GameObjectController (MonoBehaviour)
 └── InteractableGameObjectController
       ├── ContainerController
       │     ├── TestItemBoxController
-      │     ├── PlayerLootController              (시신 — 사망 시 서버가 스폰)
+      │     ├── PlayerLootController              (전리품 컨테이너 — 사망 시 서버가 스폰)
       │     ├── GreenBoxContainerController
       │     ├── YellowBoxContainerController
       │     ├── SmallYellowBoxContainerController
@@ -23,7 +23,8 @@ GameObjectController (MonoBehaviour)
 
 - **`base.Init()`을 빠뜨리면 상호작용이 통째로 죽는다** — `_onInteract += RequestOpenContainer` 구독이 `ContainerController.Init()`에 있어서, 안 부르면 **E키를 눌러도 아무 일이 없고 에러도 남지 않는다.** 이 계층에서 유일하게 밟기 쉬운 자리다
 - **`_objectType`은 현재 읽는 코드가 없다.** 컨테이너 종류별 분기가 생길 때를 위한 자리이므로 죽은 코드로 보고 지우지 말 것
-- **`PlayerLoot`(시신)도 상호작용 텍스트는 "열어보기"로 통일한다** — 박스 형태의 컨테이너이고 조작이 일반 컨테이너와 완전히 같다. 상속받은 것을 그대로 쓰므로 파생 클래스에서 `_interactText`를 건드리지 않는다
+- **`PlayerLoot`(`object_type` 3)는 플레이어 사망 지점에 스폰되는 전리품 컨테이너다.** 사망자의 인벤토리·장착·탄창이 전부 이 컨테이너로 옮겨지며, 스폰은 `D2CNotifySpawnObject`로 통보된다(서버 계약. 옛 이름 `Corpse`)
+- **`PlayerLoot`도 상호작용 텍스트는 "열어보기"로 통일한다** — 박스 형태의 컨테이너이고 여닫기·집기가 일반 컨테이너(`C2DRequestOpenContainer` / `C2DRequestInteractContainerObject`)와 완전히 같다. 상속받은 것을 그대로 쓰므로 파생 클래스에서 `_interactText`를 건드리지 않는다
 - 프리팹 이름에는 `Controller` 접미사가 없다(`GameObject/PlayerLoot` ↔ `PlayerLootController`). `Define.ObjectPaths`가 그 대응을 갖는다
 
 - **`GameObjectController.DisableWeaponColliders()`**: 손에 든 무기의 콜라이더를 끄는 공용 헬퍼. 양쪽 `EquipWeapon()`이 인스턴스화 직후 호출한다. **무기 프리팹에 딸려 오는 콜라이더는 쓰이는 용도가 없는데**(`Weapon_1_AK`는 4개, `Weapon_2_M4`·`Weapon_3_M16`은 3개) 켜둔 채로 손에 들면 ① 몸 대신 총에 히트스캔이 걸리고 — 총은 `ICombatTarget` 하위라 **그대로 피격 판정이 된다** ② 발사 원점이 가슴팍이라 자기 무기에 자탄이 걸린다. 프리팹에서 지우지 않고 장착 시점에만 끄는 것은 바닥 무기 습득 용도가 생기면 되살리기 위함이다

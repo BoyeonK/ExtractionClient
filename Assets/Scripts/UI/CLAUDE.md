@@ -48,7 +48,8 @@ UIManager가 아닌 씬 자체에 존재하는 MonoBehaviour UI 오브젝트. `I
 
 - **부모가 목록을 들고 자식이 자기 수명을 관리한다.** `SingleKillLog`는 `Invoke`로 시간을 재다가 **스스로 파괴하지 않고 `_parentUI.RemoveSingleKillLog(_idx)`를 거친다** — 목록에서 빼는 것과 파괴가 한 곳에서 일어나야 딕셔너리에 죽은 참조가 남지 않는다
 - **`_killLogs` 등록은 `Init()`보다 먼저 해야 한다** — `Init()`이 수명 타이머를 거는 지점이라, 등록이 늦으면 만료 시점에 목록에서 못 찾아 오브젝트가 화면에 영영 남는다
-- **표시명은 `IngameScene.KillLogName()` 한 곳에서만 만든다.** 서버가 킬 피드용 표시명을 보내지 않아 지금은 `가해자 없음`/`나`/`objectId=N`뿐이며, **표시명이 생기면 그 함수만 갈아끼운다.** 로그용 `DescribePlayer()`와 나눈 것은 그쪽이 `weaponId`·미스폰 여부까지 붙여 화면에 올리기엔 길어서다
+- **표시명은 `IngameScene.KillLogName()` 한 곳에서만 만든다.** 서버가 통보에 실어주는 이름(userId)을 그대로 쓰고, 이름이 비어 오면 `objectId=N`으로 폴백한다. **자기 자신도 특별 취급하지 않는다** — 로그용 `DescribePlayer()`가 `나`·`weaponId`·미스폰 여부까지 붙이는 것과 갈리는 지점이며, 그쪽은 화면에 올리기엔 길다
+- **가해자 이름이 비면 빈 문자열을 넘긴다**(`KillerId` 텍스트가 비어 보인다). 판정은 `HandlePlayerKilled` 한 곳에서 **objectId가 아니라 이름으로** 하며, `killer_object_id == 0xFFFFFFFF`도 이름이 비어 오므로 함께 걸린다
 
 **프리팹 계층 규격** (전부 `transform.Find`라 **직계 자식만 본다** — 어긋나면 `Init()`에서 NRE):
 

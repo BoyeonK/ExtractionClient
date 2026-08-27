@@ -1022,7 +1022,8 @@ public class IngameScene : BaseScene {
     // D2CNotifyPlayerKilled. 피해자를 포함한 룸 전체가 받으며,
     // 피해자에게는 '사망 확정' 신호를 겸한다(공통 사항 6).
     // 남의 캐릭터 제거 연출은 D2CDespawnPlayerObject(T7)가 담당한다.
-    public void HandlePlayerKilled(uint victimObjectId, uint killerObjectId) {
+    public void HandlePlayerKilled(uint victimObjectId, uint killerObjectId,
+                                   string victimObjectName, string killerObjectName) {
         // 킬러는 살아있는 플레이어이므로 모르는 objectId면 채워둔다.
         // 피해자는 같은 타이밍에 디스폰 통보가 오므로 요청하지 않는다
         if (killerObjectId != NO_ATTACKER_OBJECT_ID)
@@ -1032,8 +1033,12 @@ public class IngameScene : BaseScene {
 
         Util.Log($"[KillFeed] {DescribePlayer(killerObjectId)} → {DescribePlayer(victimObjectId)}");
 
+        // 가해자 이름이 비면(가해자 없음·서버 미확인) 가해자를 표시하지 않는다.
+        // 판정은 objectId가 아니라 이름으로 한다 — 0xFFFFFFFF도 이름이 비어 오므로 함께 걸린다
         if (_ingameKillLogUI != null)
-            _ingameKillLogUI.MakeSingleKillLog(KillLogName(killerObjectId), KillLogName(victimObjectId));
+            _ingameKillLogUI.MakeSingleKillLog(
+                string.IsNullOrEmpty(killerObjectName) ? string.Empty : KillLogName(killerObjectId, killerObjectName),
+                KillLogName(victimObjectId, victimObjectName));
 
         // 자기 캐릭터의 디스폰 통보는 오지 않는다 — 유예 동안 화면에 남겨두라는 뜻이며,
         // 정리는 이탈 흐름이 담당한다
@@ -1066,10 +1071,13 @@ public class IngameScene : BaseScene {
     // 처치로 인한 제거에는 D2CNotifyDespawnObject가 오지 않으므로 여기서 직접 치운다.
     // 킬러가 미스폰이어도 스폰을 요청하지 않는다. 표시부가 없어 쓸 곳이 없고,
     // 근처 플레이어는 어차피 상태 스트림이 채운다 — 불필요한 reliable을 늘리지 않는다
-    public void HandleObjectKilled(uint victimObjectId, uint killerObjectId) {
+    // TEMP: killerObjectName은 킬 피드에 쓰지 않는다 — 오브젝트 킬은 킬 피드 미적용이다.
+    //       킬러가 미스폰이라 DescribePlayer가 식별을 못 하는 구간을 확인하려고 로그에만 실었으며,
+    //       확인이 끝나면 Handle_D2CNotifyObjectKilled의 추출과 함께 되돌린다
+    public void HandleObjectKilled(uint victimObjectId, uint killerObjectId, string killerObjectName) {
         RecordObjectKill(victimObjectId, killerObjectId);
 
-        Util.Log($"[ObjectKill] {DescribePlayer(killerObjectId)} → objectId={victimObjectId}");
+        Util.Log($"[ObjectKill] name={killerObjectName} {DescribePlayer(killerObjectId)} → objectId={victimObjectId}");
 
         DespawnObject(victimObjectId);
     }
@@ -1159,18 +1167,15 @@ public class IngameScene : BaseScene {
 
     // 킬러의 무기는 통보에 실려 오지 않는다 — 통보가 사격보다 한 틱 뒤라 그 사이 교체되면
     // 틀린 값이 되기 때문이다. 스폰·무기 변경 통보로 추적해둔 값을 쓴다
-    // 킬 피드에 찍을 표시명. 서버가 표시명을 보내지 않아 objectId가 유일한 재료다 —
-    // TODO: 표시명이 생기면 이 함수만 갈아끼울 것. 호출부를 늘리지 말고 여기 한 곳으로 모을 것.
-    // 로그용 DescribePlayer()와 나누는 이유는 그쪽이 weaponId·미스폰 여부까지 붙여
-    // 화면에 올리기에는 길기 때문이다
-    private string KillLogName(uint objectId) {
-        if (objectId == NO_ATTACKER_OBJECT_ID)
-            return "가해자 없음";
+    // 킬 피드에 찍을 표시명. 서버가 통보에 실어주는 이름(userId)이 유일한 재료이며
+    // 자기 자신도 특별 취급하지 않는다 — 로그용 DescribePlayer()가 "나"를 붙이는 것과 갈리는 지점이다.
+    // 표시명은 여기 한 곳에서만 만든다
+    private string KillLogName(uint objectId, string objectName) {
+        // 서버가 이름을 못 채운 경우의 최후 표기. 가해자를 숨기는 경로는 호출부가 먼저 거른다
+        if (string.IsNullOrEmpty(objectName))
+            return $"objectId={objectId}";
 
-        if (_spawnCompleted && objectId == _myObjectId)
-            return "나";
-
-        return $"objectId={objectId}";
+        return objectName;
     }
 
     private string DescribePlayer(uint objectId) {

@@ -102,6 +102,7 @@
 - 씬 정리(커서·UDP)는 `IngameScene.Clear()` 오버라이드가 맡는다. `Managers.Clear()`가 씬 전환 때 자동으로 부르므로 유예를 다 쓰지 않는 경로에서도 보장된다
 - **`CompleteMatchExit()`이 `GameResult` 스냅샷을 뜬 뒤 연결을 끊는다.** 스냅샷을 `BeginMatchExit`으로 당기지 말 것 — 킬 통보가 사격보다 한 틱 뒤라 죽기 직전에 쏜 탄의 킬(상호 킬)이 유예 중에 도착한다. 반대로 유예를 다 쓰지 않는 강제 씬 전환은 이 함수를 건너뛰어 결과가 저장되지 않으므로, **결과 씬 전환은 반드시 `CompleteMatchExit()`을 거칠 것**
 - `killer_object_id == 0xFFFFFFFF`는 가해자 없는 죽음이며 `NO_ATTACKER_OBJECT_ID`와 같은 의미다(전투 문맥 공용). `0`은 실재 objectId
+- **표시는 이름으로, 로직은 objectId로 가른다.** `victim_object_name`/`killer_object_name`(플레이어는 userId)은 킬 로그 표기 전용이고, 스폰 요청·킬 기록·사망 판정은 전부 objectId로 한다. `killer_object_name`이 비면 가해자를 표시하지 않는다(가해자 없음 + 서버가 못 찾은 경우를 함께 덮는다) — 표기 규칙은 `UI/CLAUDE.md`의 킬 피드 절 참조
 - **킬러 무기는 실려 오지 않는다** — 통보가 사격보다 한 틱 뒤라 그 사이 교체되면 틀린 값이 되기 때문이다. `EquippedWeaponId`로 추적해둔 값을 쓴다
 - 모르는 **킬러**는 `RequestSpawnIfUnknown()`으로 채우고 **피해자는 요청하지 않는다**(같은 타이밍에 디스폰이 온다)
 
@@ -114,6 +115,7 @@
 - 오브젝트 킬은 `HandleObjectKilled`(`D2CNotifyObjectKilled`, PktId 41)에서 기록한다. 피해자가 내가 될 수 없어 `victim != _myObjectId` 가드가 없는 것 외에는 플레이어 킬과 같다
 - **`ObjectKillCount`는 `ICombatTarget` 보급에 종속된다** — 전투 오브젝트가 이 인터페이스를 구현하지 않으면 `PlayerController`가 `hit_object_id`에 `0xFFFFFFFF`를 실어 보내 서버가 데미지를 넣지 않는다. 패킷 배선이 끝나도 그때까지는 항상 0이다
 - **`HandleObjectKilled`는 제거까지 책임진다** — 처치로 인한 제거에는 `D2CNotifyDespawnObject`가 오지 않으므로 여기서 `DespawnObject()`를 부른다. 빠뜨리면 파괴된 오브젝트가 맵에 영원히 남는다
+- **오브젝트 킬은 킬 피드에 올리지 않는다**(확정). 그래서 `D2CNotifyObjectKilled.killer_object_name`은 **의도적으로 소비하지 않는다** — 빠뜨린 배선이 아니다. 지금 `HandleObjectKilled`가 받는 이름은 킬러 식별을 눈으로 확인하려는 `TEMP:`이며 로그에만 쓰이고, 짝이 되는 추출부가 `Handle_D2CNotifyObjectKilled`에 있다(원복은 한 쌍)
 - 오브젝트 킬에서는 **미스폰 킬러를 요청하지 않는다** — 표시부가 없어 소비처가 없고, 근처 플레이어는 상태 스트림이 채운다. 불필요한 reliable을 늘리지 않는다는 판단이며, 오브젝트 킬 피드를 붙이면 그때 재검토할 것
 
 ## 다른 플레이어 관리

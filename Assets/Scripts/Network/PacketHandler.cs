@@ -1316,12 +1316,14 @@ public class PacketHandler {
             return;
         }
 
-        uint victimObjectId = pkt.VictimObjectId;
-        uint killerObjectId = pkt.KillerObjectId;
+        uint victimObjectId     = pkt.VictimObjectId;
+        uint killerObjectId     = pkt.KillerObjectId;
+        string victimObjectName = pkt.VictimObjectName;
+        string killerObjectName = pkt.KillerObjectName;
 
         Managers.ExecuteAtMainThread(() => {
             if (Managers.Scene.CurrentScene is not IngameScene ingameScene) return;
-            ingameScene.HandlePlayerKilled(victimObjectId, killerObjectId);
+            ingameScene.HandlePlayerKilled(victimObjectId, killerObjectId, victimObjectName, killerObjectName);
         });
     }
 
@@ -1343,9 +1345,13 @@ public class PacketHandler {
         uint victimObjectId = pkt.VictimObjectId;
         uint killerObjectId = pkt.KillerObjectId;
 
+        // TEMP: 오브젝트 킬은 킬 피드에 올리지 않아 이름의 소비처가 없다. 킬러 식별 확인용
+        //       로그로만 쓰며, 확인이 끝나면 IngameScene.HandleObjectKilled의 파라미터와 함께 되돌린다
+        string killerObjectName = pkt.KillerObjectName;
+
         Managers.ExecuteAtMainThread(() => {
             if (Managers.Scene.CurrentScene is not IngameScene ingameScene) return;
-            ingameScene.HandleObjectKilled(victimObjectId, killerObjectId);
+            ingameScene.HandleObjectKilled(victimObjectId, killerObjectId, killerObjectName);
         });
     }
 }
