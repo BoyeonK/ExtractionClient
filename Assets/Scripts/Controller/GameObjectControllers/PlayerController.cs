@@ -421,7 +421,6 @@ public class PlayerController : GameObjectController, ICombatTarget {
         // 빈 탄창 딸깍(EmptyAmmoFire)은 2D로 남아 있고 이쪽만 월드 소리다
         Managers.Sound.PlayOneShotAt(GetGunShotSound(_equippedWeaponId), _soundAudio);
         DrawTracer(fireRay, hit, hasHit);
-        DrawFireRayDebug(fireRay, hit, hasHit);   // TEMP: 발사 원점·수렴 검증 후 제거
 
         // 3. 반동 목표값 누적 (실제 적용은 ProcessRecoil에서 보간)
         float vRecoil = Random.Range(_vRecoilMin, _vRecoilMax);
@@ -472,39 +471,6 @@ public class PlayerController : GameObjectController, ICombatTarget {
         if (_muzzlePointTr == null) return;   // 맨손
 
         BulletTracer.Play(_muzzlePointTr.position, hasHit ? hit.point : fireRay.GetPoint(1000f));
-    }
-
-    // TEMP: 발사선 시각화. Scene 뷰(또는 Game 뷰 Gizmos ON)에서 보인다. 잔상 2분
-    //       발사선  초록=유효 대상 / 노랑=맞았지만 대상 아님 / 빨강=미명중
-    //       흰 십자=발사 원점(_shotPoint), 청록 십자=조준점(_aimTarget), 파랑=카메라 중심축
-    //       발사 원점·수렴 검증 후 제거
-    private void DrawFireRayDebug(Ray ray, RaycastHit hit, bool hasHit) {
-        const float DRAW_SEC = 120f;
-        const float M = 0.06f;
-
-        Color color = Color.red;
-        if (hasHit) {
-            var target = hit.collider.GetComponentInParent<ICombatTarget>();
-            bool valid = target != null && (uint)target.GetObjectId() != ObjectId;
-            color = valid ? Color.green : Color.yellow;
-        }
-
-        Vector3 end = hasHit ? hit.point : ray.origin + ray.direction * 20f;
-        Debug.DrawLine(ray.origin, end, color, DRAW_SEC);
-
-        DrawDebugCross(ray.origin, M, Color.white, DRAW_SEC);
-        if (hasHit) DrawDebugCross(hit.point, M, color, DRAW_SEC);
-        if (_aimTarget != null) DrawDebugCross(_aimTarget.position, M * 2f, Color.cyan, DRAW_SEC);
-
-        Ray center = _camera.ViewportPointToRay(new Vector3(0.5f, 0.5f, 0f));
-        Debug.DrawLine(center.origin, center.origin + center.direction * 20f, Color.blue, DRAW_SEC);
-    }
-
-    // TEMP: 발사 원점·수렴 검증 후 제거
-    private static void DrawDebugCross(Vector3 point, float size, Color color, float sec) {
-        Debug.DrawLine(point - Vector3.right * size, point + Vector3.right * size, color, sec);
-        Debug.DrawLine(point - Vector3.up * size, point + Vector3.up * size, color, sec);
-        Debug.DrawLine(point - Vector3.forward * size, point + Vector3.forward * size, color, sec);
     }
 
     // 아래 _fireBlocked가 딸깍 소리의 중복 재생 가드를 겸한다 — 해제 조건이 마우스 재클릭뿐이라

@@ -545,8 +545,32 @@ public class IngameScene : BaseScene {
         // 달리는 중에는 시작하지 않는다. UpdateAction()의 취소 조건과 같은 식이라
         // '달리면 재장전이 성립하지 않는다'는 규칙이 진입·유지 양쪽에서 한 벌로 유지된다
         if (IsPlayerRunning) return;
+        if (!CanReload()) return;
         if (!TryBeginAction(PlayerActionKind.Reload)) return;
         _reloadRetried = false;
+    }
+
+    // 재장전이 성립하지 않는 것이 확실할 때만 막는다 — 판정 권한은 서버에 그대로 있고
+    // 이건 헛도는 2초 유예와 불필요한 reliable을 줄이는 UX·트래픽 장치다(발사 차단과 같은 성격).
+    // 알림음·경고는 두지 않는다(사용자 확정) — 잔탄 표기의 0이 그 역할을 한다.
+    //
+    // 값의 출처를 SyncWeaponUI()와 같은 것으로 맞춘다 — 판정과 표시가 갈리면
+    // "화면엔 예비탄이 있는데 R이 안 먹는다"가 된다.
+    // 스펙을 못 찾으면(맨손 포함) 판단할 근거가 없으므로 막지 않고 서버에 맡긴다
+    private bool CanReload() {
+        InventoryItem weapon = _inventory.CurrentWeapon;
+        if (weapon == null) return true;
+        if (!ItemDBHelper.TryGetWeaponSpec(weapon.item_id, out WeaponSpec spec)) return true;
+
+        // 이미 가득. 로컬 탄창 수치는 발사마다 차감되는 예측값이라 서버 값보다 크지 않으므로,
+        // '로컬이 가득'이면 서버도 가득이다 — 이 방향으로는 오판이 없다
+        InventoryItem magazine = _inventory.CurrentMagazine;
+        if (magazine != null && magazine.quantity >= spec.MaxAmmo) return false;
+
+        // 예비탄 없음. 인벤토리 25칸만 센다(장착 탄창은 위에서 이미 봤고 컨테이너는 내 것이 아니다)
+        if (_inventory.CountAmmo(spec.AmmoType) <= 0) return false;
+
+        return true;
     }
 
     // D2CResponseReload. 성공·거부 모두 '처리 후의 인벤토리 전체'가 실려 온다.
