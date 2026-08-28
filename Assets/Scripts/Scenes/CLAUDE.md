@@ -1,163 +1,161 @@
 # 씬 구성
 
 - **`BaseScene`**: 모든 씬의 베이스. `Awake → Init()`에서 EventSystem 자동 생성
-- **`LobbyScene`**: `LobbyState` enum 기반 상태 머신 (BeforeConnect → BeforeAuth → Lobby → Matching)
-- **`LoadingScene`**: 비동기 로딩 → 90% 도달 시 Blueprint 요청 → 응답 완료 시 씬 전환
-- **`IngameScene`**: 인게임 맵 씬들의 공통 베이스. 정적 오브젝트 스폰 + 씬 내장 UI 바인딩 + 스폰 요청. 실제 맵 씬은 이 클래스를 상속
+- **`LobbyScene`**: `LobbyState` enum 상태 머신 (BeforeConnect → BeforeAuth → Lobby → Matching)
+- **`LoadingScene`**: 비동기 로딩 → 90%에서 Blueprint 요청 → 응답 완료 시 전환
+- **`IngameScene`**: 맵 씬들의 공통 베이스. 정적 오브젝트 스폰 + 씬 내장 UI 바인딩 + 스폰 요청. 실제 맵 씬이 이걸 상속한다
 - **`GameResultScene`**: 매치 결과 표시 + 엔터로 로비 복귀. 진입 경로는 `IngameScene.CompleteMatchExit()` 하나뿐
-- 씬 전환: 반드시 `Managers.Scene` 사용
-- **입력 리스너·업데이트 루프 안에서는 씬을 직접 내리지 말고 `Managers.ExecuteAtMainThread`로 예약할 것** — `LoadScene()`의 `Managers.Clear()`가 순회 중인 구독 목록을 비운다 (`Managers/CLAUDE.md` 참조)
+- 씬 전환은 반드시 `Managers.Scene`으로 한다
+- **입력 리스너·업데이트 루프 안에서 씬을 직접 내리지 말고 `Managers.ExecuteAtMainThread`로 예약할 것** — `LoadScene()`의 `Managers.Clear()`가 순회 중인 구독 목록을 비운다
 
 ## 씬 이름 규칙
 
-**`SceneManagerEx.GetSceneName()`이 `Define.Scene` 항목 이름을 그대로 `SceneManager.LoadScene()`에 넘긴다.** 따라서 enum 항목 이름 = `.unity` 파일 이름이어야 하며, 파일 이름은 모두 `Scene`으로 끝낸다. 씬을 추가·리네임하면 enum도 같이 고치고 Build Settings 등재를 확인할 것 — 어긋나면 컴파일은 통과하고 **전환 시점에 런타임으로 터진다**.
+**`SceneManagerEx.GetSceneName()`이 `Define.Scene` 항목 이름을 그대로 `LoadScene()`에 넘긴다.** enum 항목 이름 = `.unity` 파일 이름이어야 하고 파일 이름은 모두 `Scene`으로 끝낸다. 씬을 추가·리네임하면 enum도 고치고 Build Settings 등재를 확인할 것 — 어긋나면 **컴파일은 통과하고 전환 시점에 런타임으로 터진다.**
 
-씬 담당 컴포넌트 클래스와 이름이 겹치지만(`LobbyScene`, `LoadingScene`, `GameResultScene`, `TestIngameScene`) enum 멤버는 항상 `Define.Scene.X`로 한정 접근되므로 충돌하지 않는다. 깨지는 경우는 `using static Define.Scene;`뿐이니 쓰지 말 것.
+씬 컴포넌트 클래스와 이름이 겹치지만 enum 멤버는 항상 `Define.Scene.X`로 한정 접근되므로 충돌하지 않는다. 깨지는 경우는 `using static Define.Scene;`뿐이니 쓰지 말 것.
 
 ## 씬 전환 페이로드 (`GameSceneContext`)
 
-`SceneManagerEx`가 `NextSceneStaticContext`(정적)와 `SceneDynamicContext`(동적) 두 인스턴스를 보유. `PacketHandler`에서 `AddObjectDatas()`로 누적, `IsComplete()`로 수신 완료 판정, `IngameScene.Init()`에서 소비.
+`SceneManagerEx`가 `NextSceneStaticContext`(정적)와 `SceneDynamicContext`(동적)를 보유한다. `PacketHandler`가 `AddObjectDatas()`로 누적, `IsComplete()`로 수신 완료를 판정하고 `IngameScene.Init()`이 소비한다.
 
 ### 매치 결과 (`GameResult` / `LastGameResult`)
 
-`SceneManagerEx.cs` 파일 스코프의 `GameResult` 구조체(`MatchExitReason`도 같은 위치). `IngameScene.CompleteMatchExit()`이 `SetGameResult()`로 채우고 결과 씬이 소비한다.
+`SceneManagerEx.cs` 파일 스코프의 구조체. `CompleteMatchExit()`이 `SetGameResult()`로 채우고 결과 씬이 소비한다.
 
-- `LastGameResult`는 `GameResult?` — null이 '결과 없음'. **`ResetLoadSceneOp()`에서 지우지 말 것** — 결과 씬 진입 초기화에서도 불려 소비 전에 날아간다. 제거는 소비자의 `ClearGameResult()` 또는 다음 매치 종료의 덮어쓰기로 한다
-- 내용: 이탈 사유 + 인벤토리 25슬롯(배치 유지, 빈 슬롯 null) + 무기 2·방어구(**탄창 제외**) + 킬수 2종. 인벤토리는 클라 로컬 상태 기준이라 서버와 어긋날 수 있으나 표시용으로 감수한다(서버 재조회 없음)
+- `LastGameResult`는 `GameResult?`이고 null이 '결과 없음'이다. **`ResetLoadSceneOp()`에서 지우지 말 것** — 결과 씬 진입 초기화에서도 불려 소비 전에 날아간다. 제거는 `ClearGameResult()` 또는 다음 매치 종료의 덮어쓰기로 한다
+- 내용: 이탈 사유 + 인벤토리 25슬롯(배치 유지, 빈 슬롯 null) + 무기 2·방어구(**탄창 제외**) + 킬수 2종. 인벤토리는 클라 로컬 상태라 서버와 어긋날 수 있으나 표시용으로 감수한다
 - 같은 아이템 목록이라도 **사유별 의미가 다르다** — Recalled=반출 확정, Dead·ConnectionLost=잃은 것
 
 ### 로비 복귀와 세션 유지 (`IsReturnFromGameResult`)
 
-`GameResultScene.MoveToLobby()`가 플래그를 세우고 `LobbyScene.Init()`이 소비한다. 결과 씬 경유(true)와 게임 최초 시작(false)을 구분해, 경유일 때만 `TryResumeSession()`으로 Login 과정을 건너뛴다.
+`GameResultScene.MoveToLobby()`가 세우고 `LobbyScene.Init()`이 소비한다. 결과 씬 경유(true)일 때만 `TryResumeSession()`으로 Login을 건너뛴다.
 
-- **`LastGameResult`와 같은 이유로 `ResetLoadSceneOp()`에서 지우지 말 것** — 로비 초기화에서도 불려 소비 전에 날아간다. 소비자인 `LobbyScene.Init()`이 읽은 뒤 직접 false로 되돌린다
-- 세션이 살아남는 근거는 `Managers.Clear()`가 `Sound`/`Input`/`Scene`/`UI`만 건드려 **HTTPManager의 `SessionId`·`AuthState`는 씬 전환에서 초기화되지 않는다**는 것이다. 여기에 매니저를 추가할 때 주의할 것
-- 버전 체크(`GetVersionCall`)는 프로세스 재시작이 아니므로 이 경로에서 생략한다
-- 성공하면 `OnLoginComplete(AuthState 기준 Logined/Guest)`를 재사용한다 — 별도 진입 경로를 만들지 말 것
-- 실패 처리와 폴백 정책은 `Network/CLAUDE.md`의 '세션 유지' 절 참조
+- **`LastGameResult`와 같은 이유로 `ResetLoadSceneOp()`에서 지우지 말 것.** 소비자인 `LobbyScene.Init()`이 읽은 뒤 직접 false로 되돌린다
+- 세션이 살아남는 근거는 `Managers.Clear()`가 `Sound`/`Input`/`Scene`/`UI`만 건드려 **HTTPManager의 `SessionId`·`AuthState`가 씬 전환에서 초기화되지 않는다**는 것이다 — 여기에 매니저를 추가할 때 주의할 것
+- 버전 체크(`GetVersionCall`)는 프로세스 재시작이 아니므로 생략한다
+- 성공하면 `OnLoginComplete()`를 재사용한다 — 별도 진입 경로를 만들지 말 것
+- 실패 처리·폴백은 `Network/CLAUDE.md`의 '세션 유지' 참조
 
 ## IngameScene 스폰 흐름
 
-1. `RequestSpawnMe()` → `C2DRequestSpawnMe` 전송
-2. 서버 응답: `D2CResponseSpawnMeSpawnSpot`(스폰 좌표) + `D2CResponseSpawnMeDynamicObjects`(동적 오브젝트)
-3. 두 응답 모두 수신 시 `SpawnMeAndRequestPlayerObjects()` → 플레이어 인스턴스화 + `TryInitWeapon()` + 동적 오브젝트 스폰
-4. 서버 응답 `D2CSpawnPlayerObjects` → 다른 플레이어 일괄 스폰
+1. `RequestSpawnMe()` → `C2DRequestSpawnMe`
+2. `D2CResponseSpawnMeSpawnSpot`(좌표) + `D2CResponseSpawnMeDynamicObjects`(동적 오브젝트)
+3. 둘 다 오면 `SpawnMeAndRequestPlayerObjects()` → 플레이어 인스턴스화 + `TryInitWeapon()` + 동적 오브젝트 스폰
+4. `D2CSpawnPlayerObjects` → 다른 플레이어 일괄 스폰
 5. 완료 시 상태 전송 루프(0.1초) 활성화 + 로딩 완료 통보
 
-### 초기 무기 장착 흐름
-
-`_spawnCompleted`와 `_itemLoaded` 두 조건이 모두 충족될 때 `TryInitWeapon()` 1회 호출. 도착 순서가 보장되지 않으므로 양쪽 시점에서 모두 호출한다.
+**초기 무기 장착**: `_spawnCompleted`와 `_itemLoaded`가 모두 충족될 때 `TryInitWeapon()`을 1회 부른다. **도착 순서가 보장되지 않으므로 양쪽 시점에서 모두 호출한다.**
 
 ## 무기 프리팹 캐시 (`WeaponPrefabCache`)
 
-`IngameScene`이 보유. `Resources.LoadAll<GameObject>("Prefabs/Weapons")`로 1회 로드, `weaponId → prefab` 매핑. 프리팹 네이밍: `Weapon_{id}_{name}`.
+`Resources.LoadAll<GameObject>("Prefabs/Weapons")`로 1회 로드해 `weaponId → prefab`으로 갖는다. 프리팹 이름은 `Weapon_{id}_{name}`.
 
 ## 인게임 인벤토리 (`IngameInventory`)
 
-`IngameScene`이 보유하는 순수 C# 클래스. 서버 주도 `D2CFullInventorySync`로 동기화.
+`IngameScene`이 보유하는 순수 C# 클래스. 서버 주도 `D2CFullInventorySync`로 동기화된다.
 
-- 슬롯 구조: `_inventorySlots[25]` + 무기 2 + 방어구 1 + 탄창 2 + 컨테이너 슬롯
-- `_isPrimaryWeaponApplyed`: 현재 주무기/보조무기 전환 상태
+- 슬롯: `_inventorySlots[25]` + 무기 2 + 방어구 1 + 탄창 2 + 컨테이너 슬롯
+- `_isPrimaryWeaponApplyed`: 주무기/보조무기 전환 상태
 - `PLAYER_OBJECT_ID(0xFFFFFFFF)`: objectId로 플레이어/컨테이너 슬롯을 구분하는 규칙
-- 외부 접근: `ingameScene.Inventory.XXX`
+- 외부 접근은 `ingameScene.Inventory.XXX`
 
 ## 체력 상태 관리
 
-`IngameScene`이 `_currentHealthPoint`/`_currentShieldPoint`로 서버 절대값을 보관. `D2CNotifyHealthChange` 수신 시 갱신되며 이 패킷은 **피해 입은 본인에게만** 온다(남의 HP·실드는 어떤 패킷으로도 오지 않는다).
+`_currentHealthPoint`/`_currentShieldPoint`로 서버 절대값을 보관한다. `D2CNotifyHealthChange`는 **피해 입은 본인에게만** 온다(남의 HP·실드는 어떤 패킷으로도 오지 않는다).
 
-- **`0xFFFFFFFF`는 문맥에 따라 의미가 다르다.** 인벤토리 문맥의 `PLAYER_OBJECT_ID`(내 인벤토리)와 전투 문맥의 `NO_ATTACKER_OBJECT_ID`(가해자 없음)는 값이 같아도 별개 상수로 유지할 것. `killer_object_id`, `hit_object_id`도 전투 문맥 쪽이다
+- **`0xFFFFFFFF`는 문맥에 따라 의미가 다르다.** 인벤토리 문맥의 `PLAYER_OBJECT_ID`와 전투 문맥의 `NO_ATTACKER_OBJECT_ID`는 값이 같아도 **별개 상수로 유지할 것**
 - **`0`은 실재하는 objectId다.** proto3 기본값이라고 '미설정'으로 해석하면 오귀속이 된다
-- 교전 상대 추적: `_lastAttackerObjectId`는 `ATTACKER_TRACK_DURATION` 안에서만 유효하며 `LastAttackerObjectId`/`HasRecentAttacker`로 조회
+- 교전 상대 추적: `_lastAttackerObjectId`는 `ATTACKER_TRACK_DURATION` 안에서만 유효하며 `LastAttackerObjectId`/`HasRecentAttacker`로 조회한다
 
 ### 실드 재생 예측
 
 전용 통보 패킷이 없다. 서버는 매 틱 회복만 시키고 아무것도 보내지 않으므로 클라가 같은 공식으로 예측하고 피격 통보마다 서버 절대값으로 리셋한다.
 
-- `UpdateShieldRegen()`이 `(재생량 × 경과ms)`를 누적해 `SHIELD_REGEN_ACCUM_UNIT`(1000)마다 1 회복. **실수 보간으로 바꾸지 말 것** — 서버가 정수 누적이라 값이 어긋난다
-- 방어구 스펙 캐시는 `SyncHealthBarMax()`가 갱신하며, `SyncInventoryUI()`의 UI null 가드보다 **앞에서** 호출된다. 전투 예측을 UI 오브젝트 존재 여부에 묶지 말 것
-- `SyncHealthBarMax()`는 최대치를 넣은 뒤 현재값까지 게이지로 민다. 이게 없으면 첫 피격 전까지 프리팹에 저장된 `fillAmount`가 그대로 보인다. **최대치 → 현재값 순서를 지킬 것** — 뒤집으면 `SetArmor`가 최대 실드 0에 걸린다
-- `_currentHealthPoint`의 초기값은 `MAX_HEALTH_POINT`다. HP는 스폰 시 어떤 패킷으로도 오지 않으므로 0으로 두면 사망으로 오판해 재생이 멈춘다
-- **`MAX_HEALTH_POINT`(20000 = 200.00 HP)는 서버 `PlayerObject::DEFAULT_MAX_HP`와 손으로 맞추는 값이다.** 최대치를 보내는 패킷이 없어 클라 쪽 유일한 출처이며, 어긋나도 컴파일·통신은 정상이고 체력바 비율만 조용히 틀어진다. 한쪽만 고치지 말 것. 전투 수치는 전부 1/100 고정소수점(실제값 × 100)이라 HP 관련 로직에 숫자 리터럴을 쓰면 출처가 갈린다
-- **스폰 시 실드는 최대치다(서버 규칙).** 최대치의 출처가 방어구 스펙뿐이라 HP처럼 필드 초기값으로 둘 수 없어, `SyncHealthBarMax()`가 `_maxShieldPoint`를 채운 직후 `TryInitShield()`가 일회성으로 적용한다. **`_itemLoaded` 가드를 빼지 말 것** — 인벤토리 도착 전 호출에서는 방어구가 null이라 최대치가 0이고, 그대로 플래그가 소진되면 실드가 끝까지 0이 된다
-- 방어구는 착용·해제·교체 어느 경로든 실드가 0에서 다시 찬다(서버 규칙). `ApplyEquipItem`의 `equipmentSlotType == 2`에서 `ResetShieldPrediction()`. **최초 스폰과 갈리는 지점이며 `TryInitShield()`의 일회성 플래그가 이 둘을 가른다**
+- `UpdateShieldRegen()`이 `(재생량 × 경과ms)`를 누적해 `SHIELD_REGEN_ACCUM_UNIT`(1000)마다 1 회복한다. **실수 보간으로 바꾸지 말 것** — 서버가 정수 누적이라 값이 어긋난다
+- 방어구 스펙 캐시는 `SyncHealthBarMax()`가 갱신하며 `SyncInventoryUI()`의 UI null 가드보다 **앞에서** 불린다. **전투 예측을 UI 오브젝트 존재에 묶지 말 것**
+- `SyncHealthBarMax()`는 최대치를 넣은 뒤 현재값까지 민다. **순서를 뒤집으면 `SetArmor`가 최대 실드 0에 걸린다.** 없으면 첫 피격 전까지 프리팹에 저장된 `fillAmount`가 보인다
+- `_currentHealthPoint`의 초기값은 `MAX_HEALTH_POINT`다. HP는 스폰 시 어떤 패킷으로도 오지 않으므로 0으로 두면 **사망으로 오판해 재생이 멈춘다**
+- **`MAX_HEALTH_POINT`(20000 = 200.00 HP)는 서버 `PlayerObject::DEFAULT_MAX_HP`와 손으로 맞추는 값이다.** 최대치를 보내는 패킷이 없어 클라 쪽 유일한 출처이며, 어긋나도 컴파일·통신은 정상이고 **체력바 비율만 조용히 틀어진다.** 전투 수치는 전부 1/100 고정소수점이라 HP 로직에 숫자 리터럴을 쓰면 출처가 갈린다
+- **스폰 시 실드는 최대치다(서버 규칙).** 최대치 출처가 방어구 스펙뿐이라 필드 초기값으로 둘 수 없어 `SyncHealthBarMax()` 직후 `TryInitShield()`가 일회성으로 적용한다. **`_itemLoaded` 가드를 빼지 말 것** — 인벤토리 도착 전에는 방어구가 null이라 최대치가 0이고, 그대로 플래그가 소진되면 **실드가 끝까지 0이 된다**
+- 방어구는 착용·해제·교체 어느 경로든 실드가 0에서 다시 찬다(서버 규칙). `ApplyEquipItem`의 `equipmentSlotType == 2`에서 `ResetShieldPrediction()` — **최초 스폰과 갈리는 지점이고 `TryInitShield()`의 일회성 플래그가 둘을 가른다**
 
 ## 스태미나 (`UpdateStamina`)
 
-달리기·점프의 공용 자원. **서버에 필드가 없는 완전한 클라 로컬 상태다** — 실드 예측과 달리 서버 절대값으로 리셋되는 경로가 아예 없어서, `IngameScene`의 상수 여섯이 유일한 출처다(최대 60 / 달리기 진입 20 / 소모 10·s / 회복 10·s / 회복 지연 1초 / **점프 12**). 서버가 아는 것은 `MovementState`의 RUN·WALK뿐이라, 고갈의 유일한 대외 효과는 **RUN이 WALK로 바뀌어 나가는 것**이다(점프 차단은 서버에 보이지 않는다).
+달리기·점프의 공용 자원. **서버에 필드가 없는 완전한 클라 로컬 상태다** — 서버 절대값으로 리셋되는 경로가 아예 없어서 상수 여섯이 유일한 출처다(최대 60 / 달리기 진입 20 / 소모 10·s / 회복 10·s / 회복 지연 1초 / 점프 12). 서버가 아는 것은 `MovementState`의 RUN·WALK뿐이라 **고갈의 유일한 대외 효과는 RUN이 WALK로 바뀌어 나가는 것**이다.
 
-- **값과 판정은 여기 있고 전이는 `PlayerController`가 한다.** 컨트롤러는 `CanStartRunning`(달리기 진입, 20 이상) / `HasStamina`(달리기 유지, 0 초과) / `CanJump`(점프, 12 이상)로 묻고 `ConsumeJumpStamina()`로 알리기만 한다 — 스태미나 수치를 컨트롤러에 복사하지 말 것
-- **소비자가 둘인데 형태가 다르다** — 달리기는 매 프레임 지속 소모(`UpdateStamina`가 스스로 깎는다)이고, 점프는 한 번에 깎는 소모(컨트롤러가 `ConsumeJumpStamina()`를 부른다)다. **점프를 `UpdateStamina` 안으로 옮기려 들지 말 것** — 그러려면 '이번 프레임에 뛰었는가' 플래그를 씬으로 넘겨야 해서 입력을 컨트롤러에 두는 구도가 깨진다
-- **회복 잠금(1초)은 '중단 사유'마다 걸지 않는다.** 달리기 중단 경로가 넷인데(Shift 해제 · 이동 정지 · 스태미나 0 · 이탈로 입력 차단) 각 지점에 잠금 설정을 흩으면 반드시 하나가 빠진다. `UpdateStamina()` 안에서 **`_wasRunning`의 true→false 엣지 한 곳**에서만 세우므로 어떤 이유로 멈췄든 반드시 지나간다. **달리기 사유별 분기를 추가하지 말 것**
-  - **점프는 이 금지에 걸리지 않는다** — 달리기의 '중단 사유' 하나가 아니라 별개 소비자다. 대신 잠금을 세우는 형태는 `BlockStaminaRegen()` 하나로 모아 두 호출부가 같은 규칙을 쓴다
-  - **두 호출부가 서로의 잠금을 줄이지 않는 것은 지연이 같은 상수이기 때문이다**(나중에 세운 쪽이 항상 더 늦다). 점프에만 다른 지연을 주게 되면 그 전제가 깨지므로 `BlockStaminaRegen()`을 `Mathf.Max` 형태로 바꿔야 한다
-- **소모와 회복이 같은 10/s인데 실제 회복이 더 느리다** — 1초 잠금 때문이다. "6초 달리면 6초 쉬어 회복"이 아니라 7초가 든다. 값 감각은 플레이로 확인할 것
-- `PlayerController.Update()`와 `IngameScene.OnUpdate()`의 실행 순서가 보장되지 않아 **소모가 최대 1프레임 늦을 수 있다**(10/s · 60fps 기준 0.17). 무시할 수 있는 크기이며, 맞추려고 갱신을 한쪽으로 몰지 말 것 — 입력은 컨트롤러에, 자원은 씬에 있는 것이 이 설계다
-- **매치 이탈 중에는 `OnUpdate()`가 조기 반환해 소모·회복이 모두 멈춘다.** 입력이 잠겨 달릴 수 없으므로 문제가 되지 않는다 — 다만 게이지 표시도 함께 얼어붙어, 스태미나가 부족한 채로 죽으면 사망 연출 내내 바가 떠 있다(다른 HUD도 같으므로 그대로 둔다)
-- **점프 요구치(12)와 게이지 표시 문턱(20)이 어긋나 있다** — 60에서 점프해 48이 되어도 게이지가 안 보이므로 **플레이어는 소모를 눈으로 확인할 수 없다.** 표시 규칙을 점프에 맞추지 않은 것은 문턱이 '달리기를 시작할 수 있는가'와도 이미 별개 개념이기 때문이며(아래), 점프 피드백이 필요해지면 표시 규칙이 아니라 **점프 시점에 게이지를 잠깐 띄우는 쪽**으로 붙일 것
-- **게이지는 평소에 숨어 있고 `달리는 중 || 스태미나 ≤ STAMINA_SHOW_THRESHOLD`일 때만 보인다.** 판단이 씬에 있는 것은 문턱이 씬 상수라서다 — UI가 스스로 정하게 하면 상수가 두 벌이 된다
-  - **`STAMINA_SHOW_THRESHOLD`는 `RUN_ENTRY_STAMINA`와 값이 같지만 상수를 따로 둔다.** '달리기를 시작할 수 있는가'와 '게이지를 보여줄 것인가'는 함께 움직여야 할 이유가 없다 — **하나로 합치면 진입 문턱을 조정하는 순간 표시 규칙이 조용히 따라 바뀐다**
-  - 숨김은 `gameObject.SetActive()`다(`InteractUI`와 같은 규칙). **씬에는 활성 상태로 저장하고 `Init()`이 바인딩 직후 스스로 끈다** — `GameObject.Find`는 비활성 오브젝트를 못 찾는다
+- **값과 판정은 여기 있고 전이는 `PlayerController`가 한다.** 컨트롤러는 `CanStartRunning`(20 이상) / `HasStamina`(0 초과) / `CanJump`(12 이상)로 묻고 `ConsumeJumpStamina()`로 알리기만 한다 — **수치를 컨트롤러에 복사하지 말 것**
+- **소비자가 둘인데 형태가 다르다** — 달리기는 매 프레임 지속 소모(`UpdateStamina`가 스스로 깎는다), 점프는 한 번에 깎는 소모(컨트롤러가 부른다). **점프를 `UpdateStamina` 안으로 옮기려 들지 말 것** — '이번 프레임에 뛰었는가' 플래그를 씬으로 넘겨야 해서 입력을 컨트롤러에 두는 구도가 깨진다
+- **회복 잠금(1초)을 달리기 '중단 사유'마다 걸지 않는다.** 중단 경로가 넷이라(Shift 해제 · 이동 정지 · 스태미나 0 · 이탈로 입력 차단) 지점마다 흩으면 반드시 하나가 빠진다. `_wasRunning`의 **true→false 엣지 한 곳**에서만 세우므로 어떤 이유로 멈췄든 지나간다 — **사유별 분기를 추가하지 말 것**
+  - **점프는 이 금지에 걸리지 않는다** — 달리기의 중단 사유가 아니라 별개 소비자다. 대신 잠금을 세우는 형태는 `BlockStaminaRegen()` 하나로 모은다
+  - **두 호출부가 서로의 잠금을 줄이지 않는 것은 지연이 같은 상수이기 때문이다.** 점프에만 다른 지연을 주려면 `BlockStaminaRegen()`을 `Mathf.Max` 형태로 바꿔야 한다
+- **소모와 회복이 같은 10/s인데 실제 회복이 더 느리다** — 1초 잠금 때문에 6초 달리면 회복에 7초가 든다
+- `PlayerController.Update()`와 `OnUpdate()`의 실행 순서가 보장되지 않아 **소모가 최대 1프레임 늦을 수 있다**(60fps에서 0.17). 맞추려고 갱신을 한쪽으로 몰지 말 것 — 입력은 컨트롤러, 자원은 씬이 이 설계다
+- **매치 이탈 중에는 `OnUpdate()`가 조기 반환해 소모·회복이 멈춘다.** 입력이 잠겨 달릴 수 없으므로 문제되지 않지만 게이지 표시도 함께 얼어붙는다(다른 HUD도 같다)
+- **게이지는 `달리는 중 || 스태미나 ≤ STAMINA_SHOW_THRESHOLD`일 때만 보인다.** 판단이 씬에 있는 것은 문턱이 씬 상수라서다 — UI가 정하게 하면 상수가 두 벌이 된다
+  - **`STAMINA_SHOW_THRESHOLD`는 `RUN_ENTRY_STAMINA`와 값이 같지만 상수를 따로 둔다.** 하나로 합치면 **진입 문턱을 조정하는 순간 표시 규칙이 조용히 따라 바뀐다**
+  - 숨김은 `gameObject.SetActive()`다. **씬에는 활성 상태로 저장하고 `Init()`이 바인딩 직후 스스로 끈다** — `GameObject.Find`는 비활성을 못 찾는다
+  - **점프 요구치(12)가 표시 문턱(20)보다 낮아 플레이어는 점프 소모를 눈으로 확인할 수 없다.** 피드백이 필요해지면 표시 규칙이 아니라 **점프 시점에 게이지를 잠깐 띄우는 쪽**으로 붙일 것
 
 ## 킬 피드 (`HandlePlayerKilled`)
 
-`D2CNotifyPlayerKilled`는 **피해자를 포함한** 룸 전체에 온다. 남의 캐릭터 제거는 `D2CDespawnPlayerObject`가 담당하고 이 패킷은 표기를 다룬다.
+`D2CNotifyPlayerKilled`는 **피해자를 포함한** 룸 전체에 온다. 남의 캐릭터 제거는 `D2CDespawnPlayerObject`가 맡고 이 패킷은 표기를 다룬다.
 
-- **이 패킷이 피해자 본인의 '사망 확정' 신호를 겸한다.** `victim_object_id`가 내 objectId면 자기 사망이고 그 시점부터 **5초 유예**가 시작된다. 사망 기점을 `D2CNotifyHealthChange`(HP 0)로 잡지 말 것 — 두 패킷이 모두 오므로 기점이 이중화된다
+- **이 패킷이 피해자 본인의 '사망 확정' 신호를 겸한다.** `victim_object_id`가 내 objectId면 자기 사망이고 그때부터 5초 유예가 시작된다
+- **사망 기점을 `D2CNotifyHealthChange`(HP 0)로 잡지 말 것** — 두 패킷이 모두 오므로 기점이 이중화되고 순서에 따라 흔들린다
 - **자기 캐릭터의 디스폰 통보는 오지 않는다.** 유예 동안 화면에 남겨두고 스스로 치워야 한다
-- **사망 판정을 HP 0으로 하지 말 것.** `HandleHealthChange`에서 함께 감지하면 두 패킷이 모두 도착해 기점이 이중화되고 순서에 따라 흔들린다
 
 ## 매치 이탈 (`BeginMatchExit` / `IsInputLocked`)
 
-사망·귀환 성공·연결 끊김 셋이 **하나의 출구**를 공유한다. `BeginMatchExit(reason)` → `MATCH_EXIT_DELAY`(4초) → `CompleteMatchExit()`(UDP 종료). 새 이탈 사유가 생기면 여기에 붙일 것.
+사망·귀환 성공·연결 끊김 셋이 **하나의 출구**를 공유한다. `BeginMatchExit(reason)` → `MATCH_EXIT_DELAY`(4초) → `CompleteMatchExit()`(UDP 종료). 새 이탈 사유는 여기에 붙인다.
 
-- **4초는 서버 계약(5초)보다 짧게 잡은 값이다.** 서버가 세션을 정리하기 전에 클라가 먼저 정리하고, 통보 ACK가 나갈 시간을 번다. 서버 값에 맞춰 5초로 늘리지 말 것
-- **이탈 시작 시 하트비트를 강제로 한 번 보낸다**(`SendHeartbeatNow`). ACK는 다음 송신에 piggyback되는데 유예 중에는 송신이 하트비트뿐이고 주기가 3초라, 그냥 두면 ACK가 최대 3초 늦는다
-- **입력 잠금은 `IsInputLocked` 하나로 본다** — 사격·시점·이동·조준/상호작용 판정과 패킷을 보내는 `RequestXXX` 전부. 서버가 하트비트를 뺀 모든 요청을 버리므로, 클라가 막지 않으면 반응 없는 조작이 된다. 이동은 입력만 끊고 **중력은 유지**한다
-- **수신은 막지 않는다.** 브로드캐스트가 계속 오는 것이 관전 유지의 근거다. `OnUpdate`는 이탈 중 상태 전송·상호작용 갱신만 건너뛴다
-- **연결 끊김 통보는 `UDPManager`의 수신 워치독 지점에 있다.** `Disconnect()` 안에 넣지 말 것 — 재연결 직전 정리에서도 불려 접속할 때마다 이탈 처리가 돈다
-- 사망 사유일 때 `DeathCameraController.Play()`로 탑뷰 연출을 시작한다. 자기 캐릭터는 디스폰 통보가 오지 않아 유예 동안 그 자리에 남으므로 그대로 연출 대상이 된다
-- 씬 정리(커서·UDP)는 `IngameScene.Clear()` 오버라이드가 맡는다. `Managers.Clear()`가 씬 전환 때 자동으로 부르므로 유예를 다 쓰지 않는 경로에서도 보장된다
-- **`CompleteMatchExit()`이 `GameResult` 스냅샷을 뜬 뒤 연결을 끊는다.** 스냅샷을 `BeginMatchExit`으로 당기지 말 것 — 킬 통보가 사격보다 한 틱 뒤라 죽기 직전에 쏜 탄의 킬(상호 킬)이 유예 중에 도착한다. 반대로 유예를 다 쓰지 않는 강제 씬 전환은 이 함수를 건너뛰어 결과가 저장되지 않으므로, **결과 씬 전환은 반드시 `CompleteMatchExit()`을 거칠 것**
-- `killer_object_id == 0xFFFFFFFF`는 가해자 없는 죽음이며 `NO_ATTACKER_OBJECT_ID`와 같은 의미다(전투 문맥 공용). `0`은 실재 objectId
-- **표시는 이름으로, 로직은 objectId로 가른다.** `victim_object_name`/`killer_object_name`(플레이어는 userId)은 킬 로그 표기 전용이고, 스폰 요청·킬 기록·사망 판정은 전부 objectId로 한다. `killer_object_name`이 비면 가해자를 표시하지 않는다(가해자 없음 + 서버가 못 찾은 경우를 함께 덮는다) — 표기 규칙은 `UI/CLAUDE.md`의 킬 피드 절 참조
-- **킬러 무기는 실려 오지 않는다** — 통보가 사격보다 한 틱 뒤라 그 사이 교체되면 틀린 값이 되기 때문이다. `EquippedWeaponId`로 추적해둔 값을 쓴다
+- **4초는 서버 계약(5초)보다 짧게 잡은 값이다.** 서버가 세션을 정리하기 전에 클라가 먼저 정리하고 통보 ACK가 나갈 시간을 번다 — **5초로 늘리지 말 것**
+- **이탈 시작 시 하트비트를 강제로 한 번 보낸다**(`SendHeartbeatNow`). ACK가 다음 송신에 piggyback되는데 유예 중 송신이 하트비트뿐이라 주기(3초)만큼 늦는다
+- **입력 잠금은 `IsInputLocked` 하나로 본다** — 사격·시점·이동·조준 판정과 `RequestXXX` 전부. 서버가 하트비트를 뺀 모든 요청을 버리므로 클라가 막지 않으면 반응 없는 조작이 된다. 이동은 입력만 끊고 **중력은 유지**한다
+- **수신은 막지 않는다** — 브로드캐스트가 계속 오는 것이 관전 유지의 근거다. `OnUpdate`는 상태 전송·상호작용 갱신만 건너뛴다
+- **연결 끊김 통보는 `UDPManager`의 수신 워치독 지점에 둔다.** `Disconnect()` 안에 넣지 말 것 — 재연결 직전 정리에서도 불려 접속할 때마다 이탈 처리가 돈다
+- 사망 사유일 때 `DeathCameraController.Play()`로 탑뷰 연출을 시작한다. 자기 캐릭터는 디스폰 통보가 없어 유예 동안 그 자리에 남으므로 그대로 연출 대상이 된다
+- 씬 정리(커서·UDP)는 `IngameScene.Clear()` 오버라이드가 맡는다. `Managers.Clear()`가 씬 전환 때 부르므로 유예를 다 쓰지 않는 경로에서도 보장된다
+- **`CompleteMatchExit()`이 `GameResult` 스냅샷을 뜬 뒤 연결을 끊는다.** `BeginMatchExit`으로 당기지 말 것 — 킬 통보가 사격보다 한 틱 뒤라 죽기 직전에 쏜 탄의 킬이 유예 중에 도착한다. 반대로 **결과 씬 전환은 반드시 `CompleteMatchExit()`을 거칠 것**(우회하는 강제 전환은 결과가 저장되지 않는다)
+- `killer_object_id == 0xFFFFFFFF`는 가해자 없는 죽음이다(`NO_ATTACKER_OBJECT_ID`와 같은 의미). `0`은 실재 objectId
+- **표시는 이름으로, 로직은 objectId로 가른다.** `victim_object_name`/`killer_object_name`(플레이어는 userId)은 표기 전용이고 스폰 요청·킬 기록·사망 판정은 전부 objectId로 한다. **`killer_object_name`이 비면 가해자를 표시하지 않는다** — 가해자 없음과 서버가 못 찾은 경우를 함께 덮는다
+- **킬러 무기는 실려 오지 않는다** — 통보가 사격보다 한 틱 뒤라 그 사이 교체되면 틀린 값이 된다. `EquippedWeaponId`로 추적해둔 값을 쓴다
 - 모르는 **킬러**는 `RequestSpawnIfUnknown()`으로 채우고 **피해자는 요청하지 않는다**(같은 타이밍에 디스폰이 온다)
 
 ## 킬 카운트 (`RecordPlayerKill` / `RecordObjectKill`)
 
-내가 죽인 대상의 objectId를 담는 `HashSet<uint>` 2개(플레이어/오브젝트). 킬수는 `Count`로 읽는다.
+내가 죽인 대상의 objectId를 담는 `HashSet<uint>` 2개. 킬수는 `Count`로 읽는다.
 
-- **카운터 증가가 아니라 Set인 이유** — 수신 reliable에 중복 제거가 없어 재전송된 킬 통보가 두 번 디스패치될 수 있다. objectId는 재사용되지 않으므로 Set이면 멱등이다
-- 플레이어 킬은 `HandlePlayerKilled`에서만 기록. 가드는 `_spawnCompleted` → `killer == _myObjectId` → `victim != _myObjectId` 순 (`_myObjectId` 초기값 0은 실재 objectId)
-- 오브젝트 킬은 `HandleObjectKilled`(`D2CNotifyObjectKilled`, PktId 41)에서 기록한다. 피해자가 내가 될 수 없어 `victim != _myObjectId` 가드가 없는 것 외에는 플레이어 킬과 같다
-- **`ObjectKillCount`는 `ICombatTarget` 보급에 종속된다** — 전투 오브젝트가 이 인터페이스를 구현하지 않으면 `PlayerController`가 `hit_object_id`에 `0xFFFFFFFF`를 실어 보내 서버가 데미지를 넣지 않는다. 패킷 배선이 끝나도 그때까지는 항상 0이다
-- **`HandleObjectKilled`는 제거까지 책임진다** — 처치로 인한 제거에는 `D2CNotifyDespawnObject`가 오지 않으므로 여기서 `DespawnObject()`를 부른다. 빠뜨리면 파괴된 오브젝트가 맵에 영원히 남는다
-- **오브젝트 킬은 킬 피드에 올리지 않는다**(확정). 그래서 `D2CNotifyObjectKilled.killer_object_name`은 **의도적으로 소비하지 않는다** — 빠뜨린 배선이 아니다. 지금 `HandleObjectKilled`가 받는 이름은 킬러 식별을 눈으로 확인하려는 `TEMP:`이며 로그에만 쓰이고, 짝이 되는 추출부가 `Handle_D2CNotifyObjectKilled`에 있다(원복은 한 쌍)
-- 오브젝트 킬에서는 **미스폰 킬러를 요청하지 않는다** — 표시부가 없어 소비처가 없고, 근처 플레이어는 상태 스트림이 채운다. 불필요한 reliable을 늘리지 않는다는 판단이며, 오브젝트 킬 피드를 붙이면 그때 재검토할 것
+- **카운터가 아니라 Set인 이유** — 수신 reliable에 중복 제거가 없어 재전송된 킬 통보가 두 번 디스패치될 수 있다. objectId는 재사용되지 않으므로 Set이면 멱등이다
+- 플레이어 킬 가드는 `_spawnCompleted` → `killer == _myObjectId` → `victim != _myObjectId` 순이다(`_myObjectId` 초기값 0은 실재 objectId)
+- 오브젝트 킬(`D2CNotifyObjectKilled`, 41)은 피해자가 내가 될 수 없어 `victim` 가드가 없는 것 외에는 같다
+- **`ObjectKillCount`는 `ICombatTarget` 보급에 종속된다** — 전투 오브젝트가 구현하지 않으면 `hit_object_id`에 `0xFFFFFFFF`가 실려 서버가 데미지를 넣지 않는다. 배선이 끝나도 그때까지는 항상 0이다
+- **`HandleObjectKilled`는 제거까지 책임진다** — 처치에는 `D2CNotifyDespawnObject`가 오지 않으므로 여기서 `DespawnObject()`를 부른다. 빠뜨리면 파괴된 오브젝트가 맵에 영원히 남는다
+- **오브젝트 킬은 킬 피드에 올리지 않는다**(확정). 그래서 `killer_object_name`은 **의도적으로 소비하지 않는다 — 빠뜨린 배선이 아니다.** 지금 받는 이름은 킬러 식별 확인용 `TEMP:`이며 로그에만 쓰이고, 짝이 되는 추출부가 `Handle_D2CNotifyObjectKilled`에 있다(**원복은 한 쌍**)
+- 오브젝트 킬에서는 **미스폰 킬러를 요청하지 않는다** — 표시부가 없어 소비처가 없고 근처 플레이어는 상태 스트림이 채운다
 
 ## 다른 플레이어 관리
 
-- `_oppoPlayers`: objectId → `OppoPlayerController` 매핑
-- `UpdatePlayerStates()`: 미등록 objectId 수신 시 `RequestSpawnIfUnknown()` (지연 스폰 대응)
-- `PlayerSpawnData`/`PlayerStateData` 구조체(`SceneManagerEx.cs`): Protobuf 타입 격리를 위한 중간 변환 타입
+- `_oppoPlayers`: objectId → `OppoPlayerController`
+- `UpdatePlayerStates()`: 미등록 objectId 수신 시 `RequestSpawnIfUnknown()`
+- `PlayerSpawnData`/`PlayerStateData`(`SceneManagerEx.cs`): Protobuf 타입 격리용 중간 타입
 
 ### 지연 스폰 요청 (`RequestSpawnIfUnknown` / `_pendingSpawnRequests`)
 
-모르는 objectId를 가리키는 패킷이 오면 `C2DRequestSpawnByObjectId`를 보내는 유일한 경로. 상태 스트림·무기 변경 통보가 쓰며, 새 통보 패킷을 붙일 때도 직접 전송하지 말고 이 함수를 쓸 것.
+`C2DRequestSpawnByObjectId`를 보내는 유일한 경로. **새 통보 패킷을 붙일 때도 직접 전송하지 말고 이 함수를 쓸 것.**
 
-- **같은 objectId로 두 번 보내지 않는다.** 요청은 reliable이라 ACK될 때까지 알아서 재전송되므로 한 번이면 충분하다. 매 틱 다시 만들면 같은 내용이 서로 다른 시퀀스로 쌓여 in-flight 32슬롯을 채우고, 넘치는 순간 아직 ACK되지 않은 **다른** 패킷이 덮어써진다(`Network/CLAUDE.md` 참조). 상태 스트림이 10Hz라 이 경로는 특히 위험하다
-- `_pendingSpawnRequests`에 만료를 두지 않는다. 응답도 디스폰 통보도 오지 않는 objectId는 서버가 모르는 것이라 재요청해도 결과가 같다
-- 해제는 4곳 — `SpawnPlayerObject`/`SpawnObject`(응답 도착 = 요청 종료. 중복·차단으로 조기 반환하는 경우도 있으므로 **가드보다 앞에서** 제거한다), `DespawnPlayerObject`/`DespawnObject`
-- **내 objectId를 걸러낸다.** 나는 `_oppoPlayers`에 없으므로 가드가 없으면 나 자신의 스폰을 요청하게 된다(킬러가 나인 킬 피드 등)
-- 디스폰 목록·`_oppoPlayers`·`_sceneObjects`를 모두 확인한다. objectId 공간이 플레이어·비플레이어 공용이고 이 요청도 공용이라(응답이 `D2CSpawnPlayerObject` 또는 `D2CResponseSpawnByObjectId`로 갈린다) 한쪽만 보면 이미 아는 오브젝트를 다시 요청하게 된다
+- **같은 objectId로 두 번 보내지 않는다.** reliable이라 ACK될 때까지 알아서 재전송된다. 매 틱 다시 만들면 같은 내용이 서로 다른 시퀀스로 쌓여 **in-flight 32슬롯을 채우고, 넘치는 순간 아직 ACK되지 않은 다른 패킷이 덮어써진다.** 상태 스트림이 10Hz라 이 경로는 특히 위험하다
+- `_pendingSpawnRequests`에 만료를 두지 않는다 — 응답도 디스폰도 오지 않는 objectId는 서버가 모르는 것이라 재요청해도 결과가 같다
+- 해제는 4곳(`SpawnPlayerObject`/`SpawnObject`/`DespawnPlayerObject`/`DespawnObject`). **앞의 둘은 중복·차단 가드보다 앞에서 제거한다** — 응답이 왔으면 스폰 여부와 무관하게 요청은 끝난 것이다
+- **내 objectId를 걸러낸다** — 나는 `_oppoPlayers`에 없으므로 가드가 없으면 나 자신의 스폰을 요청한다
+- 디스폰 목록·`_oppoPlayers`·`_sceneObjects`를 모두 확인한다. objectId 공간과 이 요청이 플레이어·비플레이어 공용이라 한쪽만 보면 **이미 아는 오브젝트를 다시 요청한다**
 
 ## 행동 잠금 (`TryBeginAction` / `UpdateAction` / `ClearAction`)
 
-재장전·무기 교체처럼 **유예를 거쳐 서버로 나가는 행동**을 `IngameScene`의 잠금 하나로 묶는다. 잠금은 **사유**(`PlayerActionKind`)와 **단계**(`PlayerActionPhase`)를 함께 들고 있다 — 사유만으로는 "R 중 R은 무시, R 중 무기 교체는 우선"이 갈리지 않고, 단계가 없으면 **이미 서버로 나간 요청을 취소할 수 있다고 착각**하게 된다.
+재장전·무기 교체처럼 **유예를 거쳐 서버로 나가는 행동**을 잠금 하나로 묶는다. 잠금은 **사유**(`PlayerActionKind`)와 **단계**(`PlayerActionPhase`)를 함께 든다 — 사유만으로는 "R 중 R은 무시, R 중 교체는 우선"이 갈리지 않고, 단계가 없으면 **이미 나간 요청을 취소할 수 있다고 착각**하게 된다.
 
 | 단계 | 뜻 | 취소 |
 |---|---|---|
-| `Local` | 유예 중(모션 자리). 아직 **전송 전** | 가능 — 서버에 흔적이 없다 |
+| `Local` | 유예 중(모션 자리). 아직 **전송 전** | 가능 |
 | `Pending` | 전송 후 응답 대기 | **불가** — 서버가 이미 처리했다 |
 
 진입 판정은 `TryBeginAction()` 한 곳뿐이다.
@@ -165,115 +163,122 @@
 | 현재 | 새 요청 | 결과 |
 |---|---|---|
 | 없음 | 무엇이든 | 진입 |
-| 같은 사유 + 같은 대상 | R 중 R, 1 중 1 | **무시** — 재요청이 자기 행동을 스스로 무효화하지 않게 한다 |
-| 같은 사유 + 다른 대상 | | **재타게팅** (호출부가 `ClearAction()` 후 다시 진입) |
-| 다른 사유 + `Local` | 재장전 중 무기 교체 | **취소 후 진입** |
-| 다른 사유 + `Pending` | | **무시** — 서버 확정 전에는 새 행동의 전제(손에 든 무기·인벤토리 버전)가 미정이다 |
+| 같은 사유 + 같은 대상 | R 중 R, 1 중 1 | **무시** — 재요청이 자기 행동을 무효화하지 않게 한다 |
+| 같은 사유 + 다른 대상 | | **재타게팅**(호출부가 `ClearAction()` 후 재진입) |
+| 다른 사유 + `Local` | 재장전 중 교체 | **취소 후 진입** |
+| 다른 사유 + `Pending` | | **무시** — 확정 전에는 새 행동의 전제가 미정이다 |
 
-- **`IsActionBusy`가 발사 차단의 단일 근거다**(`PlayerController.IsFireInput`). 재장전은 유예가 곧 모션 시간이고, 교체는 확정 전 사격이 `weapon_dbid` 불일치로 버려지기 때문이다
-- **in-flight 요청은 항상 1개로 유지된다.** 재타게팅이 `Local`(전송 전)에서만 일어나기 때문이며, 이것이 `rSeqNum` 순서 방어를 끌어오지 않아도 되는 근거다. `Pending` 중 재전송을 허용하는 변경은 그 방어를 함께 가져와야 한다
+- **`IsActionBusy`가 발사 차단의 단일 근거다**(`PlayerController.IsFireInput`)
+- **in-flight 요청은 항상 1개다.** 재타게팅이 `Local`에서만 일어나기 때문이며, 이것이 `rSeqNum` 순서 방어를 끌어오지 않아도 되는 근거다 — **`Pending` 중 재전송을 허용하는 변경은 그 방어를 함께 가져와야 한다**
 - **요청에 실을 값은 전송 시점에 읽는다.** 유예 중 인벤토리를 조작하면 버전이 오르는데, 시작 시점 값을 캐시하면 자기 조작 때문에 `DENY_VERSION_MISMATCH`로 거부된다
-- **유예 시간은 클라 상수이고 값이 확정됐다**(`RELOAD_LOCAL_SEC` 2초 / `SWITCH_LOCAL_SEC` 0.5초 — 2026-08-27 플레이 검증에서 손에 맞는 것을 확인). **무기별 차등 계획이 없어**(2026-08-27 서버 확인) DB가 아니라 **클라이언트가 주도하는 값**이며 이 두 상수가 유일한 출처다. **애니메이션이 붙으면 클립을 이 길이에 맞출 것 — 반대로 하지 말 것**(클립 길이에 상수를 맞추면 확정된 조작 감각이 조용히 바뀐다)
-- **달리기는 재장전의 진입 조건이자 유지 조건이다.** `RequestReload()`가 `IsRunning`이면 시작하지 않고, `UpdateAction()`이 `Local` 중 `IsRunning`이 되면 취소한다. 한 규칙을 양쪽에서 같은 식으로 본다 — **재장전이 달리기를 해제하는 방향은 쓰지 않는다**(R을 눌렀다고 코드가 `_shift`를 뒤집으면 Shift를 누른 채인데 안 달리는 상태가 남는다)
-  - **반대 방향, 즉 스태미나 고갈로 달리기가 풀리는 것은 정상이고 의도된 동작이다.** 고갈은 입력이 아니라 자원이 원인이라 위 금지 사항에 걸리지 않는다. 부수 효과로 **스태미나가 바닥나 달리기가 끊긴 순간부터 재장전이 가능해진다** — `RequestReload()`가 `IsRunning`만 보기 때문이며 그대로 두기로 했다
-- **`Pending` 워치독은 `ACTION_PENDING_TIMEOUT`(3초) 하나로 통합돼 있다**(`TEMP:`). 행동을 추가할 때 워치독을 따로 만들지 말 것
-- 매치 이탈(`BeginMatchExit`)은 잠금을 지운다. 이탈 중에는 `IsInputLocked`가 진입을 막는다
-- **`TODO:` 귀환·상호작용의 편입 범위는 미결.** 귀환(`_recallRequested`)은 구조가 같아 흡수 가능하지만, 상호작용은 컨테이너가 열려 있는 동안 지속되는 상태라 `Pending`으로 잡으면 여는 내내 모든 행동이 잠긴다
+- **유예 시간은 클라가 주도하는 확정값이다**(`RELOAD_LOCAL_SEC` 2초 / `SWITCH_LOCAL_SEC` 0.5초). 무기별 차등 계획이 없어(2026-08-27 서버 확인) DB가 아니라 이 두 상수가 유일한 출처다. **애니메이션이 붙으면 클립을 이 길이에 맞출 것 — 반대로 하지 말 것**(클립에 상수를 맞추면 확정된 조작 감각이 조용히 바뀐다)
+- **달리기는 재장전의 진입 조건이자 유지 조건이다.** `RequestReload()`가 `IsRunning`이면 시작하지 않고 `UpdateAction()`이 `Local` 중 `IsRunning`이 되면 취소한다. **재장전이 달리기를 해제하는 방향은 쓰지 않는다** — R을 눌렀다고 `_shift`를 뒤집으면 Shift를 누른 채인데 안 달리는 상태가 남는다
+  - **반대로 스태미나 고갈로 달리기가 풀리는 것은 정상이다.** 입력이 아니라 자원이 원인이라 위 금지에 걸리지 않는다. 부수 효과로 **고갈로 달리기가 끊긴 순간부터 재장전이 가능해지는데** 그대로 둔다
+- **`Pending` 워치독은 `ACTION_PENDING_TIMEOUT`(3초) 하나로 통합돼 있다**(`TEMP:`) — 행동을 추가할 때 워치독을 따로 만들지 말 것
+- 매치 이탈은 잠금을 지우고, 이탈 중에는 `IsInputLocked`가 진입을 막는다
+- **`TODO:` 귀환·상호작용의 편입 범위는 미결이다.** 귀환(`_recallRequested`)은 구조가 같아 흡수 가능하지만, **상호작용은 컨테이너가 열려 있는 동안 지속되는 상태라 `Pending`으로 잡으면 여는 내내 모든 행동이 잠긴다**
 
 ## 재장전 (`RequestReload` / `HandleReloadResponse`)
 
-`R` 키 → 2초 유예 → `C2DRequestReload`(42, reliable) → `D2CResponseReload`(43). **탄창 잔량과 무관하게 보낸다** — 가득 찼는지, 인벤토리에 해당 탄종이 있는지는 서버가 판정한다. 대상은 '손에 든 무기'이며 서버가 정하므로 슬롯을 싣지 않는다.
+`R` → 진입 문턱(`CanReload`) → 2초 유예 → `C2DRequestReload`(42, reliable) → `D2CResponseReload`(43). 대상은 '손에 든 무기'이며 서버가 정하므로 슬롯을 싣지 않는다.
 
-- **응답은 성공·거부 모두 인벤토리 전체 스냅샷이다**(델타가 아니다). 서버가 여러 칸에서 탄약을 나눠 빼고 0이 된 칸을 비우는데 그 스캔 순서를 클라가 재현할 수 없어서다 — proto가 명시한 의도이므로 `D2CResponseEquipItem`(단일 스왑, 인덱스만 통보)과 **형태를 통일하려 들지 말 것**
-- **`D2CFullInventorySync`의 수신 경로를 재사용하지 않는다.** 담긴 메시지는 같지만 ① 전체 동기화에 딸린 최초 1회용 초기화(`_itemLoaded`·`TryInitWeapon`)가 재장전마다 돌게 되고 ② 그쪽에는 **낡은 스냅샷을 버릴 버전 비교가 없다**
+**진입 문턱** — ① 탄창이 이미 `WeaponSpec.MaxAmmo`만큼 차 있거나 ② 예비탄이 0이면 시작하지 않는다. 헛도는 2초 유예와 불필요한 reliable을 줄이는 장치이고 **판정 권한은 여전히 서버에 있다**(발사 차단과 같은 성격).
+
+- **알림음·경고는 두지 않는다**(확정). 잔탄 표기의 `0`이 그 역할을 한다
+- **값의 출처를 `SyncWeaponUI()`와 같은 것으로 맞춘다**(`CurrentWeapon` → `WeaponSpec` → `CurrentMagazine` / `CountAmmo(spec.AmmoType)`). 갈리면 **"화면엔 예비탄이 있는데 R이 안 먹는다"** 가 된다
+- **'가득'이라는 판단은 이 방향으로 오판이 없다** — 로컬 탄창 수치는 발사마다 차감되는 예측값이라 서버 값보다 크지 않으므로 로컬이 가득이면 서버도 가득이다. 반대 경우는 요청이 나가고 `DENY_SLOT_EMPTY`로 돌아오는 기존 경로 그대로다
+- **스펙을 못 찾으면 막지 않는다**(맨손 포함) — 판단 근거가 없을 때는 보내고 서버에 맡긴다. **문턱이 '확실할 때만 막는' 형태를 유지할 것**
+
+**응답 처리**
+
+- **성공·거부 모두 인벤토리 전체 스냅샷이다**(델타가 아니다). 서버가 여러 칸에서 탄약을 나눠 빼는 스캔 순서를 클라가 재현할 수 없어서이며, proto가 명시한 의도다 — `D2CResponseEquipItem`(단일 스왑)과 **형태를 통일하려 들지 말 것**
+- **`D2CFullInventorySync`의 수신 경로를 재사용하지 않는다** — ① 전체 동기화에 딸린 최초 1회용 초기화가 재장전마다 돌고 ② 그쪽에는 낡은 스냅샷을 버릴 버전 비교가 없다
 - **버전 역전 방어**: `inventory_version`이 로컬보다 낮으면 스냅샷을 통째로 버린다. reliable은 전달과 중복 제거만 보장하고 순서는 보장하지 않는다
-- **`fire_sequence`는 버전 가드보다 먼저, 스냅샷을 버리는 경우에도 반영한다.** 인벤토리와 무관한 값이고 거부 응답에도 채워져 오며, 되돌아간 시퀀스를 복구하는 **유일한 경로**다. 반영은 `PacketHandler.RaiseFireSequenceTo()`로 `max()` 단조 상승만 — 대입 setter를 만들지 말 것
-- **`DENY_VERSION_MISMATCH`는 실린 스냅샷이 곧 재동기화다.** `C2DRequestRecentInventoryInfo`를 따로 보내지 않고, 반영한 뒤 새 버전으로 **1회만** 재요청한다(`_reloadRetried`). 무한 재시도는 버전이 계속 바뀔 때 루프가 된다
-- **`DENY_SLOT_EMPTY`는 재요청하지 않는다** — 맨손·이미 가득·탄종 없음이라 결과가 같다. 표시는 스냅샷 반영으로 이미 서버 값에 맞춰졌다
+- **`fire_sequence`는 버전 가드보다 먼저, 스냅샷을 버리는 경우에도 반영한다.** 거부 응답에도 채워져 오며 **되돌아간 시퀀스를 복구하는 유일한 경로**다. 반영은 `RaiseFireSequenceTo()`의 `max()` 단조 상승만 — 대입 setter를 만들지 말 것
+- **`DENY_VERSION_MISMATCH`는 실린 스냅샷이 곧 재동기화다.** 반영한 뒤 새 버전으로 **1회만** 재요청한다(`_reloadRetried`) — 무한 재시도는 버전이 계속 바뀌면 루프가 된다
+- **`DENY_SLOT_EMPTY`는 재요청하지 않는다** — 결과가 같다
 
 ### 재장전 연출 단계 (`AdvanceReloadSequence` / `HandleReloadSequence`)
 
 `C2DNotifyReloadSequence`(44) / `D2CNotifyReloadSequence`(45). **재장전 요청과 완전히 별개 흐름이다** — 서버는 값을 해석하지도 보관하지도 않고 `object_id`만 채워 중계하며, 보내지 않아도 재장전은 되고 보낸 뒤 취소해도 정리할 상태가 없다.
 
-| 단계 | 시점 | 발행 주체 | 클립 |
+| 단계 | 시점 | 발행 | 클립 |
 |---|---|---|---|
 | 0 | 재장전 시작 | 클라 | `m4_reload_start` |
 | 1 | 시작 +1초 | 클라 | `m4_reload_sequence1` |
 | **15 = 완료** | `C2DRequestReload` 성공 | **서버** | `m4_reload_complete` |
 
-- **15는 서버 전용이라 클라가 실어 보내면 통보 전체가 버려진다.** `RELOAD_SEQUENCE_TIMES`에 없어 구조적으로 막혀 있고, `UDPManager.SendC2DNotifyReloadSequence`에 가드가 한 겹 더 있다 — 조용히 버려지면 증상이 "그 단계만 남에게 안 들림"이라 원인을 짚기 어렵다
-- **내 완료음은 45번으로 돌아오지 않는다** — 통보가 당사자를 제외하고 나가기 때문이다. 그래서 `HandleReloadResponse`의 `result == true`에서 직접 낸다. **2초(전송 시점)로 당기지 말 것** — 서버가 거부해도 완료음이 울린다. 지금은 내 귀와 남의 귀가 **같은 근거**(요청 성공)를 쓴다
-- **단계 진행은 `_actionTimer`에 얹는다.** 별도 타이머를 두면 두 시계가 어긋나 "소리는 났는데 전송은 아직"이 생긴다. 한 프레임에 **한 단계씩만** 올린다 — `while`로 몰아 올리면 같은 프레임에 소리 둘이 겹친다
-- **취소는 `ClearAction()`이 `_reloadSequence`를 되돌리는 것으로 끝난다.** 달리기 시작·무기 교체로 덮어쓰기·매치 이탈·워치독 만료가 전부 그 한 곳을 지나가므로 **사유별 분기를 만들지 말 것**(스태미나 회복 잠금과 같은 판단). 서버에 알릴 것도 없다
-- **수신 측은 상태를 두지 않는다 — 계약 요구다.** unreliable이라 단계가 통째로 빠질 수 있어 **'직전 단계가 도착했는가'를 전제하면 안 된다.** 중복 제거·순서 검사도 넣지 않는다. **취소 통보가 없으므로 연출은 스스로 끝나야 하는데**, 지금은 원샷 소리뿐이라 자동으로 충족된다 — **오포 재장전 애니메이션을 붙이면 그때 "다음 단계가 오지 않으면 종료" 조건이 필요해진다**(빠뜨리면 취소된 재장전 모션이 영원히 돈다)
+- **15는 서버 전용이라 클라가 실어 보내면 통보 전체가 버려진다.** `RELOAD_SEQUENCE_TIMES`에 없어 구조적으로 막혀 있고 `UDPManager`에 가드가 한 겹 더 있다 — 조용히 버려지면 증상이 "그 단계만 남에게 안 들림"이라 원인을 짚기 어렵다
+- **내 완료음은 45번으로 돌아오지 않는다**(통보가 당사자를 제외하고 나간다). 그래서 `HandleReloadResponse`의 `result == true`에서 직접 낸다. **2초(전송 시점)로 당기지 말 것** — 서버가 거부해도 울린다. 지금은 내 귀와 남의 귀가 같은 근거(요청 성공)를 쓴다
+- **단계 진행은 `_actionTimer`에 얹는다.** 별도 타이머를 두면 "소리는 났는데 전송은 아직"이 생긴다. **한 프레임에 한 단계씩만** 올린다 — `while`로 몰아 올리면 같은 프레임에 소리 둘이 겹친다
+- **취소는 `ClearAction()`이 `_reloadSequence`를 되돌리는 것으로 끝난다.** 달리기 시작·무기 교체·매치 이탈·워치독 만료가 전부 그 한 곳을 지나가므로 **사유별 분기를 만들지 말 것.** 서버에 알릴 것도 없다
+- **수신 측은 상태를 두지 않는다 — 계약 요구다.** unreliable이라 단계가 통째로 빠질 수 있어 **'직전 단계가 도착했는가'를 전제하면 안 되고** 중복 제거·순서 검사도 넣지 않는다
+- **취소 통보가 없어 수신 측 연출은 스스로 끝나야 한다.** 지금은 원샷 소리뿐이라 자동으로 충족되지만, **오포 재장전 애니메이션을 붙이면 "다음 단계가 오지 않으면 종료" 조건이 필요해진다**(빠뜨리면 취소된 모션이 영원히 돈다)
 - 모르는 `object_id`에는 `RequestSpawnIfUnknown()`을 부르지 않는다 — 발사 브로드캐스트와 같은 판단이다
 
 ## 손에 든 무기
 
-**'장착한 무기'와 '손에 든 무기'는 다른 개념이다.** 인벤토리의 무기 슬롯 2개는 장착이고, 그중 손에 든 것은 하나뿐이다(`IsPrimaryWeaponApplyed`). `C2DRequestWeaponFire.weapon_dbid`는 **손에 든** 쪽이어야 하며, 어긋나면 서버가 발사를 조용히 버린다. 추적 출처가 셋이므로 한 묶음으로 볼 것.
+**'장착한 무기'와 '손에 든 무기'는 다른 개념이다.** 무기 슬롯 2개는 장착이고 손에 든 것은 하나뿐이다(`IsPrimaryWeaponApplyed`). `C2DRequestWeaponFire.weapon_dbid`는 **손에 든** 쪽이어야 하며 어긋나면 **서버가 발사를 조용히 버린다.** 추적 출처가 셋이므로 한 묶음으로 볼 것.
 
 | 상황 | 반영 경로 |
 |------|-----------|
-| **내 초기 무기** | 통보 없음. `InitWeapon()`이 **주무기 우선, 없으면 보조무기**(양쪽 비면 맨손) — 서버와 같은 규칙이며 한쪽만 바꾸면 매치 시작부터 어긋난다 |
+| **내 초기 무기** | 통보 없음. `InitWeapon()`이 **주무기 우선, 없으면 보조무기**(양쪽 비면 맨손) — 서버와 같은 규칙이라 한쪽만 바꾸면 매치 시작부터 어긋난다 |
 | 남의 초기 무기 | `D2CSpawnPlayerObject.weapon_id` |
-| 남의 변경 | `D2CNotifyWeaponChanged` (장착·해제·전환 전부) |
+| 남의 변경 | `D2CNotifyWeaponChanged`(장착·해제·전환 전부) |
 | 내 전환 | `C2DRequestSwitchWeapon` → `D2CNotifyWeaponChanged`(성공·거부 모두 본인에게) |
-| **내 장착·해제** | **통보 없음. 클라가 서버 규칙대로 직접 반영** (`SyncHeldWeapon`) |
+| **내 장착·해제** | **통보 없음. 클라가 서버 규칙대로 직접 반영**(`SyncHeldWeapon`) |
 
 ### 내 장착·해제 규칙 (`SyncHeldWeapon`)
 
-**들고 있던 슬롯이 비었을 때만 반대쪽으로 옮긴다**(양쪽 다 비면 맨손). 그 외에는 손에 든 슬롯을 유지하고, 그 슬롯의 무기가 바뀌었으면 새 무기로 갱신한다. 서버 규칙이며 임의로 바꾸면 `weapon_dbid`가 어긋나 사격이 통째로 무시된다.
+**들고 있던 슬롯이 비었을 때만 반대쪽으로 옮긴다**(양쪽 다 비면 맨손). 그 외에는 손에 든 슬롯을 유지하고 그 슬롯의 무기가 바뀌었으면 갱신한다. 서버 규칙이며 임의로 바꾸면 `weapon_dbid`가 어긋나 **사격이 통째로 무시된다.**
 
 ### 무기 전환 (`RequestSwitchWeapon` / `HandleWeaponChanged`)
 
-**로컬 예측을 쓰지 않는다.** 키 입력 시점에는 행동 잠금만 잡고, 손의 무기는 서버 통보 후에만 바꾼다.
+**로컬 예측을 쓰지 않는다.** 키 입력 시점에는 행동 잠금만 잡고 손의 무기는 서버 통보 후에만 바꾼다.
 
-- **즉시 전송이 아니라 `SWITCH_LOCAL_SEC`(0.5초) 유예 뒤에 전송한다.** 유예 구간이 모션 자리이자 취소 창이다 — 자세한 것은 위 '행동 잠금' 참조
-- **전송 시점 값으로 다시 검증한다.** 유예 중 장착 조작으로 대상 슬롯이 비거나 이미 손에 들린 슬롯이 되었으면 보내지 않고 행동을 소멸시킨다. `my_inventory_version`도 전송 시점 값이어야 한다
-- **확정(`Pending`) 중에는 재요청을 막는다.** in-flight 요청이 항상 1개가 되어 통보 순서 역전이 정상 경로에서 발생하지 않는다 — 이 잠금을 푸는 변경(예: 로컬 예측 도입)은 `rSeqNum` 기반 순서 방어를 함께 가져와야 한다. **유예 중 재타게팅은 이 잠금을 푸는 것이 아니다**(전송 전이라 in-flight가 늘지 않는다)
-- **확정 전에는 발사도 막는다.** reliable(교체)과 unreliable(사격) 사이에 순서 보장이 없다. `PlayerController._fireBlocked`는 마우스 재클릭으로 풀리므로 재사용 금지
-- 통보의 `slot`/`weapon_id`가 **성공·거부 구분 없이 항상 권위값**이다. 상태 반영은 한 경로(`ApplyServerWeaponState`)로 처리하고, 갈리는 것은 재동기화 여부뿐이다
-- 판정은 `slot == 보낸 target_slot`. **`object_id`가 본인이라고 거부가 아니다**(구 스펙). 거부 중 **버전 불일치일 때만** 재동기화하고 **자동 재요청은 하지 않는다**
-- 통보의 `inventory_version`으로 로컬 버전을 갱신하지 않는다. 버전만 맞추고 슬롯 내용이 낡으면 다음 요청이 '버전은 맞는데 내용은 틀린' 상태로 통과한다
-- `weapon_id = 0`은 맨손이다. `EquipWeapon`에 그대로 넘길 것 — `weaponId != 0` 가드를 붙이면 맨손 전환이 반영되지 않는다
-- 남의 통보에는 `inventory_version`이 `0xFFFFFFFF`로 온다. `0`은 실재하는 버전(세션 시작값)이라 미설정으로 읽으면 안 된다
-- 남의 방어구·실드·HP는 어떤 패킷으로도 오지 않는다(`armor_id`는 스펙에서 삭제됨)
+- **즉시 전송이 아니라 `SWITCH_LOCAL_SEC`(0.5초) 유예 뒤에 보낸다** — 유예가 모션 자리이자 취소 창이다
+- **전송 시점 값으로 다시 검증한다.** 유예 중 대상 슬롯이 비거나 이미 손에 들린 슬롯이 되었으면 보내지 않고 행동을 소멸시킨다. `my_inventory_version`도 전송 시점 값이어야 한다
+- **확정(`Pending`) 중에는 재요청을 막는다** — in-flight가 1개로 유지되어 통보 순서 역전이 정상 경로에서 발생하지 않는다. 이 잠금을 푸는 변경(로컬 예측 등)은 `rSeqNum` 순서 방어를 함께 가져와야 한다. **유예 중 재타게팅은 이 잠금을 푸는 것이 아니다**(전송 전이라 in-flight가 늘지 않는다)
+- **확정 전에는 발사도 막는다** — reliable(교체)과 unreliable(사격) 사이에 순서 보장이 없다. **`_fireBlocked`는 마우스 재클릭으로 풀리므로 재사용 금지**
+- 통보의 `slot`/`weapon_id`가 **성공·거부 구분 없이 항상 권위값**이다. 반영은 한 경로(`ApplyServerWeaponState`)로 하고 갈리는 것은 재동기화 여부뿐이다
+- 판정은 `slot == 보낸 target_slot`이다. **`object_id`가 본인이라고 거부가 아니다**(구 스펙). 거부 중 **버전 불일치일 때만** 재동기화하고 **자동 재요청은 하지 않는다**
+- **통보의 `inventory_version`으로 로컬 버전을 갱신하지 않는다** — 버전만 맞추고 슬롯 내용이 낡으면 다음 요청이 '버전은 맞는데 내용은 틀린' 상태로 통과한다
+- `weapon_id = 0`은 맨손이므로 `EquipWeapon`에 그대로 넘긴다 — **`weaponId != 0` 가드를 붙이면 맨손 전환이 반영되지 않는다**
+- 남의 통보에는 `inventory_version`이 `0xFFFFFFFF`로 온다. **`0`은 실재하는 버전**(세션 시작값)이라 미설정으로 읽으면 안 된다
+- 남의 방어구·실드·HP는 어떤 패킷으로도 오지 않는다
 
 ## 발사 브로드캐스트 (`HandleWeaponFireBroadcast`)
 
-`D2CBroadcastWeaponFire`(발사자 objectId + 탄착 좌표)를 받아 **상대의 총알 궤적**을 그린다. 내 궤적은 `PlayerController.DrawTracer()`가 직접 그리며 이 경로를 타지 않는다.
+`D2CBroadcastWeaponFire`(발사자 objectId + 탄착 좌표)로 **상대의 총알 궤적**을 그리고 **발사음**을 낸다. 내 궤적·총성은 `PlayerController.Fire()`가 직접 처리하며 이 경로를 타지 않는다.
 
-- **미등록 발사자에서 반환하는 것이 이중 렌더를 막는 가드를 겸한다.** 룸 전체 브로드캐스트라 내 발사도 여기로 돌아오는데, 나는 `_oppoPlayers`에 없어서 걸러진다. **이 가드를 풀면 내 발사가 두 겹으로 그려진다**
-- **모르는 발사자에게 `RequestSpawnIfUnknown()`을 부르지 않는다** — 발사는 빈도가 높아 reliable이 폭주하고, 근처 플레이어라면 상태 스트림이 곧 채운다. 오브젝트 킬 피드와 같은 판단이다
-- **`hit_point`가 없으면(빗나감) 궤적을 그리지 않는다.** 좌표가 안 오면 방향 자체를 모른다. 내 궤적은 레이를 직접 갖고 있어 빗나가도 그리는데, **정보량 차이에서 오는 의도된 비대칭**이므로 맞추려 들지 말 것
-- **발사음은 그 가드 밖에 있다 — 빗나간 총도 소리는 난다.** 좌표가 없어 못 하는 것은 그리기뿐이므로 소리와 궤적을 같은 `if`에 묶지 말 것. 재생은 `shooter.PlayFireSound()`가 발사자의 `SoundPoint`에서 하고, 무기별 클립 분기는 `GameObjectController.GetGunShotSound()` 한 곳에 있다(`Controller/CLAUDE.md`)
-- **내 발사가 걸러지는 위 가드가 소리의 이중 재생도 함께 막는다** — 내 총성은 `PlayerController.Fire()`가 이미 냈다. 가드를 풀면 내 총이 두 번 울린다
+- **미등록 발사자에서 반환하는 것이 이중 재생을 막는 가드를 겸한다.** 룸 전체 브로드캐스트라 내 발사도 돌아오는데 나는 `_oppoPlayers`에 없어 걸러진다 — **이 가드를 풀면 내 궤적이 두 겹으로 그려지고 내 총성이 두 번 울린다**
+- **모르는 발사자에게 `RequestSpawnIfUnknown()`을 부르지 않는다** — 발사는 빈도가 높아 reliable이 폭주하고, 근처 플레이어라면 상태 스트림이 곧 채운다
+- **`hit_point`가 없으면(빗나감) 궤적을 그리지 않는다.** 좌표가 안 오면 방향 자체를 모른다. 내 궤적은 레이를 직접 갖고 있어 빗나가도 그리는데 **정보량 차이에서 오는 의도된 비대칭**이므로 맞추려 들지 말 것
+- **발사음은 그 가드 밖에 있다 — 빗나간 총도 소리는 난다.** 좌표가 없어 못 하는 것은 그리기뿐이므로 **소리와 궤적을 같은 `if`에 묶지 말 것.** 재생은 `shooter.PlayFireSound()`가 하고 무기별 분기는 `GameObjectController.GetGunShotSound()`에 있다
 
 ## 비플레이어 오브젝트 관리
 
-- `_sceneObjects`: objectId → `GameObjectController` 매핑
-- **`SpawnObject(ObjectData)`가 유일한 스폰 경로다.** 정적·동적 초기 스폰, 지연 스폰 응답(`D2CResponseSpawnByObjectId`), 런타임 스폰 통보(`D2CNotifySpawnObject`)가 전부 여기로 모인다. 새 스폰 경로가 생겨도 `Managers.Resource.InstantiateFromObjectDataStruct()`를 직접 부르지 말 것 — 레지스트리 등록과 차단 검사를 건너뛰게 된다
+- `_sceneObjects`: objectId → `GameObjectController`
+- **`SpawnObject(ObjectData)`가 유일한 스폰 경로다.** 정적·동적 초기 스폰, 지연 스폰 응답, 런타임 스폰 통보가 전부 여기로 모인다. **`Managers.Resource.InstantiateFromObjectDataStruct()`를 직접 부르지 말 것** — 레지스트리 등록과 차단 검사를 건너뛴다
 - **`DespawnObject(objectId)`가 유일한 제거 경로다.** 차단 목록 등록 → 레지스트리 제거 → 파괴. 파괴된 컨테이너를 열어둔 상태였다면 `CloseContainerLocal()`로 UI만 닫고 **`C2DCloseContainer`는 보내지 않는다**(서버가 이미 없앤 오브젝트)
-- **제거 통보 패킷이 둘로 갈린다** — 처치는 `D2CNotifyObjectKilled`(41), 그 외 사유는 `D2CNotifyDespawnObject`(39). 후자는 **현재 서버가 보내지 않는다**(컨테이너가 게임 종료까지 유지되어 처치 외 제거 사유가 없다). 사유가 생길 때를 위한 예약이므로 핸들러는 유지하고, 새 제거 경로가 생겨도 둘 다 `DespawnObject()`로 모을 것
-- 컨테이너 닫기 가드는 위 이유로 지금은 도달하지 않지만 **제거하지 말 것** — 컨테이너가 파괴 대상이 되는 순간 되살아나는 방어 코드다
-- `Define.ObjectPaths`에 매핑이 없는 `object_type`은 에러 로그로 드러낸다. `Undefined`는 키가 있어도 경로가 null이므로 함께 걸러낸다
+- **제거 통보가 둘로 갈린다** — 처치는 `D2CNotifyObjectKilled`(41), 그 외는 `D2CNotifyDespawnObject`(39). **후자는 현재 서버가 보내지 않지만**(컨테이너가 게임 종료까지 유지된다) 사유가 생길 때를 위한 예약이므로 핸들러를 유지하고, 새 제거 경로도 둘 다 `DespawnObject()`로 모을 것
+- 컨테이너 닫기 가드는 위 이유로 지금 도달하지 않지만 **제거하지 말 것** — 컨테이너가 파괴 대상이 되는 순간 되살아나는 방어 코드다
+- `Define.ObjectPaths`에 매핑이 없는 `object_type`은 에러 로그로 드러낸다. `Undefined`는 키가 있어도 경로가 null이라 함께 걸러낸다
 
 ### 디스폰과 유령 재스폰 차단 (`_despawnedObjectIds`)
 
-디스폰된 objectId를 만료 없이 씬 수명 내내 보관하는 `HashSet<uint>`. **플레이어·비플레이어 공용**이며(objectId 공간이 공용) 새 스폰 경로를 추가할 때마다 여기에 가드를 얹어야 한다.
+디스폰된 objectId를 만료 없이 씬 수명 내내 보관한다. **플레이어·비플레이어 공용**이며 **새 스폰 경로를 추가할 때마다 가드를 얹어야 한다.**
 
-- **차단 지점은 "요청"과 "응답" 두 곳이다.** 요청 억제(`UpdatePlayerStates`)만으로는 부족하다 — 이미 보낸 `C2DRequestSpawnByObjectId`의 응답이 디스폰보다 늦게 도착하면 `SpawnPlayerObject()`가 그대로 되살린다. 스폰을 실제로 수행하는 함수에도 반드시 가드를 둘 것
-- **전제: objectId는 한 게임 안에서 단조 증가하며 재사용되지 않고, 죽은 오브젝트가 살아나지도 않는다** (2026-08-20 서버 확인). proto에 문서화된 보장은 아니므로, 서버 계약이 바뀌면 설계를 다시 봐야 한다(증상은 "특정 오브젝트가 끝까지 안 보임")
-- 만료 창을 쓰지 않는다. 창보다 늦게 오는 패킷이 뚫으며, 재전송 한도가 없어(`Network/CLAUDE.md`) reliable 패킷이 아주 늦게 도착할 수 있다
-- 씬 인스턴스 필드라 매치가 바뀌면 자연히 비워진다 — 별도 초기화 불필요
+- **차단 지점은 "요청"과 "응답" 두 곳이다.** 요청 억제만으로는 부족하다 — 이미 보낸 요청의 응답이 디스폰보다 늦게 오면 `SpawnPlayerObject()`가 그대로 되살린다. **스폰을 실제로 수행하는 함수에도 반드시 가드를 둘 것**
+- **전제: objectId는 한 게임 안에서 단조 증가하며 재사용되지 않고, 죽은 오브젝트가 살아나지 않는다**(2026-08-20 서버 확인). proto에 문서화된 보장이 아니므로 계약이 바뀌면 설계를 다시 봐야 한다(증상은 "특정 오브젝트가 끝까지 안 보임")
+- **만료 창을 쓰지 않는다** — 창보다 늦게 오는 패킷이 뚫으며, 재전송 한도가 없어 reliable이 아주 늦게 도착할 수 있다
+- 씬 인스턴스 필드라 매치가 바뀌면 자연히 비워진다
 
 ## UI 열림 상태 관리 (`_uiOpenCount`)
 
-레퍼런스 카운팅 방식. 새 UI 추가 시 반드시 따를 패턴:
-- 열 때 `OnUIOpened()`, 닫을 때 `OnUIClosed()` 호출
-- `IsAnyUIOpen`이 true이면 마우스룩·발사 차단, 커서 잠금 해제
+레퍼런스 카운팅이다. 열 때 `OnUIOpened()`, 닫을 때 `OnUIClosed()`를 부르고, `IsAnyUIOpen`이면 마우스룩·발사가 막히고 커서 잠금이 풀린다.
 
-**세는 대상은 컨테이너(`_isContainerOpen`) · 내 인벤토리(`_isInventoryOpen`) · 설정 창(`IngameSettingUI.IsOpen`) 셋이다.** 각자 자기 플래그를 갖고 열고 닫을 때 짝을 맞춘다 — **카운트가 0으로 안 떨어지면 그 판 내내 커서가 풀린 채 총이 안 나간다.**
+**세는 대상은 컨테이너·내 인벤토리·설정 창 셋이고 각자 자기 플래그로 짝을 맞춘다** — **카운트가 0으로 안 떨어지면 그 판 내내 커서가 풀린 채 총이 안 나간다.**
 
 - **컨테이너와 내 인벤토리는 같은 오브젝트(`IngameInventoryUI`)를 레이아웃만 바꿔 쓴다.** 그래서 `ShowOpenedContainer()`는 인벤토리가 열려 있었다면 **그 열림을 반납**해야 한다(안 하면 컨테이너를 닫아도 카운트가 1로 남는다). 반납을 `OnUIOpened()` **뒤**에 두는 것은 카운트가 0을 찍어 커서가 한 번 잠기는 것을 피하려는 것
 - `BeginMatchExit()`이 셋을 모두 정리한다. 설정 창은 `CancelAndHide()`가 아니라 **`Hide()`** — 이미 반영된 값을 되돌릴 이유가 없다
@@ -282,34 +287,34 @@
 
 | 키 | 동작 |
 |---|---|
-| `Tab` / `I` | `ToggleMyInventory()` — **컨테이너 상호작용 중이면 그 상호작용 종료가 우선**(사용자 확정 규칙), 아니면 내 인벤토리 토글. 설정 창이 떠 있으면 무시 |
+| `Tab` / `I` | `ToggleMyInventory()` — **컨테이너 상호작용 중이면 그 종료가 우선**(확정), 아니면 인벤토리 토글. 설정 창이 떠 있으면 무시 |
 | `Esc` | `OnEscapeInput()` — **가장 위에 있는 것부터 닫는다**(설정 → 컨테이너 → 인벤토리). 닫을 것이 없을 때만 설정을 연다 |
 | `E` | `TryInteract()` |
 | `1` / `2` | 무기 전환 (0.5초 유예 뒤 전송) |
-| `R` | `RequestReload()` — 2초 유예 뒤 전송. 달리는 중이면 시작하지 않는다 |
+| `R` | `RequestReload()` — 진입 문턱 통과 시 2초 유예 뒤 전송 |
 
-- **`Esc`는 `IsInputLocked`(매치 이탈 중)에도 막지 않는다** — 설정은 서버로 나가는 요청이 없어 잠글 이유가 없다. 반대로 `Tab`/`I`는 잠근다(인벤토리는 조작이 서버 요청으로 이어진다)
-- **로비의 `Esc`와 같은 동작이 아니다.** `LobbyScene.OnEscapeInput()`은 상태별 뒤로가기·종료 확인이고 설정은 `UI_Header` 버튼으로 연다. 통일 대상으로 보지 말 것
+- **`Esc`는 `IsInputLocked`에도 막지 않는다** — 설정은 서버로 나가는 요청이 없다. 반대로 `Tab`/`I`는 잠근다(인벤토리 조작이 서버 요청으로 이어진다)
+- **로비의 `Esc`와 같은 동작이 아니다** — 그쪽은 상태별 뒤로가기·종료 확인이다. 통일 대상으로 보지 말 것
 
 ## 상호작용 상태 관리
 
-`IngameScene`이 `_canInteract`/`_interactTarget`을 중앙 보유. `PlayerController.CheckInteractable()`이 매 프레임 갱신.
+`_canInteract`/`_interactTarget`을 씬이 중앙 보유하고 `PlayerController.CheckInteractable()`이 매 프레임 갱신한다.
 
-- `TryInteract()`: 컨테이너 열려있으면 닫기, 아니면 대상의 `Interact()` 호출 (E키). **컨테이너 외의 UI가 떠 있으면 막는다** — 커서가 풀리면 시점이 멈춘 채 직전 조준 대상이 그대로 남아, 창을 띄운 상태로 컨테이너·귀환이 눌린다
-- `_isContainerOpen`: objectId가 0일 수 있으므로 별도 bool 플래그 사용
-- Deny 수신 시 `RequestRecentInventoryInfo()`로 재동기화
+- `TryInteract()`: 컨테이너가 열려 있으면 닫고 아니면 대상의 `Interact()`를 부른다. **컨테이너 외의 UI가 떠 있으면 막는다** — 커서가 풀리면 시점이 멈춘 채 직전 조준 대상이 남아, 창을 띄운 상태로 컨테이너·귀환이 눌린다
+- `_isContainerOpen`: objectId가 0일 수 있으므로 별도 bool 플래그를 쓴다
+- Deny 수신 시 `RequestRecentInventoryInfo()`로 재동기화한다
 
 ### 귀환(Recall) 상태 관리
 
-`IngameScene`이 `_recallRequested`를 중앙 보유. **스팟별이 아닌 씬 단위 플래그**여야 다른 스팟으로 이동해 재요청하는 경로가 막힌다.
+`_recallRequested`는 **스팟별이 아닌 씬 단위 플래그**여야 다른 스팟으로 이동해 재요청하는 경로가 막힌다.
 
-- 2단계 흐름: `RequestRecall()` → `HandleRecallResponse()`(승인/거부) → `HandleRecallResult()`(서버 5초 검사 후 최종 성공/취소)
+- 2단계: `RequestRecall()` → `HandleRecallResponse()`(승인/거부) → `HandleRecallResult()`(서버 5초 검사 후 최종 성공/취소)
 - 승인 시점에는 잠금을 유지한다. 해제는 거부·취소·워치독 만료 시에만
-- **TEMP 워치독**: 전송 시점부터 `RECALL_TIMEOUT`(10초) 타이머를 돌려 응답 유실 시 잠금 해제. 결과를 추측하지 않고 로컬 잠금만 풀므로 판정 권한은 서버에 유지. `HandleRecallResult` 실처리 완료 전까지는 제거 금지
+- **`TEMP:` 워치독**: `RECALL_TIMEOUT`(10초)으로 응답 유실 시 잠금만 해제한다(결과를 추측하지 않으므로 판정 권한은 서버에 남는다). `HandleRecallResult` 실처리 완료 전까지 제거 금지
 
 ### 드래그 + 서버 요청/응답
 
 - 드래그: `BeginDrag`/`UpdateDragPosition`/`EndDrag` → 고스트 제어
 - 아이템 조작: `RequestInteractContainerObject()` (get=0, swap=1, merge=2)
 - 장비 장착: `RequestEquipItem()` (장착=0, 해제=1)
-- Deny 수신 시 `RequestRecentInventoryInfo()`로 서버 상태 재동기화
+- Deny 수신 시 `RequestRecentInventoryInfo()`로 재동기화
