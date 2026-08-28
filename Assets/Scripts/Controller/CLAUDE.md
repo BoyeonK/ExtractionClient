@@ -90,7 +90,16 @@ public interface ICombatTarget {
 - **`IsShooting`은 `ActionState`를 겸한다** — 이 값이 상태 스트림으로 나가 상대 클라의 `OppoPlayerController`가 `_anim.SetBool("IsShooting", _actionState == 1)`로 쓴다. 즉 **발사 모션 조건을 잘못 잡으면 남의 화면에도 그대로 보인다.** 반대로 여기만 고치면 오포 쪽은 손대지 않아도 따라온다
 - `_fireTimer >= _fireInterval`은 `IsShooting`에 넣지 않는다 — 발사 간격 사이에도 연사 모션은 이어져야 한다
 - 탄창 선택 규칙의 출처는 **`IngameInventory.CurrentMagazine` 한 곳**이다. `PlayerController.CurrentMagazine`은 그것을 그대로 읽기만 하고, 무기 UI 표시(`IngameScene.SyncWeaponUI()`)도 같은 것을 쓴다 — 두 벌로 만들면 **쏘는 탄창과 보여주는 탄창이 갈린다**
-- **`IsRunning`은 `public`이다** — `IngameScene`이 재장전의 진입·유지 조건으로 읽는다(달리면 재장전이 취소된다). 이 파일 안에서만 쓰이는 값으로 보고 다시 감추지 말 것
+- **`IsRunning`은 `public`이다** — `IngameScene`이 재장전의 진입·유지 조건으로 읽고 스태미나 소모 판정에도 쓴다(아래). 이 파일 안에서만 쓰이는 값으로 보고 다시 감추지 말 것
+
+#### 달리기는 파생값이 아니라 상태다 (`_isRunning` / `ProcessRun`)
+
+`IsRunning`은 한때 `IsMoving && _shift`였지만 **스태미나가 진입 조건(20 이상)과 강제 종료(0)를 걸면서 파생 프로퍼티로 표현할 수 없게 됐다.** 전이는 `ProcessRun()` 한 곳에서만 하고, `Update()`에서 **`ProcessMovement()`보다 먼저** 돈다(속도를 고르는 쪽이 이 값을 읽는다).
+
+- **`_shift`를 직접 보는 자리를 새로 만들지 말 것.** 지금 `_shift`를 읽는 곳은 `ProcessRun()`과 입력 콜백 둘뿐이다. 이동 속도·`MovementState`·애니메이션 배속·발사 차단이 전부 `_isRunning`을 본다 — **한 자리라도 `_shift`로 되돌리면 스태미나가 0인데 달리는 속도로 움직이거나(`ProcessMovement`), 남의 화면에만 RUN으로 보인다(`MovementState`).** 실제로 이 둘이 예전에 `_shift`를 직접 읽고 있었다
+- **진입에만 20을 요구하고 유지는 0 초과다** — 달리는 중에 20 아래로 떨어져도 0까지 계속 달린다
+- **Shift를 누른 채 스태미나가 20까지 회복되면 자동으로 다시 달린다**(사용자 확정). 그래서 진입 조건에 '재입력' 항이 없다 — 재입력을 요구하려면 `_fireBlocked`처럼 별도 플래그가 필요해지므로, 그 동작을 원하는 게 아니라면 조건을 늘리지 말 것
+- 스태미나 **값과 판정은 `IngameScene`에 있고 여기서는 `CanStartRunning`/`HasStamina`로 묻기만 한다**(`Scenes/CLAUDE.md`)
 
 #### 탄약 동기화 정책 (느슨한 동기화)
 

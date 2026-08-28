@@ -86,6 +86,7 @@ public class IngameScene : BaseScene {
     IngameSettingUI _ingameSettingUI;
     IngameKillLogUI _ingameKillLogUI;
     IngameWeaponUI _ingameWeaponUI;
+    IngameStaminaBarUI _ingameStaminaBarUI;
 
     protected override void Init() {
         base.Init();
@@ -122,6 +123,13 @@ public class IngameScene : BaseScene {
         if (settingObj != null) {
             _ingameSettingUI = settingObj.GetComponent<IngameSettingUI>();
             _ingameSettingUI.Init(this);
+        }
+
+        GameObject staminaBarObj = GameObject.Find("IngameStaminaBarUI");
+        if (staminaBarObj != null) {
+            _ingameStaminaBarUI = staminaBarObj.GetComponent<IngameStaminaBarUI>();
+            _ingameStaminaBarUI.Init();
+            _ingameStaminaBarUI.SetStamina(_currentStamina, MAX_STAMINA);
         }
 
         GameObject weaponUIObj = GameObject.Find("IngameWeaponUI");
@@ -381,6 +389,11 @@ public class IngameScene : BaseScene {
     public bool IsActionBusy => _actionKind != PlayerActionKind.None;
 
     private bool IsPlayerRunning => _playerController != null && _playerController.IsRunning;
+
+    // PlayerController.ProcessRun()이 매 프레임 묻는 두 가지.
+    // 진입은 RUN_ENTRY_STAMINA, 유지는 0 초과 — 달리는 중에 20 아래로 떨어져도 계속 달린다
+    public bool CanStartRunning => _currentStamina >= RUN_ENTRY_STAMINA;
+    public bool HasStamina => _currentStamina > 0f;
 
     // 행동 진입의 유일한 경로. 같은 사유의 재요청은 여기서 무시되므로,
     // 대상이 있는 행동(무기 교체)의 재타게팅은 호출부가 먼저 취소하고 들어온다
@@ -1014,6 +1027,23 @@ public class IngameScene : BaseScene {
     // 실드 재생 서버 규칙: (재생량 × 경과ms)를 누적해 이 값에 도달할 때마다 1 회복
     private const float SHIELD_REGEN_ACCUM_UNIT = 1000f;
 
+    // 스태미나는 서버에 필드가 없는 완전한 클라 로컬 상태다 — 실드 예측과 달리
+    // 서버 절대값으로 리셋되는 경로가 아예 없으므로 이 다섯 상수가 유일한 출처다
+    private const float MAX_STAMINA = 60f;
+    private const float RUN_ENTRY_STAMINA = 20f;      // 달리기 '진입'에만 걸린다. 유지 조건이 아니다
+    private const float STAMINA_DRAIN_PER_SEC = 10f;
+    private const float STAMINA_REGEN_PER_SEC = 10f;
+    private const float STAMINA_REGEN_DELAY = 1f;     // 달리기가 끝난 뒤 회복이 시작되기까지
+
+    // 스태미나 바가 보이는 구간. RUN_ENTRY_STAMINA와 값이 같지만 다른 개념이라 상수를 따로 둔다 —
+    // '달리기를 시작할 수 있는가'와 '게이지를 보여줄 것인가'는 함께 움직여야 할 이유가 없다.
+    // 진입 문턱을 바꿀 때 이쪽도 따라가야 하는지는 그때 판단할 것
+    private const float STAMINA_SHOW_THRESHOLD = 20f;
+
+    private float _currentStamina = MAX_STAMINA;
+    private bool _wasRunning = false;
+    private float _staminaRegenBlockedUntil = float.NegativeInfinity;
+
     private int _currentHealthPoint = MAX_HEALTH_POINT;
     private int _currentShieldPoint;
     private uint _lastAttackerObjectId = NO_ATTACKER_OBJECT_ID;
@@ -1233,6 +1263,30 @@ public class IngameScene : BaseScene {
         return $"objectId={objectId}(미스폰)";
     }
 
+    // 달리기 소모 / 정지 시 회복. 값도 판정도 여기 하나뿐이고 PlayerController는 조회만 한다.
+    //
+    // 회복 잠금을 '중단 사유'마다 걸지 않고 여기서 true→false 엣지 한 번으로 세우는 것이 요점이다 —
+    // 중단 경로가 넷(Shift 해제 · 이동 정지 · 스태미나 0 · 이탈로 입력 차단)이라 사유를 열거하면
+    // 반드시 하나가 빠진다. 어떤 이유로 멈췄든 이 함수의 엣지를 지나간다
+    private void UpdateStamina() {
+        bool isRunning = IsPlayerRunning;
+
+        if (_wasRunning && !isRunning)
+            _staminaRegenBlockedUntil = Time.time + STAMINA_REGEN_DELAY;
+        _wasRunning = isRunning;
+
+        if (isRunning)
+            _currentStamina = Mathf.Max(_currentStamina - STAMINA_DRAIN_PER_SEC * Time.deltaTime, 0f);
+        else if (Time.time >= _staminaRegenBlockedUntil)
+            _currentStamina = Mathf.Min(_currentStamina + STAMINA_REGEN_PER_SEC * Time.deltaTime, MAX_STAMINA);
+
+        if (_ingameStaminaBarUI != null) {
+            // 채우기를 먼저 — 숨어 있던 게이지가 낡은 값으로 한 프레임 보이는 것을 막는다
+            _ingameStaminaBarUI.SetStamina(_currentStamina, MAX_STAMINA);
+            _ingameStaminaBarUI.SetVisible(isRunning || _currentStamina <= STAMINA_SHOW_THRESHOLD);
+        }
+    }
+
     // 실드 재생은 전용 통보 패킷이 없다. 서버는 매 틱 회복만 시키고 아무것도 보내지 않으므로
     // 클라가 같은 공식으로 예측하고, 피격 통보가 올 때마다 서버 절대값으로 리셋한다.
     private void UpdateShieldRegen() {
@@ -1353,6 +1407,7 @@ public class IngameScene : BaseScene {
         }
 
         UpdateShieldRegen();
+        UpdateStamina();
 
         // TEMP: 귀환 응답 워치독 — 상단 RECALL_TIMEOUT 주석 참조. 제거 시 함께 삭제할 것
         if (_recallRequested) {

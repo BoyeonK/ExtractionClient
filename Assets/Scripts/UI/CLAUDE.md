@@ -28,7 +28,7 @@ UI_Base (abstract)
 
 UIManager가 아닌 씬 자체에 존재하는 MonoBehaviour UI 오브젝트. `IngameScene.Init()`에서 `GameObject.Find()`로 바인딩 + `Init()` 호출:
 
-> **바인딩이 `Find` 결과만 검사하고 `GetComponent` 결과는 보지 않는다** — 씬에 **이름은 맞는 오브젝트가 있는데 스크립트가 안 붙어 있으면** `Init()` 호출에서 NRE가 나고, **그 아래 초기화(크로스헤어 생성·키 리스너 등록 등)가 통째로 안 돈다.** 킬 피드 바인딩에만 `Util.LogError` 가드가 있고 **나머지 6종은 아직 뚫려 있다.** 맵 씬이 늘어날 때마다 5종을 배치해야 하는 구조라 **같은 실수가 맵마다 반복될 자리**이며, `Find`+`GetComponent`+실패 로그를 헬퍼로 묶으면 여섯 곳이 한 번에 닫힌다.
+> **바인딩이 `Find` 결과만 검사하고 `GetComponent` 결과는 보지 않는다** — 씬에 **이름은 맞는 오브젝트가 있는데 스크립트가 안 붙어 있으면** `Init()` 호출에서 NRE가 나고, **그 아래 초기화(크로스헤어 생성·키 리스너 등록 등)가 통째로 안 돈다.** 킬 피드 바인딩에만 `Util.LogError` 가드가 있고 **나머지 7종은 아직 뚫려 있다.** 맵 씬이 늘어날 때마다 5종을 배치해야 하는 구조라 **같은 실수가 맵마다 반복될 자리**이며, `Find`+`GetComponent`+실패 로그를 헬퍼로 묶으면 여섯 곳이 한 번에 닫힌다.
 >
 > **씬에는 활성 상태로 저장할 것** — `GameObject.Find`는 비활성 오브젝트를 못 찾는다. 필요하면 각 `Init()`이 바인딩 직후 스스로 끈다.
 
@@ -44,6 +44,7 @@ UIManager가 아닌 씬 자체에 존재하는 MonoBehaviour UI 오브젝트. `I
 | `IngameSettingUI` | `Init(IngameScene)` | 인게임 설정 창(ESC). 마우스 감도 + 볼륨 3종. 아래 절 참조 |
 | `IngameKillLogUI` | `Init(IngameScene)` | 킬 피드. `SingleKillLog`를 찍어내고 목록으로 관리한다. 아래 절 참조 |
 | `IngameWeaponUI` | `Init()` | 손에 든 무기 이름 + 탄창 잔량 + 예비탄. 아래 절 참조 |
+| `IngameStaminaBarUI` | `Init()` | 달리기 스태미나 게이지. `SetStamina(current, max)` + `SetVisible(bool)`로 씬이 민다. **평소에는 숨어 있고 달리는 중이거나 스태미나가 문턱 이하일 때만 보인다** — 조건 판단은 씬에 있다(아래). **`StaminaBarFill`의 Image Type이 `Filled`여야 한다**(체력바와 같은 함정) |
 
 ### `IngameKillLogUI` / `SingleKillLog` — 킬 피드
 

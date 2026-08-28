@@ -84,8 +84,15 @@ public class PlayerController : GameObjectController, ICombatTarget {
     Vector3 _velocity;
 
     bool IsMoving => _w || _s || _a || _d;
+
+    // 달리기는 파생값이 아니라 '상태'다 — 스태미나가 진입 조건(20 이상)과 강제 종료(0)를
+    // 걸기 때문에 IsMoving && _shift로는 표현되지 않는다. 전이는 ProcessRun() 한 곳에서만 한다.
+    //
+    // 이동 속도·MovementState·애니메이션이 전부 이 값을 봐야 한다. _shift를 직접 보는 자리를
+    // 남기면 스태미나가 0인데 달리는 속도로 움직이고, 남의 화면에도 RUN으로 나간다
+    bool _isRunning = false;
     // IngameScene이 재장전의 진입·유지 조건으로 읽는다 (달리면 재장전이 성립하지 않는다)
-    public bool IsRunning => IsMoving && _shift;
+    public bool IsRunning => _isRunning;
     // '쏘려는 의사'. ProcessFire의 발사 게이트가 이걸 본다.
     //
     // 행동(재장전·무기 교체) 중에는 쏘지 않는다 — 교체는 reliable(교체)과 unreliable(사격) 사이에
@@ -209,6 +216,8 @@ public class PlayerController : GameObjectController, ICombatTarget {
     }
 
     void Update() {
+        // ProcessMovement가 _isRunning으로 속도를 고르므로 그보다 먼저 와야 한다
+        ProcessRun();
         ProcessMovement();
         ProcessMouseLook();
         ProcessRecoil();
@@ -218,6 +227,20 @@ public class PlayerController : GameObjectController, ICombatTarget {
         // 발사가 직전 프레임의 조준점을 쓰게 되어 반동 중에 각도가 어긋난다
         ProcessAim();
         ProcessFire();
+    }
+
+    // 달리기 상태 전이의 유일한 지점. 스태미나 값은 IngameScene이 쥐고 여기서는 묻기만 한다.
+    //
+    // 진입에만 20을 요구하고 유지는 0 초과다 — 달리는 중에 20 아래로 떨어져도 0까지 계속 달린다.
+    // Shift를 누른 채 스태미나가 20까지 회복되면 다시 달리기로 넘어간다(사용자 확정) —
+    // 그래서 진입 조건에 '재입력' 항이 없다. 재입력을 요구하려면 _fireBlocked 같은 플래그가 따로 필요하다
+    private void ProcessRun() {
+        bool wantsToRun = _shift && IsMoving;
+
+        if (_isRunning)
+            _isRunning = wantsToRun && _ingameScene.HasStamina;
+        else
+            _isRunning = wantsToRun && _ingameScene.CanStartRunning;
     }
 
     private void ProcessMouseLook() {
@@ -281,7 +304,8 @@ public class PlayerController : GameObjectController, ICombatTarget {
             if (move.sqrMagnitude > 1f) move.Normalize();
         }
 
-        float moveSpeed = _shift ? runSpeed : walkSpeed;
+        // _shift가 아니라 _isRunning이다 — 스태미나가 바닥나면 Shift를 누른 채여도 걷는 속도여야 한다
+        float moveSpeed = _isRunning ? runSpeed : walkSpeed;
 
         if (_jump) {
             if (_controller.isGrounded && !inputLocked) {
@@ -522,7 +546,7 @@ public class PlayerController : GameObjectController, ICombatTarget {
             if (_controller == null) return 0;
             if (!_controller.isGrounded) return 4; // JUMP/FALL
             if (!IsMoving) return 0;              // IDLE
-            return _shift ? 2u : 1u;              // RUN : WALK
+            return _isRunning ? 2u : 1u;          // RUN : WALK
         }
     }
 
