@@ -70,6 +70,21 @@ public interface ICombatTarget {
 
 **부모로 거슬러 올라가므로 하위에 붙은 것이면 무엇이든 피격 판정이 된다.** 손에 든 무기가 대표적인 사고 사례였다(위 `DisableWeaponColliders` 참조) — 전투 대상 하위에 콜라이더를 새로 붙일 때는 그것이 피격 부위로 취급되어도 되는지 먼저 볼 것.
 
+## 발소리 공용 처리 (`GameObjectController.UpdateFootstep`)
+
+로컬과 오포가 **같은 타이머·간격·클립 규칙**을 쓴다. 상수를 양쪽에 두면 같은 동작의 발소리가 조용히 갈리므로 베이스에 올려 두었고, 파생 클래스는 이동 상태 두 개(`isStepping` / `isRunning`)와 소리를 낼 `AudioSource`만 넘긴다.
+
+| 상태 | 클립 | 간격 |
+|---|---|---|
+| 걷기 | `foot_step1~3` 중 랜덤 | 0.6초 |
+| 달리기 | `run_foot_step` (한 개) | 1/3초 (초당 3번) |
+
+- **`_footstepTimer`가 곧 연타 가드다** — 발사 타이머와 같은 방식(상한 `Mathf.Min` 고정 + `-=` 차감)이라 호출부가 아무리 자주 상태를 오가도 직전 재생으로부터 현재 간격이 지나기 전에는 두 번째 소리가 나가지 않는다. **호출부에 별도 플래그를 얹지 말 것**
+- **걷기와 달리기가 타이머 하나를 공유하고 간격만 갈아 끼운다. 타이머를 둘로 나누지 말 것** — 각자 차오르게 되어 달리기가 끝나는 순간 직전 달리기 발소리 바로 뒤에 걷기 발소리가 겹쳐 난다. 지금은 어느 두 발소리 사이든 최소 간격이 보장된다
+- **타이머 갱신이 재생 조건 검사보다 먼저다.** 멈춰 있는 동안에도 상한까지 차오르므로 첫 걸음이 즉발이 된다(총의 첫 발과 같은 감각). 순서를 뒤집거나 정지 중에 타이머를 0으로 죽이면 첫 걸음이 한 간격만큼 밀린다. 걷다가 달리기로 넘어가는 순간도 상한이 0.6에서 1/3로 줄면서 바로 한 발이 나간다
+- 랜덤은 직전 클립을 제외하지 않는다(`Random.Range(1, 4)` 균등) — 같은 소리가 연속으로 나올 수 있고, 지금은 의도된 단순화다. 달리기는 클립이 하나뿐이라 애초에 해당 없다
+- **타이머가 인스턴스 필드라 오포가 여럿이어도 각자 자기 리듬으로 돈다.** `static`으로 바꾸면 모든 적의 발소리가 한 타이머를 두고 싸워 대부분이 사라진다
+
 ## PlayerController
 
 ### 발사 시스템
@@ -101,6 +116,14 @@ public interface ICombatTarget {
 - **Shift를 누른 채 스태미나가 20까지 회복되면 자동으로 다시 달린다**(사용자 확정). 그래서 진입 조건에 '재입력' 항이 없다 — 재입력을 요구하려면 `_fireBlocked`처럼 별도 플래그가 필요해지므로, 그 동작을 원하는 게 아니라면 조건을 늘리지 말 것
 - 스태미나 **값과 판정은 `IngameScene`에 있고 여기서는 `CanStartRunning`/`HasStamina`로 묻기만 한다**(`Scenes/CLAUDE.md`)
 
+#### 점프도 스태미나를 쓴다 (`ProcessMovement`)
+
+요구치와 소모량이 같은 값 하나(`JUMP_STAMINA_COST` 12)이며, 뛰는 순간 12를 깎고 회복 지연 1초도 함께 건다.
+
+- **검사·차감은 키 입력(`TryJump`)이 아니라 실제로 뛰는 자리에 있다.** `_jump`는 눌렸다는 사실만 나르는 1회용 플래그이고 접지·입력잠금 판정이 `ProcessMovement`에 있어서, 입력 시점에 깎으면 **공중에서 누른 Space가 뛰지도 않고 스태미나만 가져간다**
+- 달리기와 같은 규칙으로 **값과 판정은 `IngameScene`에 있고 여기서는 `CanJump`로 묻고 `ConsumeJumpStamina()`로 알리기만 한다**(`Scenes/CLAUDE.md`)
+- 요구치(12)가 표시 문턱(20)보다 낮아 **60에서 뛰어 48이 되어도 게이지가 보이지 않는다** — 알고 있는 상태이며 판단 근거는 `Scenes/CLAUDE.md`에 있다
+
 #### 탄약 동기화 정책 (느슨한 동기화)
 
 `Fire()`가 발사 직전 `magazine.quantity`를 검사하고 차감한다. 탄창은 손에 든 슬롯 기준(`IsPrimaryWeaponApplyed`)으로 고른다.
@@ -110,6 +133,16 @@ public interface ICombatTarget {
 - 따라서 `D2CFullInventorySync`가 오면 탄약이 서버 값으로 덮이는 것이 **정상 동작**이다 — 버그로 보지 말 것
 - **확실한 동기화 시점이 곧 재장전이다.** `R` 키 → `IngameScene.RequestReload()` → `D2CResponseReload`가 인벤토리 전체 스냅샷을 실어 오며, 그 시점에 어긋나 있던 탄약 수치가 서버 값으로 정렬된다 (`Scenes/CLAUDE.md`의 '재장전' 참조)
 - **`_ingameScene.Inventory` 참조는 매번 다시 읽는다.** 재장전 응답이 `ApplyFullSync`로 `InventoryItem` 인스턴스를 통째로 갈아치우므로, `CurrentMagazine`처럼 그때그때 조회하는 형태를 유지할 것 — 인스턴스를 필드에 캐시하면 재장전 뒤에도 버려진 옛 탄창을 차감하게 된다
+
+### 발소리 (`ProcessFootstep`)
+
+`SoundPoint`(가슴팍 3D 소스)에서 발소리를 낸다. 프리팹 규격과 3D 설정은 `Assets/Resources/CLAUDE.md`에 있고, **타이머·간격·클립 선택은 `GameObjectController.UpdateFootstep()` 한 곳에 있다**(아래). 각 컨트롤러의 `ProcessFootstep()`은 '지금 어떤 이동 상태인가' 두 개(`isStepping`/`isRunning`)만 넘긴다.
+
+- **`IsStepping`의 `IsInputLocked` 항을 빼지 말 것.** 이탈·사망 중에는 `ProcessMovement`가 이동만 끊고 `_w` 등은 눌린 채 남아서, 제자리에 선 시신이 계속 걷는 소리를 낸다
+- **로컬은 접지(`isGrounded`)를 요구하고 오포는 요구하지 않는다 — 의도된 비대칭이다**(오포 쪽 근거는 아래 `OppoPlayerController` 절)
+- **걷기·달리기 구분은 `IsStepping`이 아니라 `_isRunning`이 한다** — 스태미나가 바닥나 걷기로 떨어지면 소리와 간격도 함께 걷기로 돌아온다. `_shift`를 보면 그 연동이 깨진다
+- **`Update()`에서 `ProcessMovement()`보다 뒤에 온다** — `isGrounded`를 갱신하는 것이 `Move()`라, 앞에 두면 한 프레임 묵은 접지 상태를 본다. `ProcessRun()`보다도 뒤다(간격을 고르는 쪽이 `_isRunning`을 읽는다)
+- UI가 열려 있어도 난다. 지금 인벤토리를 연 채로도 이동이 되므로 소리가 따라가는 것이 맞다
 
 ### 손에 든 무기 (`_equippedWeaponId`)
 
@@ -125,8 +158,26 @@ public interface ICombatTarget {
 
 1. 탄약 확인 → 없으면 `EmptyAmmoFire()`(차단 + 빈 탄창 소리)로 빠지고 끝
 2. 히트스캔: `CalculateFireRay()`로 발사선 산출 + 원뿔형 랜덤 오프셋 적용
-3. 반동 목표 누적: `_recoilTarget`에만 추가, 즉시 적용하지 않음
-4. 스프레드 증가
+3. 발사음 + 궤적: `SoundPoint`에서 `GetGunShotSound(_equippedWeaponId)`, `MuzzlePoint`에서 `BulletTracer`
+4. 반동 목표 누적: `_recoilTarget`에만 추가, 즉시 적용하지 않음
+5. 스프레드 증가
+
+#### 발사음 (`GameObjectController.GetGunShotSound`)
+
+**무기별 분기 자리는 이 함수 하나다.** 지금은 무기 3종이 모두 `gun_shot_1`이라 분기가 `default`뿐이지만, 클립 이름을 호출부에서 만들면 무기별 소리를 넣는 순간 로컬·오포 두 곳이 갈린다. 모르는 id도 기본음으로 떨어진다 — 새 무기가 소리 없이 조용해지는 것보다 낫다.
+
+- **탄약이 있을 때만 난다.** 빈 탄창은 `EmptyAmmoFire()`의 딸깍(2D)이고 이쪽은 월드 소리(`SoundPoint`)다 — 둘은 다른 경로이며 합치지 말 것
+- **`Max Distance`(30)를 발소리와 공유해 오포 총성이 30m에서 끊긴다.** 총성은 발소리보다 훨씬 멀리 가야 하는 소리라 이 값이 실제로 부딪히는 첫 자리이며, **카테고리별 가청 거리 분리는 `SoundManager.PlayOneShotAt`의 `OPTION:`으로 달려 있다**(거리 값을 재생마다 갈아끼우는 방식이 왜 답이 아닌지도 거기 있다)
+- **오포도 같은 헬퍼를 쓴다** — `OppoPlayerController.PlayFireSound()`가 자기 `_equippedWeaponId`를 넘긴다(`IngameScene.HandleWeaponFireBroadcast`에서 호출). 무기별 소리는 `GetGunShotSound()` 한 곳만 고치면 로컬·오포가 함께 따라온다
+
+#### 재장전음 (`GameObjectController.GetReloadSound`)
+
+발사음과 같은 이유로 **무기별 분기 자리를 여기 하나로 둔다.** 단계 번호와 흐름은 `Scenes/CLAUDE.md`의 '재장전 연출 단계'에 있다.
+
+- **번호가 0·1·15로 띄엄띄엄해 배열 인덱스가 아니라 `switch`다.** 15는 서버 전용 '완료'이며 상수는 **`Define.RELOAD_SEQUENCE_COMPLETE`** 에 있다 — 네트워크(`UDPManager`의 송신 가드)와 컨트롤러가 함께 참조하므로 어느 한쪽 계층에 두지 않았다
+- **`default`가 `null`을 돌려주는 것이 중요하다** — `sequenceNum`이 **네트워크에서 오는 값**이라 서버가 단계를 늘리면 여기 없는 번호가 들어온다. 그래서 `SoundManager.PlayOneShotAt`에 `path` null 가드가 함께 있다(없으면 NRE)
+- **클립 이름이 계약이다** — `m4_reload_start` / `m4_reload_sequence1` / `m4_reload_complete`. 한 글자만 어긋나도 **그 단계만 영구히 무음이고 로그가 남지 않는다**(`Assets/Resources/CLAUDE.md`). 파일을 리네임하면 여기도 함께 고칠 것
+- 양쪽 컨트롤러의 `PlayReloadSound(uint)`는 각자 갖는다 — **`_soundAudio`·`_equippedWeaponId`를 베이스로 올리지 않기로 확정했다**(대부분의 `GameObjectController`가 쓰지 않는 것을 공용 인터페이스로 승격시킬 정도는 아니라는 판단). 공용인 것은 **값·규칙을 정하는 static 헬퍼뿐**이다
 
 #### 발사선 (`CalculateFireRay`)
 
@@ -159,12 +210,12 @@ public interface ICombatTarget {
 
 - **`_fireBlocked = true`가 딸깍 소리의 중복 재생 가드를 겸한다.** 해제 조건이 마우스 재클릭(release→press)뿐이라 **트리거 1회당 1번**이 되고, 연사 중 탄이 떨어지는 경우도 마지막 발 다음 인터벌에 한 번만 울린다. **별도 쿨다운·타이머를 넣지 말 것** — 같은 것을 두 곳에서 관리하게 된다
 - 맨손이면 울리지 않는다 — `ProcessFire()`의 `_fireInterval > 0f`에서 걸려 `Fire()`에 도달하지 않는다. 재장전·무기 교체 중에도 `IsFireInput`의 `IsActionBusy`가 막는다. 둘 다 의도다
-- **프로젝트 최초의 `Managers.Sound.Play()` 호출부다.** 실패가 조용하다는 점만 알아둘 것 — 클립을 못 찾으면 `Play()`가 null 체크로 그냥 return하고 `GetOrAddAudioClip()`이 **그 null을 캐시까지 해서** 이후 시도도 전부 무음이 된다. 소리가 안 나면 호출부가 아니라 파일명·`AudioListener` 존재부터 볼 것
+- **`SoundPoint`가 아니라 2D `Managers.Sound.Play()`로 남아 있는 것은 의도다** — 남에게 들릴 소리가 아니고 네트워크로 나가지도 않는 1인칭 피드백이다. 실패가 조용하다는 점만 알아둘 것 — 클립을 못 찾으면 `Play()`가 null 체크로 그냥 return하고 `GetOrAddAudioClip()`이 **그 null을 캐시까지 해서** 이후 시도도 전부 무음이 된다. 소리가 안 나면 호출부가 아니라 파일명·`AudioListener` 존재부터 볼 것
 
 ### 미구현이 남은 메서드
 
 - `ProcessHit()`: **스텁이 아니다** — `SendC2DRequestWeaponFire()`로 발사 패킷을 보내는 본 기능을 수행한다. 남은 것은 탄착 이펙트·데미지 표시
-- `ProcessFire()`: 타이머·차단·발사 트리거는 동작한다. 남은 것은 발사 연출·이펙트
+- **`ProcessFire()`는 완료됐다.** 타이머·차단·발사 트리거에 소리와 궤적까지 붙었고, **총구 화염은 넣지 않기로 확정됐다**(사용자 확정) — 빠뜨린 것으로 보고 다시 추가하지 말 것
 
 ## OppoPlayerController
 
@@ -182,6 +233,16 @@ public interface ICombatTarget {
 - 본을 못 찾거나 하나도 만들어지지 않으면 `LogError`. 조용히 넘어가면 "그 적만 안 맞는" 상태가 원인 없이 남는다
 
 **로컬 `PlayerController`에는 만들지 않는다 — 의도된 비대칭이다.** 내 클라이언트가 나를 대상으로 레이캐스트할 일이 없고(내가 맞았다는 판정은 상대 클라이언트가 자기 쪽 `OppoPlayer`에 대고 하며, 서버는 발사선을 검증하지 않는다), 발사 원점이 가슴팍이라 **내 팔 히트박스가 내 총알을 막는다.** 대칭으로 맞추려 들지 말 것.
+
+### 발소리 (`ProcessFootstep`) — 점프로 소리를 지울 수 없다
+
+`MovementState`만 보고 낸다. 규칙과 간격은 공용(`GameObjectController.UpdateFootstep`)이라 **내가 듣는 내 발소리와 남의 발소리가 같은 리듬이다.**
+
+- **점프 중(`MOVEMENT_JUMP`)에도 소리가 난다 — 로컬(`isGrounded` 요구)과 갈리는 의도된 비대칭이다.** 공중에서 발소리를 끊으면 **점프를 연달아 뛰는 것만으로 소리 없이 이동할 수 있게 된다.** 접지 조건으로 "맞추려" 들지 말 것
+- **점프 중에는 `MovementState`가 `JUMP`로 덮여 걷기/달리기 구분이 사라지므로 그 구간만 수평 속도로 가른다**(`FOOTSTEP_MIN_SPEED` 0.5 / `FOOTSTEP_RUN_SPEED` 2 — `PlayerController`의 `walkSpeed` 1과 `runSpeed` 3.5 사이 값이다). 제자리 점프는 수평 속도가 0에 가까워 여기서 자연히 걸러진다
+- **`IsStepping`/`IsRunningStep`은 `ProcessAnimation`의 `isMoving`/`isRunning`과 이름을 갈라 뒀다.** 애니메이션은 점프 중을 이동으로 보지 않고(공중에서는 idle 블렌드) 발소리만 위 이유로 이동으로 본다 — **한쪽 값을 다른 쪽에 재사용하지 말 것**
+- `_hasReceivedState` 전에는 내지 않는다. `_movementState` 초기값 0(IDLE)이라 실질적으로는 이미 조용하지만, 스폰 직후 상태를 명시적으로 가른다
+- **디스폰되면 재생 중인 발소리가 끊긴다** — 소스가 오브젝트에 붙어 있어서다. 발소리는 티가 안 나지만 사망음 같은 것을 이 소스에 태우면 안 된다(`Assets/Resources/CLAUDE.md`)
 
 ### 그 외
 

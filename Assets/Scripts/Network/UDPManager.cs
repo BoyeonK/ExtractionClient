@@ -292,6 +292,26 @@ public class UDPManager {
         SendReliable((ushort)GameProtocol.PktId.C2DRequestReload, pkt);
     }
 
+    // 재장전 연출 단계 통보. 서버는 값을 해석하지 않고 object_id만 채워 룸의 나머지에게 중계한다.
+    // C2DRequestReload와 별개 흐름이라 보내지 않아도 재장전은 되고, 보낸 뒤 취소해도 정리할 것이 없다.
+    //
+    // unreliable이다(계약) — 매 틱 나가는 상태 패킷과 uSeqNum을 공유해 조금만 늦게 도착해도 버려진다.
+    // 재전송을 붙이지 말 것: 연출은 단계가 빠져도 성립해야 하고, 여기에 reliable을 쓰면
+    // in-flight 32슬롯을 연출용 패킷이 먹는다
+    public void SendC2DNotifyReloadSequence(uint sequenceNum) {
+        // 15는 서버 전용이라 실어 보내면 통보 전체가 버려진다. 조용히 사라지면 증상이
+        // "그 단계만 남에게 안 들림"이라 원인을 짚기 어려우므로 드러낸다
+        if (sequenceNum >= Define.RELOAD_SEQUENCE_COMPLETE) {
+            Util.LogError($"재장전 단계 {sequenceNum}은 보낼 수 없다 — {Define.RELOAD_SEQUENCE_COMPLETE}(완료)는 서버 전용이고 그 이상은 계약 범위 밖이다");
+            return;
+        }
+
+        C2DNotifyReloadSequence pkt = new C2DNotifyReloadSequence {
+            SequenceNum = sequenceNum
+        };
+        SendUnreliable((ushort)GameProtocol.PktId.C2DNotifyReloadSequence, pkt);
+    }
+
     public void SendC2DRequestRecentInventoryInfo(uint objectId) {
         C2DRequestRecentInventoryInfo pkt = new C2DRequestRecentInventoryInfo {
             ObjectId = objectId

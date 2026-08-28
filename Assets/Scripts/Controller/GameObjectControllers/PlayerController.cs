@@ -41,6 +41,9 @@ public class PlayerController : GameObjectController, ICombatTarget {
     float _fireTimer = 0f;
     float _fireInterval = 0f; // 60f / RPM
 
+    // 월드 소리를 내보내는 3D 소스(가슴팍). 발사음·재장전음도 여기에 태울 자리다
+    AudioSource _soundAudio;
+
     // WeaponSpec 캐시 (EquipWeapon 시 갱신)
     float _vRecoilMin, _vRecoilMax, _hRecoilMax;
     float _spreadBase, _spreadMax, _spreadIncreasePerShot, _spreadRecoveryRate;
@@ -84,6 +87,14 @@ public class PlayerController : GameObjectController, ICombatTarget {
     Vector3 _velocity;
 
     bool IsMoving => _w || _s || _a || _d;
+
+    // 발소리가 나는 접지 이동 상태. 걷기·달리기 구분은 여기가 아니라 _isRunning이 한다.
+    //
+    // IsInputLocked를 빼면 안 된다 — 이탈·사망 중에는 ProcessMovement가 이동만 끊고 _w 등은
+    // 눌린 채로 남아서, 제자리에 선 시신이 계속 걷는 소리를 낸다
+    bool IsStepping => IsMoving
+                       && _controller != null && _controller.isGrounded
+                       && !_ingameScene.IsInputLocked;
 
     // 달리기는 파생값이 아니라 '상태'다 — 스태미나가 진입 조건(20 이상)과 강제 종료(0)를
     // 걸기 때문에 IsMoving && _shift로는 표현되지 않는다. 전이는 ProcessRun() 한 곳에서만 한다.
@@ -146,6 +157,10 @@ public class PlayerController : GameObjectController, ICombatTarget {
         if (shotTransform != null) _shotPoint = shotTransform.gameObject;
         else Util.LogError("ShotPoint가 없어 발사 원점을 카메라로 대체한다 — PlayerObject 프리팹에 ShotPoint 필요");
 
+        Transform soundTransform = transform.Find("SoundPoint");
+        if (soundTransform != null) _soundAudio = soundTransform.GetComponent<AudioSource>();
+        if (_soundAudio == null) Util.LogError("SoundPoint의 AudioSource가 없어 월드 소리가 나지 않는다 — PlayerObject 프리팹에 SoundPoint + AudioSource 필요");
+
         _aimTarget = transform.Find("Aim");
         _camera = _viewPoint.GetComponentInChildren<Camera>();
 
@@ -168,6 +183,12 @@ public class PlayerController : GameObjectController, ICombatTarget {
         _anim = Util.BindComponent<Animator>(modelName, this.gameObject);
 
         _weaponSocketTr = transform.Find($"{modelName}/mixamorig:Hips/mixamorig:Spine/mixamorig:Spine1/mixamorig:Spine2/mixamorig:RightShoulder/mixamorig:RightArm/mixamorig:RightForeArm/mixamorig:RightHand/WeaponSocket");
+    }
+
+    // 재장전 연출 단계음. 0·1은 IngameScene의 유예 타이머가, 완료(15)는 재장전 응답이 부른다 —
+    // 서버가 뿌리는 완료 통보는 당사자를 제외하고 나가므로 내 완료음은 돌아오지 않는다
+    public void PlayReloadSound(uint sequenceNum) {
+        Managers.Sound.PlayOneShotAt(GetReloadSound(_equippedWeaponId, sequenceNum), _soundAudio);
     }
 
     public void EquipWeapon(int weaponId) {
@@ -219,6 +240,8 @@ public class PlayerController : GameObjectController, ICombatTarget {
         // ProcessMovement가 _isRunning으로 속도를 고르므로 그보다 먼저 와야 한다
         ProcessRun();
         ProcessMovement();
+        // isGrounded를 갱신하는 것이 ProcessMovement의 Move()다 — 앞에 두면 한 프레임 묵은 접지를 본다
+        ProcessFootstep();
         ProcessMouseLook();
         ProcessRecoil();
         ApplyViewRotation();
@@ -307,15 +330,25 @@ public class PlayerController : GameObjectController, ICombatTarget {
         // _shift가 아니라 _isRunning이다 — 스태미나가 바닥나면 Shift를 누른 채여도 걷는 속도여야 한다
         float moveSpeed = _isRunning ? runSpeed : walkSpeed;
 
+        // 스태미나 검사·차감은 키 입력이 아니라 '실제로 뛰는' 이 자리에서 한다 —
+        // TryJump()에서 깎으면 공중에서 누른 Space가 뛰지도 않고 스태미나만 가져간다.
+        // 값과 판정은 IngameScene에 있고 여기서는 묻고 알리기만 한다(달리기와 같은 규칙)
         if (_jump) {
-            if (_controller.isGrounded && !inputLocked) {
+            if (_controller.isGrounded && !inputLocked && _ingameScene.CanJump) {
                 _velocity.y = Mathf.Sqrt(jumpHeight * -2f * gravity);
+                _ingameScene.ConsumeJumpStamina();
             }
             _jump = false;
         }
 
         _velocity.y += gravity * Time.deltaTime;
         _controller.Move(move * moveSpeed * Time.deltaTime + _velocity * Time.deltaTime);
+    }
+
+    // 타이머·간격·클립 선택은 공용 베이스에 있다(GameObjectController.UpdateFootstep) —
+    // 여기서는 '지금 어떤 이동 상태인가'만 넘긴다. 오포와 값이 갈리지 않게 하기 위함이다
+    private void ProcessFootstep() {
+        UpdateFootstep(_soundAudio, IsStepping, _isRunning);
     }
 
     private void ProcessAnimation() {
@@ -335,7 +368,6 @@ public class PlayerController : GameObjectController, ICombatTarget {
         _anim.SetFloat("MovingSpeed", moveSpeed, 0.1f, Time.deltaTime);
     }
 
-    // TODO: 발사 연출·이펙트 미구현, 별도 작업 예정
     private void ProcessFire() {
         // 맨손(_fireInterval == 0)이어도 여기서 빠져나가지 않는다 — _fireBlocked 갱신과
         // 스프레드 회복까지 함께 멈춰버린다. 발사만 아래 조건에서 막는다
@@ -384,6 +416,10 @@ public class PlayerController : GameObjectController, ICombatTarget {
         Ray fireRay = CalculateFireRay();
         bool hasHit = Physics.Raycast(fireRay, out RaycastHit hit, 1000f);
         ProcessHit(hit, hasHit);
+
+        // 무기별 분기는 GetGunShotSound() 한 곳에 있다 — 여기서 클립 이름을 직접 만들지 말 것.
+        // 빈 탄창 딸깍(EmptyAmmoFire)은 2D로 남아 있고 이쪽만 월드 소리다
+        Managers.Sound.PlayOneShotAt(GetGunShotSound(_equippedWeaponId), _soundAudio);
         DrawTracer(fireRay, hit, hasHit);
         DrawFireRayDebug(fireRay, hit, hasHit);   // TEMP: 발사 원점·수렴 검증 후 제거
 

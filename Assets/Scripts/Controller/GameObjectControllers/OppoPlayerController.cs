@@ -54,11 +54,23 @@ public class OppoPlayerController : GameObjectController, ICombatTarget {
     Transform _muzzlePointTr;
     public Transform MuzzlePoint => _muzzlePointTr;
 
+    // 월드 소리를 내보내는 3D 소스(가슴팍). 발사음을 붙일 때도 이 소스를 쓴다
+    AudioSource _soundAudio;
+
     Vector3 _velocity;
     float _yaw;
     float _pitch;
     uint _movementState;
     uint _actionState;
+
+    // MovementState(서버 계약). 0=IDLE, 3은 쓰이지 않는다
+    private const uint MOVEMENT_WALK = 1;
+    private const uint MOVEMENT_RUN = 2;
+    private const uint MOVEMENT_JUMP = 4;
+
+    // 점프 중 걷기/달리기를 가르는 속도 문턱. PlayerController의 walkSpeed 1 / runSpeed 3.5 사이다
+    private const float FOOTSTEP_MIN_SPEED = 0.5f;
+    private const float FOOTSTEP_RUN_SPEED = 2f;
 
     float yOffset = 0.58f;
 
@@ -66,12 +78,29 @@ public class OppoPlayerController : GameObjectController, ICombatTarget {
     Vector3 _targetPosition;
     bool _hasReceivedState = false;
 
+    // 점프 중에는 MovementState가 JUMP로 덮여 걷기/달리기 구분이 사라진다. 그래서 속도로 가른다 —
+    // 접지 여부로 발소리를 막으면 점프를 연달아 뛰는 것만으로 소리 없이 이동할 수 있게 된다.
+    // 제자리 점프는 수평 속도가 0에 가까워 여기서 자연히 걸러진다
+    float HorizontalSpeed => new Vector3(_velocity.x, 0f, _velocity.z).magnitude;
+    bool IsAirborneMoving => _movementState == MOVEMENT_JUMP && HorizontalSpeed > FOOTSTEP_MIN_SPEED;
+
+    // 이름을 ProcessAnimation의 isMoving/isRunning과 갈라 둔다 — 애니메이션은 점프 중을
+    // 이동으로 보지 않고(공중에서는 idle 블렌드), 발소리만 위 이유로 이동으로 본다
+    bool IsStepping => _movementState == MOVEMENT_WALK || _movementState == MOVEMENT_RUN
+                       || IsAirborneMoving;
+    bool IsRunningStep => _movementState == MOVEMENT_RUN
+                          || (IsAirborneMoving && HorizontalSpeed >= FOOTSTEP_RUN_SPEED);
+
     public override void Init() {
         base.Init();
     }
 
     public void Setup(int characterType) {
         _aimTarget = transform.Find("Aim");
+
+        Transform soundTransform = transform.Find("SoundPoint");
+        if (soundTransform != null) _soundAudio = soundTransform.GetComponent<AudioSource>();
+        if (_soundAudio == null) Util.LogError($"SoundPoint의 AudioSource가 없어 이 적의 소리가 나지 않는다 (objectId={_objectId}) — OppoPlayerObject 프리팹에 SoundPoint + AudioSource 필요");
 
         string modelName = $"HB{characterType}OppoPlayer";
         Managers.Resource.Instantiate($"GameObject/PlayerObject_ingredient/{modelName}", this.transform);
@@ -189,6 +218,21 @@ public class OppoPlayerController : GameObjectController, ICombatTarget {
         _muzzlePointTr = FindMuzzlePoint(_equippedWeaponGo);
     }
 
+    // 발사음. 무기별 분기는 공용 헬퍼(GetGunShotSound)에 있고 여기서는 자기 무기 id만 넘긴다 —
+    // 로컬 PlayerController.Fire()와 같은 자리를 쓰므로 무기별 소리를 넣을 때 두 곳이 갈리지 않는다.
+    //
+    // 무기 id의 출처는 D2CSpawnPlayerObject.weapon_id + D2CNotifyWeaponChanged로 추적한
+    // _equippedWeaponId다. 발사 브로드캐스트에는 무기가 실려 오지 않는다
+    public void PlayFireSound() {
+        Managers.Sound.PlayOneShotAt(GetGunShotSound(_equippedWeaponId), _soundAudio);
+    }
+
+    // 재장전 연출 단계음. D2CNotifyReloadSequence를 받을 때마다 그 단계만 재생한다 —
+    // 직전 단계가 도착했는지 따지지 않는다(unreliable이라 통째로 빠질 수 있다는 것이 계약이다)
+    public void PlayReloadSound(uint sequenceNum) {
+        Managers.Sound.PlayOneShotAt(GetReloadSound(_equippedWeaponId, sequenceNum), _soundAudio);
+    }
+
     public void ApplyState(PlayerStateData data) {
         _targetPosition = data.Position;
         _yaw = data.Yaw;
@@ -207,8 +251,18 @@ public class OppoPlayerController : GameObjectController, ICombatTarget {
 
     void Update() {
         ProcessMovement();
-        ProcessAnimation(); 
+        // 위치가 갱신된 뒤에 울려야 한다 — 소스가 자식이라 이 순서면 갱신된 자리에서 난다
+        ProcessFootstep();
+        ProcessAnimation();
         ProcessAim();
+    }
+
+    // 타이머·간격·클립 선택은 공용 베이스에 있다(GameObjectController.UpdateFootstep) —
+    // 로컬 플레이어와 같은 것을 쓰므로 내가 듣는 내 발소리와 남의 발소리가 같은 리듬이다
+    private void ProcessFootstep() {
+        if (!_hasReceivedState) return;
+
+        UpdateFootstep(_soundAudio, IsStepping, IsRunningStep);
     }
 
     private void ProcessMovement() {
@@ -224,8 +278,8 @@ public class OppoPlayerController : GameObjectController, ICombatTarget {
     private void ProcessAnimation() {
         if (_anim == null) return;
 
-        bool isMoving = _movementState == 1 || _movementState == 2;
-        bool isRunning = _movementState == 2;
+        bool isMoving = _movementState == MOVEMENT_WALK || _movementState == MOVEMENT_RUN;
+        bool isRunning = _movementState == MOVEMENT_RUN;
 
         Quaternion yawRot = Quaternion.Euler(0f, _yaw, 0f);
         Vector3 localVel = Quaternion.Inverse(yawRot) * _velocity;

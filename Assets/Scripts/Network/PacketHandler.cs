@@ -120,6 +120,7 @@ public class PacketHandler {
         _handlers.Add((ushort)PktId.D2CNotifyPlayerKilled, Handle_D2CNotifyPlayerKilled);
         _handlers.Add((ushort)PktId.D2CNotifyObjectKilled, Handle_D2CNotifyObjectKilled);
         _handlers.Add((ushort)PktId.D2CResponseReload, Handle_D2CResponseReload);
+        _handlers.Add((ushort)PktId.D2CNotifyReloadSequence, Handle_D2CNotifyReloadSequence);
     }
 
     // ==========================================
@@ -1298,6 +1299,32 @@ public class PacketHandler {
         Managers.ExecuteAtMainThread(() => {
             if (Managers.Scene.CurrentScene is not IngameScene ingameScene) return;
             ingameScene.HandleWeaponChanged(objectId, weaponId, slot, inventoryVersion);
+        });
+    }
+
+    // 남의 재장전 연출 단계. 서버가 중계한 것이며 당사자에게는 오지 않는다 —
+    // 내 완료음은 D2CResponseReload 쪽에서 낸다
+    private void Handle_D2CNotifyReloadSequence(ReadOnlySpan<byte> payloadSpan) {
+        D2CNotifyReloadSequence pkt = null;
+
+        try {
+            pkt = D2CNotifyReloadSequence.Parser.ParseFrom(payloadSpan);
+        }
+        catch (InvalidProtocolBufferException e) {
+            Managers.ExecuteAtMainThread(() => { Util.LogError($"D2CNotifyReloadSequence 파싱 실패: {e.Message}"); });
+            return;
+        }
+        catch (Exception e) {
+            Managers.ExecuteAtMainThread(() => { Util.LogError($"D2CNotifyReloadSequence 처리 중 알 수 없는 에러: {e.Message}"); });
+            return;
+        }
+
+        uint objectId    = pkt.ObjectId;
+        uint sequenceNum = pkt.SequenceNum;
+
+        Managers.ExecuteAtMainThread(() => {
+            if (Managers.Scene.CurrentScene is not IngameScene ingameScene) return;
+            ingameScene.HandleReloadSequence(objectId, sequenceNum);
         });
     }
 

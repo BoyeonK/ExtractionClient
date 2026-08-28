@@ -371,6 +371,11 @@ public class IngameScene : BaseScene {
     private const float RELOAD_LOCAL_SEC = 2f;
     private const float SWITCH_LOCAL_SEC = 0.5f;
 
+    // 재장전 연출 단계가 발화하는 시점(재장전 시작 기준 경과 초). 배열 인덱스가 곧 단계 번호다.
+    // 완료(Define.RELOAD_SEQUENCE_COMPLETE)는 서버가 발행하므로 여기 없다 — 넣으면 그 통보가 통째로 버려진다
+    private static readonly float[] RELOAD_SEQUENCE_TIMES = { 0f, 1f };
+    private int _reloadSequence = -1;   // 마지막으로 발화한 단계. -1 = 아직 없음
+
     // TEMP: 응답 워치독. 응답이 오지 않으면 발사가 그 판 내내 막히므로 잠금만 풀어둔다.
     //       결과를 추측하지 않고 로컬 잠금만 해제하므로 판정 권한은 서버에 그대로 있다.
     //       서버 응답 신뢰성이 검증되면 이 상수와 UpdateAction()의 TEMP 블록을 함께 제거할 것.
@@ -394,6 +399,16 @@ public class IngameScene : BaseScene {
     // 진입은 RUN_ENTRY_STAMINA, 유지는 0 초과 — 달리는 중에 20 아래로 떨어져도 계속 달린다
     public bool CanStartRunning => _currentStamina >= RUN_ENTRY_STAMINA;
     public bool HasStamina => _currentStamina > 0f;
+
+    // 점프는 달리기와 달리 지속 소모가 아니라 '한 번에 깎는' 소모다.
+    // 묻기(CanJump)와 깎기(ConsumeJumpStamina)를 나눠 둔 것은 PlayerController가
+    // 실제로 뛰는 자리에서만 깎게 하기 위해서다 — 공중에서 누른 Space가 스태미나만 깎으면 안 된다
+    public bool CanJump => _currentStamina >= JUMP_STAMINA_COST;
+
+    public void ConsumeJumpStamina() {
+        _currentStamina = Mathf.Max(_currentStamina - JUMP_STAMINA_COST, 0f);
+        BlockStaminaRegen();
+    }
 
     // 행동 진입의 유일한 경로. 같은 사유의 재요청은 여기서 무시되므로,
     // 대상이 있는 행동(무기 교체)의 재타게팅은 호출부가 먼저 취소하고 들어온다
@@ -419,6 +434,9 @@ public class IngameScene : BaseScene {
         _actionPhase = PlayerActionPhase.Local;
         _actionTimer = 0f;
         _switchPendingSlot = NO_PENDING_SLOT;
+        // 재장전 단계를 여기서 되돌리므로 취소 사유별 분기가 필요 없다 — 달리기 시작·무기 교체로
+        // 덮어쓰기·매치 이탈·워치독 만료가 전부 이 함수를 지나간다. 서버에 알릴 것은 없다(계약)
+        _reloadSequence = -1;
     }
 
     // 유예(Local) → 전송(Pending) → 응답. 응답에 의한 해제는 각 결과 핸들러가 한다
@@ -443,10 +461,49 @@ public class IngameScene : BaseScene {
             return;
         }
 
+        if (_actionKind == PlayerActionKind.Reload)
+            AdvanceReloadSequence();
+
         float localSec = _actionKind == PlayerActionKind.Reload ? RELOAD_LOCAL_SEC : SWITCH_LOCAL_SEC;
         if (_actionTimer < localSec) return;
 
         SendActionRequest();
+    }
+
+    // 재장전 연출 단계를 하나씩 올린다. 유예 타이머(_actionTimer)에 얹는 것이 요점 —
+    // 별도 타이머를 두면 두 시계가 어긋나 "소리는 났는데 전송은 아직"이 생긴다.
+    //
+    // 한 프레임에 한 단계씩만 올린다. 프레임이 튀어 구간을 통째로 건너뛰어도 순서가 보존되며,
+    // while로 몰아 올리면 같은 프레임에 소리 둘이 겹친다
+    private void AdvanceReloadSequence() {
+        int next = _reloadSequence + 1;
+        if (next >= RELOAD_SEQUENCE_TIMES.Length) return;
+        if (_actionTimer < RELOAD_SEQUENCE_TIMES[next]) return;
+
+        _reloadSequence = next;
+
+        // 내 소리는 여기서 직접 낸다. 서버가 중계하는 통보는 당사자를 제외하고 나가므로
+        // 이걸 빼면 나만 내 재장전 소리를 못 듣는다
+        if (_playerController != null)
+            _playerController.PlayReloadSound((uint)next);
+
+        Managers.Network.udpManager.SendC2DNotifyReloadSequence((uint)next);
+    }
+
+    // D2CNotifyReloadSequence. 남이 재장전 중이라는 통보이며 당사자에게는 오지 않는다.
+    //
+    // 상태를 두지 않는 것이 계약 요구다 — unreliable이라 단계가 통째로 빠질 수 있어
+    // '직전 단계가 도착했는가'를 전제하면 안 된다. 온 것을 그대로 재생하고 끝낸다.
+    // 취소 통보도 없는데, 연출이 원샷 소리뿐이라 스스로 끝나므로 지금은 문제가 없다 —
+    // 오포 재장전 '애니메이션'을 붙이면 그때는 다음 단계가 오지 않는 경우의 종료 조건이 필요해진다
+    public void HandleReloadSequence(uint objectId, uint sequenceNum) {
+        if (_despawnedObjectIds.Contains(objectId)) return;
+
+        // 모르는 플레이어에게 스폰을 요청하지 않는다 — 보이지도 않는 상대의 재장전 소리는
+        // 쓸 데가 없고, 근처라면 상태 스트림이 곧 채운다(발사 브로드캐스트와 같은 판단)
+        if (!_oppoPlayers.TryGetValue(objectId, out OppoPlayerController controller)) return;
+
+        controller.PlayReloadSound(sequenceNum);
     }
 
     // 유예 동안 인벤토리가 바뀌었을 수 있다. 버전과 대상 검증은 반드시 전송 시점 값으로 한다 —
@@ -516,7 +573,14 @@ public class IngameScene : BaseScene {
             primaryWeaponMagazine, secondaryWeaponMagazine);
         SyncInventoryUI();
 
-        if (result) return;
+        if (result) {
+            // 완료음은 '서버가 확정한 시점'에 낸다 — 거부되면 울리지 않는다.
+            // 남들이 듣는 완료(15) 통보도 같은 근거(C2DRequestReload 성공)로 서버가 발행하므로
+            // 내 귀와 남의 귀가 같은 기준을 쓴다. 2초(전송 시점)로 당기면 거부에도 울린다
+            if (_playerController != null)
+                _playerController.PlayReloadSound(Define.RELOAD_SEQUENCE_COMPLETE);
+            return;
+        }
 
         // DENY_SLOT_EMPTY(맨손·이미 가득·탄종 없음)는 재요청해도 결과가 같다.
         // 표시는 위의 스냅샷 반영으로 이미 서버 값에 맞춰졌으므로 따로 되돌릴 것이 없다
@@ -1028,12 +1092,13 @@ public class IngameScene : BaseScene {
     private const float SHIELD_REGEN_ACCUM_UNIT = 1000f;
 
     // 스태미나는 서버에 필드가 없는 완전한 클라 로컬 상태다 — 실드 예측과 달리
-    // 서버 절대값으로 리셋되는 경로가 아예 없으므로 이 다섯 상수가 유일한 출처다
+    // 서버 절대값으로 리셋되는 경로가 아예 없으므로 이 여섯 상수가 유일한 출처다
     private const float MAX_STAMINA = 60f;
     private const float RUN_ENTRY_STAMINA = 20f;      // 달리기 '진입'에만 걸린다. 유지 조건이 아니다
     private const float STAMINA_DRAIN_PER_SEC = 10f;
     private const float STAMINA_REGEN_PER_SEC = 10f;
-    private const float STAMINA_REGEN_DELAY = 1f;     // 달리기가 끝난 뒤 회복이 시작되기까지
+    private const float STAMINA_REGEN_DELAY = 1f;     // 달리기·점프 뒤 회복이 시작되기까지
+    private const float JUMP_STAMINA_COST = 12f;      // 점프의 요구치이자 소모량 (같은 값 하나로 본다)
 
     // 스태미나 바가 보이는 구간. RUN_ENTRY_STAMINA와 값이 같지만 다른 개념이라 상수를 따로 둔다 —
     // '달리기를 시작할 수 있는가'와 '게이지를 보여줄 것인가'는 함께 움직여야 할 이유가 없다.
@@ -1272,7 +1337,7 @@ public class IngameScene : BaseScene {
         bool isRunning = IsPlayerRunning;
 
         if (_wasRunning && !isRunning)
-            _staminaRegenBlockedUntil = Time.time + STAMINA_REGEN_DELAY;
+            BlockStaminaRegen();
         _wasRunning = isRunning;
 
         if (isRunning)
@@ -1285,6 +1350,13 @@ public class IngameScene : BaseScene {
             _ingameStaminaBarUI.SetStamina(_currentStamina, MAX_STAMINA);
             _ingameStaminaBarUI.SetVisible(isRunning || _currentStamina <= STAMINA_SHOW_THRESHOLD);
         }
+    }
+
+    // 잠금을 세우는 형태는 이 한 곳에 둔다. 호출부는 달리기 종료 엣지와 점프 소모 둘이며,
+    // 지연이 같은 상수라 나중에 세운 쪽이 항상 더 늦어 서로 잠금을 줄이지 않는다.
+    // 점프에만 다른 지연을 주려면 그 monotonic 전제가 깨지므로 Max로 바꿔야 한다
+    private void BlockStaminaRegen() {
+        _staminaRegenBlockedUntil = Time.time + STAMINA_REGEN_DELAY;
     }
 
     // 실드 재생은 전용 통보 패킷이 없다. 서버는 매 틱 회복만 시키고 아무것도 보내지 않으므로
@@ -1342,7 +1414,9 @@ public class IngameScene : BaseScene {
         if (!_oppoPlayers.TryGetValue(shooterObjectId, out OppoPlayerController shooter))
             return;
 
-        // TODO: 발사자 총구 이펙트 (머즐 플래시, 총성 등)
+        // 소리는 hit_point 유무와 무관하게 낸다 — 빗나간 총도 소리는 난다.
+        // 좌표가 없어 그리지 못하는 것은 궤적뿐이므로(아래) 둘을 같은 가드에 묶지 말 것
+        shooter.PlayFireSound();
 
         if (hasHitPoint) {
             // 빗나간 발사는 hit_point가 실리지 않아 방향 자체를 모르므로 그리지 않는다.

@@ -65,6 +65,14 @@
 - 반영은 `RaiseFireSequenceTo()`의 `max()` 단조 상승만. **대입 setter를 만들지 말 것** — 요청을 보낸 뒤 응답 전에 쏜 발사가 이미 번호를 올려놨을 수 있다
 - 접근자는 `NextFireSequence()`(송신, 메인 스레드)와 `RaiseFireSequenceTo()`(수신 반영) 둘이며, 후자를 **`ExecuteAtMainThread` 안에서만** 부른다. 단일 스레드 소유라 lock이 없으므로 워커 스레드에서 직접 부르면 그 전제가 깨진다
 
+### 재장전 연출 통보 (44 / 45) — 유실이 정상 범위다
+
+`C2DNotifyReloadSequence`(44)와 `D2CNotifyReloadSequence`(45)는 **양방향 모두 unreliable이다(서버 계약).** 서버는 값을 해석하지도 보관하지도 않고 `object_id`만 채워 중계하며, `C2DRequestReload`(42)와 아무 연결도 없다.
+
+- **특히 C2D 쪽은 매 틱 나가는 상태 패킷과 `uSeqNum`을 공유해 조금만 늦게 도착해도 버려진다.** 단계가 통째로 빠지는 것이 정상이므로 **재전송·순서 보정을 붙이지 말 것** — 연출용 패킷이 in-flight 32슬롯을 먹게 된다
+- 수신 측이 상태를 두지 않는 이유가 이것이다(`Scenes/CLAUDE.md`). **"그 단계만 안 들린다"를 결함으로 보고 reliable로 올리지 말 것**
+- `sequence_num`은 **0~15 범위 안에서 쓴다** — 벗어나면 varint가 2B가 된다. **15는 서버 전용**이라 클라가 보내면 통보 전체가 버려진다
+
 ### `D2CFullInventorySync`가 실리는 패킷은 둘이다
 
 전체 동기화(30)와 재장전 응답(43, `D2CResponseReload.inventory`)이 같은 메시지를 쓴다. 변환은 `ToInventoryItem()`/`ToInventorySlotArray()`로 공유하되 **핸들러는 공유하지 않는다** — 전체 동기화 쪽에는 최초 1회용 초기화가 딸려 있고 버전 비교가 없다(`Scenes/CLAUDE.md`의 '재장전' 참조).

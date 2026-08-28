@@ -28,7 +28,7 @@ Assets/Resources/
 │  ├ Scene/, System/, TestLobbyScene/   코드 참조 없음(아래 '참조 없는 자산')
 ├ Images/{Items, MapSprites, WeaponSprites}
 ├ Fonts/                    7종. 코드 경로 없이 프리팹이 직접 참조한다
-└ Sounds/                   12개. 재생 호출부는 아직 `empty_gun_shot` 하나뿐이다(아래)
+└ Sounds/                   12개 중 6개를 재생한다(아래). 재장전음·UI음은 아직 호출부가 없다
 ```
 
 ## 경로 접두어가 호출부마다 다르다
@@ -39,6 +39,7 @@ Assets/Resources/
 |---|---|---|
 | `Managers.Resource.Instantiate(path)` | `GameObject/PlayerLoot` | `Prefabs/`를 **자동으로 붙인다** |
 | `Managers.Sound.Play(path)` | `empty_gun_shot` | `Sounds/`를 **없을 때만 붙인다** |
+| `Managers.Sound.PlayOneShotAt(path, source)` | `foot_step1` | 위와 같다. 차이는 경로가 아니라 **어디서 울리는가**(아래) |
 | `Resources.Load<T>()` 직접 | `Images/Items/icon_item_3` | **전체 경로 그대로** |
 
 ## 이름이 곧 계약인 자리
@@ -51,6 +52,7 @@ Assets/Resources/
 | `Prefabs/Weapons/Weapon_{weaponId}_{name}` | 이름에서 id를 파싱 | `IngameScene`의 `LoadAll("Prefabs/Weapons")` |
 | `Prefabs/GameObject/{ObjectType 이름}` | 타입 ↔ 경로 대응 | `Define.ObjectPaths` |
 | `Prefabs/GameObject/PlayerObject_ingredient/HB{0\|1\|2}{Player\|OppoPlayer\|Selected}` | 캐릭터 타입 × 용도 | `PlayerController`·`OppoPlayerController`·`SelectedCharacter` |
+| `PlayerObject`·`OppoPlayerObject`의 직계 자식 `SoundPoint` | 이름 고정 + `AudioSource` 부착 | 양쪽 `Setup()`의 `transform.Find` (아래) |
 | `Images/Items/icon_item_{item_id}` | item_id | 슬롯 3종(`ISlot`·`IngameISlot`·`SSlot`) |
 | `Images/MapSprites/map_sprite_{mapId}` | mapId | `UI_MapSelect` |
 | `Images/WeaponSprites/weapon_sprite_{id}` | 위와 같은 꼴이나 **아직 참조하는 코드가 없다** | — |
@@ -110,6 +112,26 @@ IngameWeaponUI                  ← GameObject.Find 대상. 이름 고정 + 씬�
 - `IngameWeaponUI`의 `WeaponImage`는 자리만 있고 **아직 코드가 채우지 않는다**(`TODO:`) — **쓸 이미지가 정해지지 않았고, `Images/WeaponSprites/*`는 여기에 쓰는 것이 아니다**
 - `IngameWeaponUI`는 **그래픽 7개 모두 `raycastTarget`을 꺼둔다.** HUD가 클릭을 가로채면 인벤토리를 열어 커서가 풀린 상태에서 겹치는 영역의 드래그를 먹는다. 요소를 추가할 때도 함께 끌 것
 
+## `SoundPoint` — 월드 소리를 내보내는 3D 소스
+
+`PlayerObject`·`OppoPlayerObject` **양쪽의 직계 자식**(`ViewPoint`·`ShotPoint`·`Aim`과 같은 층)이며 `AudioSource` 하나를 갖는다. **두 프리팹의 이름·설정을 같이 유지할 것** — 코드가 같은 이름으로 찾고 같은 헬퍼로 재생한다. 위치는 발이 아니라 **가슴 부근**(local y=0.5)이다 — 스테레오 패닝은 방위각만 주고 고도는 HRTF 없이 실리지 않으므로 원거리 청자에게 가슴↔발 1m는 들리지 않고, 대신 **리스너(머리 카메라)와 가까워져 자기 발소리가 발밑에서 작게 나는 문제가 없어진다.**
+
+| 설정 | 값 | 어기면 |
+|---|---|---|
+| Play On Awake | off | 스폰마다 빈 재생이 돈다 |
+| Spatial Blend | **1.0 (3D)** | 0이면 위치가 무의미해진다 |
+| Min Distance | **2 이상** | 내 소리가 머리↔가슴 거리만큼 감쇠한다 |
+| Max Distance | 30 | **발사음을 붙일 때 반드시 다시 볼 값**(아래) |
+| Volume / Pitch | 손대지 않음 | `PlayOneShotAt`이 매 재생마다 `volume`을 덮는다. 밸런스는 코드의 `volumeScale`로 잡을 것 |
+| AudioClip / Output | 비움 | 클립은 `PlayOneShot`이 넘긴다 |
+
+- **경계선: 월드에서 난 소리는 `SoundPoint`, UI 피드백(`ui_submit`·`inventory_change`)은 2D `Managers.Sound.Play`.** 안 그으면 클릭음이 가슴에서 3D로 나는 쪽으로 흘러간다. `empty_gun_shot`은 남에게 들릴 소리가 아닌 1인칭 피드백이라 의도적으로 2D에 남아 있다
+- **소스 하나에 여러 소리를 태운다.** `PlayOneShot`은 재생 중인 것을 끊지 않고 섞으므로 발소리·발사음이 서로 잘라먹지 않는다. 대신 `volume`·`pitch`·`min/maxDistance`는 **소스 단위 속성이라 재생 중인 원샷에까지 소급 적용된다** — pitch 랜덤화를 붙이면 그 직후 나가는 발사음까지 같이 흔들린다
+- **하나로 합치는 것이 부딪히는 지점은 상하가 아니라 가청 거리다.** 감쇠 곡선과 `maxDistance`가 소스당 하나뿐인데 발소리는 30m에서 끊겨야 하고 발사음은 그보다 멀리 가야 한다. `volumeScale`은 곡선을 균일하게 낮출 뿐 모양을 바꾸지 않는다. **거리 값을 재생할 때마다 갈아끼우는 방식은 쓰지 말 것**(걸으며 쏘는 상황이 상시라 울리던 소리의 거리감이 중간에 튄다) — 필요해지면 `SoundPoint`를 근거리용·원거리용 둘로 쪼갠다
+  - **이미 부딪힌 상태다** — 오포 총성이 30m에서 끊긴다. `SoundManager.PlayOneShotAt`에 `OPTION:`으로 달려 있으며, 해소하려면 **프리팹에 소스를 하나 더 만드는 작업이 선행된다**
+- **오브젝트가 파괴되면 재생 중인 소리도 끊긴다.** 발소리는 티가 안 나지만 "죽는 순간 나야 하는 소리"를 여기 태우면 안 된다
+- **오포에는 여러 인스턴스가 동시에 존재한다.** 소스가 오브젝트마다 하나씩이라 서로 간섭하지 않지만, 이 소스로 재생하는 모든 소리가 `Max Distance` 30을 공유한다는 점은 발사음을 붙일 때 그대로 걸린다(위)
+
 ## 로드 실패는 반드시 드러난다
 
 `ResourceManager`의 두 자리가 `Util.LogError`를 남긴다 — 경로 오타·프리팹 미제작(`Instantiate`)과 `ObjectPaths`에 경로는 있는데 프리팹이 없는 경우(`InstantiateFromObjectDataStruct`)다. **`Debug.Log`로 낮추지 말 것** — 호출부 대부분이 반환값을 그대로 참조해서, 묻히면 원인이 아니라 NRE부터 보게 된다. 실제로 `UI/IngameScene` ↔ `UI/IngameSceneUI` 오타가 정확히 그 경로로 샜다.
@@ -124,5 +146,5 @@ IngameWeaponUI                  ← GameObject.Find 대상. 이름 고정 + 씬�
 - `Prefabs/System/EventSystem` — 코드가 쓰는 것은 `UI/EventSystem` 쪽이다. **같은 것이 두 벌 있다**
 - `Prefabs/Scene/*`(4종), `Prefabs/TestLobbyScene/`, `Prefabs/TestPlayer`, `Prefabs/UI/LobbySceneUI/LobbySettingUIBackup`
 - `Images/WeaponSprites/*` — 명명 규약은 아이템·맵과 같은 꼴이라 쓰일 자리를 예비해 둔 것으로 보인다
-- **`Sounds/` 12개 중 11개** — 재생 호출부가 있는 것은 `empty_gun_shot` 하나뿐이다(`PlayerController.EmptyAmmoFire()`). 발사음·발소리·재장전음은 파일로만 준비돼 있고 재생을 붙이면 되는 상태이며, 이건 `progress.md`의 이펙트 항목과 같은 자리다
+- **`Sounds/` 12개 중 6개** — 재생 호출부가 있는 것은 `empty_gun_shot`(`EmptyAmmoFire()`), `foot_step1~3`·`run_foot_step`(`ProcessFootstep()` — 로컬·오포 양쪽), `gun_shot_1`(`Fire()`)이다. 재장전음 3종·UI음 2종은 파일로만 준비돼 있고 재생을 붙이면 되는 상태이며, 이건 `progress.md`의 이펙트 항목과 같은 자리다
   - **클립을 못 찾아도 아무 소리 없이 넘어간다** — `SoundManager.Play()`가 null이면 그대로 return하고 `GetOrAddAudioClip()`은 **그 null을 딕셔너리에 캐시까지 한다.** 즉 파일명을 한 글자 틀리면 그 소리만 영구히 무음이고 로그도 남지 않는다. 위 '이름이 곧 계약인 자리'가 사운드에도 그대로 걸리며, 로드 실패가 `LogError`로 드러나는 프리팹 쪽과 여기가 다르다

@@ -58,6 +58,8 @@ enum PktId {
     D2C_NOTIFY_OBJECT_KILLED = 41;
     C2D_REQUEST_RELOAD = 42;
     D2C_RESPONSE_RELOAD = 43;
+    C2D_NOTIFY_RELOAD_SEQUENCE = 44;
+    D2C_NOTIFY_RELOAD_SEQUENCE = 45;
 }
 
 message C2DChannelOpen {
@@ -385,4 +387,21 @@ message D2CResponseReload {
     // 0x0001  DENY_VERSION_MISMATCH  인벤토리 버전이 클라이언트와 다름
     // 0x0002  DENY_SLOT_EMPTY        손에 든 무기가 없거나, 탄창이 이미 가득 찼거나,
     //                                인벤토리에 해당 탄종이 없음
+}
+
+// 재장전 연출 단계 통보. 서버는 이 값을 해석하지도 보관하지도 않고 그대로 중계하며,
+// C2DRequestReload 와 아무 연결도 두지 않는다 — 보낸 뒤 취소해도 정리할 상태가 없다.
+// object_id 는 싣지 않는다 — 서버가 세션에서 얻어 채우므로 남의 id 를 실을 여지 자체가 없다
+message C2DNotifyReloadSequence {
+    // 재장전 연출의 단계 번호. 0=시작이고 이후 중간 단계는 클라이언트가 정한다.
+    // 15(완료)는 서버 전용이라 실어 보내면 통보 전체가 버려진다.
+    // 0~15 를 벗어나면 varint 가 2B 가 되므로 그 안에서 쓸 것
+    uint32 sequence_num = 1;
+}
+
+// 남이 재장전 중이라는 통보 — 당사자를 제외한 룸 전체에 unreliable 로 보낸다.
+message D2CNotifyReloadSequence {
+    // 15(완료)는 C2DRequestReload 성공 시 서버가 발행하고, 나머지는 당사자가 보낸 것을 중계한 값이다
+    uint32 sequence_num = 1;
+    uint32 object_id    = 2;  // 재장전 중인 플레이어
 }

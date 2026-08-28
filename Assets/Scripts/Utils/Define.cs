@@ -42,6 +42,11 @@ public static class Define {
         MaxCount,
     }
 
+    // 재장전 연출의 '완료' 단계 번호. **서버 전용이다** — C2DRequestReload가 성공하면 서버가
+    // 이 값을 룸에 뿌리며, 클라가 실어 보내면 통보 전체가 버려진다(서버 계약).
+    // 네트워크와 컨트롤러 양쪽이 참조하므로 어느 한쪽이 아니라 여기 둔다
+    public const uint RELOAD_SEQUENCE_COMPLETE = 15;
+
     public static readonly Dictionary<int, string> ObjectPaths = new Dictionary<int, string>() {
         { (int)ObjectType.Undefined, null },
         { (int)ObjectType.Player, "GameObject/OppoPlayerObject" },

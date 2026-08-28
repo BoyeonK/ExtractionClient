@@ -32,7 +32,7 @@ public class LobbyScene : BaseScene {
     private CancellationTokenSource _cts = new CancellationTokenSource();
 
     LobbyState _lobbyState = LobbyState.BeforeConnect;
-    int _selectedCharacterType = 0;
+    int _selectedCharacterType = 1;
 
     HTTPManager.LoginState _loginState => Managers.Network.httpManager.AuthState;
 
