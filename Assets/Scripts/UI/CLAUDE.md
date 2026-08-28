@@ -28,9 +28,11 @@ UI_Base (abstract)
 
 UIManager가 아닌 씬 자체에 존재하는 MonoBehaviour UI 오브젝트. `IngameScene.Init()`에서 `GameObject.Find()`로 바인딩 + `Init()` 호출:
 
-> **바인딩이 `Find` 결과만 검사하고 `GetComponent` 결과는 보지 않는다** — 씬에 **이름은 맞는 오브젝트가 있는데 스크립트가 안 붙어 있으면** `Init()` 호출에서 NRE가 나고, **그 아래 초기화(크로스헤어 생성·키 리스너 등록 등)가 통째로 안 돈다.** 킬 피드 바인딩에만 `Util.LogError` 가드가 있고 **나머지 5종은 아직 뚫려 있다.** 맵 씬이 늘어날 때마다 5종을 배치해야 하는 구조라 **같은 실수가 맵마다 반복될 자리**이며, `Find`+`GetComponent`+실패 로그를 헬퍼로 묶으면 여섯 곳이 한 번에 닫힌다.
+> **바인딩이 `Find` 결과만 검사하고 `GetComponent` 결과는 보지 않는다** — 씬에 **이름은 맞는 오브젝트가 있는데 스크립트가 안 붙어 있으면** `Init()` 호출에서 NRE가 나고, **그 아래 초기화(크로스헤어 생성·키 리스너 등록 등)가 통째로 안 돈다.** 킬 피드 바인딩에만 `Util.LogError` 가드가 있고 **나머지 6종은 아직 뚫려 있다.** 맵 씬이 늘어날 때마다 5종을 배치해야 하는 구조라 **같은 실수가 맵마다 반복될 자리**이며, `Find`+`GetComponent`+실패 로그를 헬퍼로 묶으면 여섯 곳이 한 번에 닫힌다.
 >
 > **씬에는 활성 상태로 저장할 것** — `GameObject.Find`는 비활성 오브젝트를 못 찾는다. 필요하면 각 `Init()`이 바인딩 직후 스스로 끈다.
+
+**이 UI들은 각자 자기 `Canvas`를 들고 `sortingOrder`를 90~100대로 쓴다.** `UIManager`가 매기는 값(SceneUI 0~, PopupUI 20~)보다 크지만 **결함이 아니라 이쪽의 관례다** — 인게임 HUD는 `UIManager` 계열과 같은 스택에서 겨루지 않는다. 값이 커 보인다고 낮추지 말 것.
 
 | 클래스 | Init 시그니처 | 역할 |
 |--------|---------------|------|
@@ -41,6 +43,7 @@ UIManager가 아닌 씬 자체에 존재하는 MonoBehaviour UI 오브젝트. `I
 | `IngameHealthBarUI` | `Init()` | HP/방어구 게이지. Fill 이미지의 `fillAmount`를 조작하므로 **대상 Image의 Type이 `Filled`여야 한다** — `Simple`이면 대입이 조용히 무시된다. 최대치는 `SetMaxHP`/`SetMaxShield`로 별도 주입하며, 최대 실드가 0이면(방어구 해제) 바를 비운다 |
 | `IngameSettingUI` | `Init(IngameScene)` | 인게임 설정 창(ESC). 마우스 감도 + 볼륨 3종. 아래 절 참조 |
 | `IngameKillLogUI` | `Init(IngameScene)` | 킬 피드. `SingleKillLog`를 찍어내고 목록으로 관리한다. 아래 절 참조 |
+| `IngameWeaponUI` | `Init()` | 손에 든 무기 이름 + 탄창 잔량 + 예비탄. 아래 절 참조 |
 
 ### `IngameKillLogUI` / `SingleKillLog` — 킬 피드
 
@@ -65,6 +68,32 @@ SingleKillLog                   ← Resources/Prefabs/UI/IngameSceneUI/
 ```
 
 - **가해자 이름이 비면 `KillerId`만 빈 문자열이 되고 `KillIcon`은 그대로 남는다** — 가해자 없는 죽음은 `[아이콘] [피해자]` 꼴로 보인다. 아이콘까지 숨기려면 `SingleKillLog.Init()`에서 함께 꺼야 한다
+
+### `IngameWeaponUI` — 무기·탄약 표시
+
+**값을 스스로 구하지 않는다.** `IngameScene.SyncWeaponUI()`가 이름·탄창 잔량·예비탄을 계산해 `SetWeapon(name, magazine, spare)`로 밀어넣고, 이 클래스는 텍스트 대입만 한다. 그래서 `Init()`이 무인자이고 씬 참조를 들지 않는다.
+
+- **갱신 지점이 다섯인데 전부 `SyncWeaponUI()` 하나를 거친다** — `SyncInventoryUI()`(전체 동기화·재장전 응답·아이템 조작이 이미 여기로 모인다) / `SyncHeldWeapon()` / `ApplyServerWeaponState()` / `TryInitWeapon()` / `PlayerController.Fire()`의 탄약 차감 직후. **각자 텍스트를 건드리게 만들지 말 것** — 한 경로만 빠져도 표시가 조용히 어긋난다
+- **`SyncHeldWeapon()` 쪽을 빠뜨리면 안 된다.** `ApplyEquipItem()`이 `SyncInventoryUI()`를 먼저 부르고 `SyncHeldWeapon()`을 나중에 부르는 순서라, 앞의 호출 시점에는 손에 든 무기가 아직 낡은 값이다. 양쪽 다 걸어 **마지막 호출이 이기게** 둔다(텍스트 대입이라 중복 1회는 비용이 없다)
+- **`SyncWeaponUI()` 호출은 `SyncInventoryUI()`의 `_ingameInventoryUI` null 가드보다 앞이다** — 무기 표시는 인벤토리 UI 존재에 종속되지 않는다(`SyncHealthBarMax()`와 같은 이유)
+- **탄창 잔량의 출처는 `IngameInventory.CurrentMagazine`이고 발사 판정과 같은 것을 쓴다.** 여기서 `IsPrimaryWeaponApplyed`를 다시 판단하지 말 것 — 쏘는 탄창과 보여주는 탄창이 갈린다
+- **예비탄은 인벤토리 25칸만 센다**(`IngameInventory.CountAmmo`). 장착된 탄창은 `MagazineAmmoCount` 쪽이라 이중 계상이 되고, 컨테이너 슬롯은 내 소지품이 아니다. 탄종은 `WeaponSpec.AmmoType`(= 탄약 item_id)
+- **탄창 용량은 표시하지 않는다**(확정). 프리팹에 자리가 없고 `30/30` 꼴로 합치지도 않는다
+- **맨손은 설계상 없는 상태다.** 숨김 처리를 만들지 말 것 — 무기 슬롯 둘을 모두 비우는 인벤토리 조작 중에만 잠깐 지나가며, 그때는 값만 비우고 창은 그대로 둔다
+
+**프리팹 계층 규격** (전부 `transform.Find`라 **직계 자식만 본다**):
+
+> **이 트리는 `Assets/Resources/CLAUDE.md`에도 같은 내용이 있다. 한쪽만 고치지 말 것.**
+
+```
+IngameWeaponUI                  ← GameObject.Find로 잡으므로 이름 고정 + 씬에서 활성
+└ WeaponUIWindow
+  ├ Header/{AccentLine, WeaponName}       AccentLine은 코드가 찾지 않는 장식
+  └ WeaponInfoPanel/{WeaponImage, MagazineAmmoCount, RemainAmmoCount}
+```
+
+- `WeaponImage`는 **아직 코드가 건드리지 않는다**(`TODO:`) — 자리는 있으나 **쓸 이미지가 정해지지 않았다.** `Images/WeaponSprites/*`는 여기에 쓰는 것이 아니다
+- 그래픽 7개 모두 `raycastTarget`이 꺼져 있다. HUD가 클릭을 가로채지 않아야 하기 때문이며, **새 요소를 추가할 때도 꺼둘 것**(인벤토리를 열어 커서가 풀린 상태에서 겹치는 영역의 드래그를 먹는다)
 
 ### `IngameCrosshair` — 규칙의 유일한 예외 (유지 확정)
 

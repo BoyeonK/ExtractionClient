@@ -100,16 +100,16 @@ public class PlayerController : GameObjectController, ICombatTarget {
     // '실제로 총알이 나가는 중'. 발사 모션과 ActionState가 이걸 본다.
     //
     // 탄약·무기 조건을 위의 IsFireInput에 합치지 말 것 — 그러면 Fire()에 도달하지 못해
-    // EmptyAmmoFire()가 영영 불려지지 않고, 빈 탄창 사운드·재장전 유도 UI가 설 자리가 사라진다.
+    // EmptyAmmoFire()가 영영 불려지지 않고, 빈 탄창 딸깍 소리가 통째로 사라진다.
     // '쏘려는 의사'와 '실제로 나가는 중'은 별개이며 이 파일에서 갈리는 유일한 지점이다
     bool IsShooting => IsFireInput && !_fireBlocked
                        && _equippedWeaponId != 0
                        && CurrentMagazine != null && CurrentMagazine.quantity > 0;
 
-    // 손에 든 슬롯의 탄창. Fire()의 탄약 검사와 같은 규칙을 써야 하므로 한 곳에 둔다
-    InventoryItem CurrentMagazine => _ingameScene.Inventory.IsPrimaryWeaponApplyed
-        ? _ingameScene.Inventory.PrimaryWeaponMagazine
-        : _ingameScene.Inventory.SecondaryWeaponMagazine;
+    // 손에 든 슬롯의 탄창. 규칙은 IngameInventory.CurrentMagazine 한 곳에 있고 여기서는 그대로 읽는다 —
+    // 무기 UI 표시도 같은 것을 쓰므로 규칙이 두 벌이 되면 쏘는 탄창과 보여주는 탄창이 갈린다.
+    // 매번 다시 조회하는 형태를 유지할 것 — 재장전 응답이 InventoryItem 인스턴스를 통째로 갈아치운다
+    InventoryItem CurrentMagazine => _ingameScene.Inventory.CurrentMagazine;
 
     public override void Init() {
         base.Init();
@@ -349,6 +349,7 @@ public class PlayerController : GameObjectController, ICombatTarget {
         // 매 발사마다 서버와 동기화하지 않는다(느슨한 동기화). 클라 값은 예측이고 최종 판정은
         // 서버가 쥐므로, 장전 등 확실한 동기화 시점까지 양쪽 수치가 어긋나는 것은 정상 범위다
         magazine.quantity--;
+        _ingameScene.SyncWeaponUI();
 
         // 2. 스프레드 적용 히트스캔
         // 자기 제외 layerMask가 없는 것은 의도다(2026-08-27 플레이 검증에서 자탄 0건 확인).
@@ -446,10 +447,11 @@ public class PlayerController : GameObjectController, ICombatTarget {
         Debug.DrawLine(point - Vector3.forward * size, point + Vector3.forward * size, color, sec);
     }
 
+    // 아래 _fireBlocked가 딸깍 소리의 중복 재생 가드를 겸한다 — 해제 조건이 마우스 재클릭뿐이라
+    // 트리거 1회당 1번이 된다. 별도 쿨다운을 넣으면 같은 것을 두 곳에서 관리하게 된다
     private void EmptyAmmoFire() {
         _fireBlocked = true;
-        Util.Log("[Fire] 탄약이 없어 발사하지 않는다");   // TEMP: 연출·사운드 구현 전까지의 임시 출력
-        // TODO: 빈 탄창 사운드, 재장전 유도 UI 등
+        Managers.Sound.Play("empty_gun_shot");
     }
 
     // TODO: 피격 이펙트·데미지 표시 미구현, 별도 작업 예정

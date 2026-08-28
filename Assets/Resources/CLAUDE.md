@@ -23,12 +23,12 @@ Assets/Resources/
 │  │  └ PlayerObject_ingredient/   캐릭터 모델
 │  ├ UI/{Scene, Popup}      UIManager가 클래스명으로 찾는다
 │  ├ UI/{LobbySceneUI, IngameSceneUI, LoadingSceneUI, GameResultSceneUI}
-│  │                        대부분 씬에 배치되며 코드가 경로로 로드하지 않는다(아래)
+│  │                        주로 씬에 배치된다(아래)
 │  ├ Weapons/               무기 3종
 │  ├ Scene/, System/, TestLobbyScene/   코드 참조 없음(아래 '참조 없는 자산')
 ├ Images/{Items, MapSprites, WeaponSprites}
 ├ Fonts/                    7종. 코드 경로 없이 프리팹이 직접 참조한다
-└ Sounds/                   12개. 재생 호출부가 아직 0개다(아래)
+└ Sounds/                   12개. 재생 호출부는 아직 `empty_gun_shot` 하나뿐이다(아래)
 ```
 
 ## 경로 접두어가 호출부마다 다르다
@@ -38,7 +38,7 @@ Assets/Resources/
 | 진입점 | 넘기는 문자열 | 실제 경로 |
 |---|---|---|
 | `Managers.Resource.Instantiate(path)` | `GameObject/PlayerLoot` | `Prefabs/`를 **자동으로 붙인다** |
-| `Managers.Sound.Play(path)` | `gun_shot_1` | `Sounds/`를 **없을 때만 붙인다** |
+| `Managers.Sound.Play(path)` | `empty_gun_shot` | `Sounds/`를 **없을 때만 붙인다** |
 | `Resources.Load<T>()` 직접 | `Images/Items/icon_item_3` | **전체 경로 그대로** |
 
 ## 이름이 곧 계약인 자리
@@ -57,13 +57,15 @@ Assets/Resources/
 
 ## 경로로 로드되는 프리팹 vs 씬에 배치되는 프리팹
 
-**UI 프리팹의 대다수는 코드가 경로로 로드하지 않는다.** 경로 로드는 넷뿐이다 — `UI/Scene/{클래스명}`, `UI/Popup/{클래스명}`, `UI/EventSystem`, `UI/IngameSceneUI/SingleKillLog`(킬 로그 한 줄).
+**두 방식은 개수가 정해져 있지 않다 — 아래는 규칙이 아니라 현재 상태의 목록이다.** 어느 쪽으로 만들지는 그 UI를 **런타임에 찍어내야 하는지**로 갈린다(찍어내야 하면 경로 로드, 처음부터 한 벌만 있으면 씬 배치).
 
-나머지 씬 내장 UI(`IngameInventoryUI`·`IngameDragGhost`·`InteractUI`·`IngameHealthBarUI`·`IngameSettingUI`·`IngameKillLogUI`·`LobbySceneUI` 계열)는 **씬에 배치돼 `GameObject.Find`로 잡힌다.** 따라서
+지금 경로로 로드하는 것: `UI/Scene/{클래스명}`, `UI/Popup/{클래스명}`, `UI/EventSystem`, `UI/IngameSceneUI/SingleKillLog`(킬 로그 한 줄).
+
+나머지 씬 내장 UI(`IngameInventoryUI`·`IngameDragGhost`·`InteractUI`·`IngameHealthBarUI`·`IngameSettingUI`·`IngameKillLogUI`·`IngameWeaponUI`·`LobbySceneUI` 계열)는 **씬에 배치돼 `GameObject.Find`로 잡힌다.** 따라서
 
 - **계약은 프리팹 파일 이름이 아니라 씬 오브젝트 이름이다.** 프리팹 이름을 맞춰도 씬의 인스턴스 이름이 다르면 못 찾는다
 - **씬에는 활성 상태로 저장해야 한다** — `GameObject.Find`는 비활성 오브젝트를 못 찾는다. 필요하면 각 `Init()`이 바인딩 직후 스스로 끈다
-- **스크립트가 붙어 있어야 한다** — 이름만 맞고 컴포넌트가 없으면 `Init()` 호출에서 NRE가 나고, 킬 피드 외 5종은 아직 그 가드가 없다(`Assets/Scripts/UI/CLAUDE.md`)
+- **스크립트가 붙어 있어야 한다** — 이름만 맞고 컴포넌트가 없으면 `Init()` 호출에서 NRE가 나고, 킬 피드 외 6종은 아직 그 가드가 없다(`Assets/Scripts/UI/CLAUDE.md`)
 
 ## 씬 내장 UI 프리팹 계층 규격
 
@@ -76,7 +78,7 @@ Assets/Resources/
 IngameKillLogUI                 ← GameObject.Find 대상. 이름 고정 + 씬에서 활성
 └ KillLogContainer              ← SingleKillLog가 이 아래에 붙는다
 
-SingleKillLog                   ← Prefabs/UI/IngameSceneUI/ (유일하게 경로로 로드된다)
+SingleKillLog                   ← Prefabs/UI/IngameSceneUI/ (런타임에 찍어내므로 경로로 로드한다)
 ├ KillIcon                      코드가 건드리지 않는 장식. 가해자 이름이 비어도 이것만 남는다
 ├ KillerId                      (TextMeshProUGUI)
 └ VictimId                      (TextMeshProUGUI)
@@ -96,8 +98,17 @@ IngameSettingUI                         ← 루트. 이름 고정 + 씬에서 �
   └ Footer/ButtonContainer/{ApplyButton, CancelButton}
 ```
 
+```
+IngameWeaponUI                  ← GameObject.Find 대상. 이름 고정 + 씬에서 활성
+└ WeaponUIWindow
+  ├ Header/{AccentLine, WeaponName}       AccentLine은 코드가 찾지 않는 장식
+  └ WeaponInfoPanel/{WeaponImage, MagazineAmmoCount, RemainAmmoCount}
+```
+
 - 볼륨 슬라이더는 Min 0 / Max 100(로비와 동일), **감도 슬라이더는 Min 0.1 / Max 3.0 / Value 1.0** — `SettingManager.MIN/MAX_MOUSE_SENSITIVITY`와 **손으로 맞추는 값**이다
 - `IngameHealthBarUI`의 Fill 이미지는 **Type이 `Filled`여야 한다** — `Simple`이면 `fillAmount` 대입이 조용히 무시된다
+- `IngameWeaponUI`의 `WeaponImage`는 자리만 있고 **아직 코드가 채우지 않는다**(`TODO:`) — **쓸 이미지가 정해지지 않았고, `Images/WeaponSprites/*`는 여기에 쓰는 것이 아니다**
+- `IngameWeaponUI`는 **그래픽 7개 모두 `raycastTarget`을 꺼둔다.** HUD가 클릭을 가로채면 인벤토리를 열어 커서가 풀린 상태에서 겹치는 영역의 드래그를 먹는다. 요소를 추가할 때도 함께 끌 것
 
 ## 로드 실패는 반드시 드러난다
 
@@ -113,4 +124,5 @@ IngameSettingUI                         ← 루트. 이름 고정 + 씬에서 �
 - `Prefabs/System/EventSystem` — 코드가 쓰는 것은 `UI/EventSystem` 쪽이다. **같은 것이 두 벌 있다**
 - `Prefabs/Scene/*`(4종), `Prefabs/TestLobbyScene/`, `Prefabs/TestPlayer`, `Prefabs/UI/LobbySceneUI/LobbySettingUIBackup`
 - `Images/WeaponSprites/*` — 명명 규약은 아이템·맵과 같은 꼴이라 쓰일 자리를 예비해 둔 것으로 보인다
-- **`Sounds/` 12개 전부** — `Managers.Sound.Play()` 호출부가 **프로젝트 전체에 0개다.** 발사음·빈 탄창음·발소리가 파일로는 준비돼 있고 재생만 붙이면 되는 상태이며, 이건 `progress.md`의 이펙트·`EmptyAmmoFire()` 항목과 같은 자리다
+- **`Sounds/` 12개 중 11개** — 재생 호출부가 있는 것은 `empty_gun_shot` 하나뿐이다(`PlayerController.EmptyAmmoFire()`). 발사음·발소리·재장전음은 파일로만 준비돼 있고 재생을 붙이면 되는 상태이며, 이건 `progress.md`의 이펙트 항목과 같은 자리다
+  - **클립을 못 찾아도 아무 소리 없이 넘어간다** — `SoundManager.Play()`가 null이면 그대로 return하고 `GetOrAddAudioClip()`은 **그 null을 딕셔너리에 캐시까지 한다.** 즉 파일명을 한 글자 틀리면 그 소리만 영구히 무음이고 로그도 남지 않는다. 위 '이름이 곧 계약인 자리'가 사운드에도 그대로 걸리며, 로드 실패가 `LogError`로 드러나는 프리팹 쪽과 여기가 다르다

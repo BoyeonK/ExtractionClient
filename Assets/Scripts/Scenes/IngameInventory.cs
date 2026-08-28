@@ -37,6 +37,9 @@ public class IngameInventory {
     public InventoryItem Armor => _armor;
     public InventoryItem PrimaryWeaponMagazine => _primaryWeaponMagazine;
     public InventoryItem SecondaryWeaponMagazine => _secondaryWeaponMagazine;
+    // 발사 판정(PlayerController.CurrentMagazine)과 표시(SyncWeaponUI)가 같은 규칙을 써야 하므로
+    // CurrentWeapon 옆 한 곳에 둔다. 두 벌로 만들면 쏘는 탄창과 보여주는 탄창이 갈린다
+    public InventoryItem CurrentMagazine => _isPrimaryWeaponApplyed ? _primaryWeaponMagazine : _secondaryWeaponMagazine;
 
     public void ApplyFullSync(uint inventoryVersion, InventoryItem[] slots,
         InventoryItem primaryWeapon, InventoryItem secondaryWeapon, InventoryItem armor,
@@ -101,6 +104,18 @@ public class IngameInventory {
             _isPrimaryWeaponApplyed = false;
             GetIngameScene().PlayerController.EquipWeapon(_secondaryWeapon.item_id);
         }
+    }
+
+    // 예비 탄약(WeaponSpec.AmmoType이 곧 탄약 item_id). 장착된 탄창은 별도로 표시되므로
+    // 세지 않고, 컨테이너 슬롯도 내 소지품이 아니라 제외한다
+    public int CountAmmo(int ammoItemId) {
+        int total = 0;
+        for (int i = 0; i < _inventorySlots.Length; i++) {
+            InventoryItem item = _inventorySlots[i];
+            if (item != null && item.item_id == ammoItemId)
+                total += item.quantity;
+        }
+        return total;
     }
 
     public void SetPrimaryWeapon(InventoryItem item) => _primaryWeapon = item;

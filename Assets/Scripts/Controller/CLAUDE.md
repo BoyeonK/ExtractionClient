@@ -86,10 +86,10 @@ public interface ICombatTarget {
 | `IsFireInput` | **쏘려는 의사** — 마우스 + UI 안 열림 + 안 달림 + **행동 중 아님**(`IngameScene.IsActionBusy`) + 이탈 중 아님 | `ProcessFire()`의 발사 게이트 |
 | `IsShooting` | **실제로 총알이 나가는 중** — 위 + `!_fireBlocked` + 무기 있음 + 탄약 있음 | 발사 모션(`_anim.SetBool("IsShooting", …)`), `ActionState` |
 
-- **탄약·무기 조건을 `IsFireInput`에 합치지 말 것.** 그러면 `Fire()`에 도달하지 못해 **`EmptyAmmoFire()`가 영영 불려지지 않고**, 빈 탄창 사운드·재장전 유도 UI가 설 자리가 사라진다
+- **탄약·무기 조건을 `IsFireInput`에 합치지 말 것.** 그러면 `Fire()`에 도달하지 못해 **`EmptyAmmoFire()`가 영영 불려지지 않고**, 빈 탄창 딸깍 소리가 통째로 사라진다
 - **`IsShooting`은 `ActionState`를 겸한다** — 이 값이 상태 스트림으로 나가 상대 클라의 `OppoPlayerController`가 `_anim.SetBool("IsShooting", _actionState == 1)`로 쓴다. 즉 **발사 모션 조건을 잘못 잡으면 남의 화면에도 그대로 보인다.** 반대로 여기만 고치면 오포 쪽은 손대지 않아도 따라온다
 - `_fireTimer >= _fireInterval`은 `IsShooting`에 넣지 않는다 — 발사 간격 사이에도 연사 모션은 이어져야 한다
-- 탄창 선택 규칙은 `CurrentMagazine` 한 곳에 있고 `Fire()`도 같은 것을 쓴다. 두 벌로 만들면 판정과 표시가 갈린다
+- 탄창 선택 규칙의 출처는 **`IngameInventory.CurrentMagazine` 한 곳**이다. `PlayerController.CurrentMagazine`은 그것을 그대로 읽기만 하고, 무기 UI 표시(`IngameScene.SyncWeaponUI()`)도 같은 것을 쓴다 — 두 벌로 만들면 **쏘는 탄창과 보여주는 탄창이 갈린다**
 - **`IsRunning`은 `public`이다** — `IngameScene`이 재장전의 진입·유지 조건으로 읽는다(달리면 재장전이 취소된다). 이 파일 안에서만 쓰이는 값으로 보고 다시 감추지 말 것
 
 #### 탄약 동기화 정책 (느슨한 동기화)
@@ -114,7 +114,7 @@ public interface ICombatTarget {
 
 ### Fire() 흐름
 
-1. 탄약 확인 → 없으면 `EmptyAmmoFire()` + `_fireBlocked = true`
+1. 탄약 확인 → 없으면 `EmptyAmmoFire()`(차단 + 빈 탄창 소리)로 빠지고 끝
 2. 히트스캔: `CalculateFireRay()`로 발사선 산출 + 원뿔형 랜덤 오프셋 적용
 3. 반동 목표 누적: `_recoilTarget`에만 추가, 즉시 적용하지 않음
 4. 스프레드 증가
@@ -144,9 +144,16 @@ public interface ICombatTarget {
 - 누적이 무한히 커져도 **위 피치 클램프가 `_recoilPitch`만큼 같이 밀리므로 가동 범위는 보존된다.** 이 클램프에서 `_recoilPitch` 항을 빼면 그때 실제로 조작 범위가 잘린다
 - `_recoilApplySpeed`의 Lerp는 **회복이 아니라 킥을 몇 프레임에 걸쳐 얹는 용도**다. 반면 `_currentSpread`는 `_spreadRecoveryRate`로 자동 회복한다 — **스프레드와 반동은 회복 정책이 다르며, 비대칭을 맞추려 들지 말 것**
 
+### `EmptyAmmoFire()` — 빈 탄창 피드백
+
+탄약 없이 쏘려 하면 `_fireBlocked = true`와 `Managers.Sound.Play("empty_gun_shot")` 두 줄이 전부다. **이걸로 완결이며 재장전 유도 UI는 만들지 않는다** — 딸깍 소리와 (예정된) 잔탄 표기의 `0`이 그 역할을 대신한다는 것이 확정된 설계다.
+
+- **`_fireBlocked = true`가 딸깍 소리의 중복 재생 가드를 겸한다.** 해제 조건이 마우스 재클릭(release→press)뿐이라 **트리거 1회당 1번**이 되고, 연사 중 탄이 떨어지는 경우도 마지막 발 다음 인터벌에 한 번만 울린다. **별도 쿨다운·타이머를 넣지 말 것** — 같은 것을 두 곳에서 관리하게 된다
+- 맨손이면 울리지 않는다 — `ProcessFire()`의 `_fireInterval > 0f`에서 걸려 `Fire()`에 도달하지 않는다. 재장전·무기 교체 중에도 `IsFireInput`의 `IsActionBusy`가 막는다. 둘 다 의도다
+- **프로젝트 최초의 `Managers.Sound.Play()` 호출부다.** 실패가 조용하다는 점만 알아둘 것 — 클립을 못 찾으면 `Play()`가 null 체크로 그냥 return하고 `GetOrAddAudioClip()`이 **그 null을 캐시까지 해서** 이후 시도도 전부 무음이 된다. 소리가 안 나면 호출부가 아니라 파일명·`AudioListener` 존재부터 볼 것
+
 ### 미구현이 남은 메서드
 
-- `EmptyAmmoFire()`: 실동작은 `_fireBlocked = true` + `TEMP:` 로그 1줄뿐. 빈 탄창 사운드·재장전 유도 UI가 `TODO:`
 - `ProcessHit()`: **스텁이 아니다** — `SendC2DRequestWeaponFire()`로 발사 패킷을 보내는 본 기능을 수행한다. 남은 것은 탄착 이펙트·데미지 표시
 - `ProcessFire()`: 타이머·차단·발사 트리거는 동작한다. 남은 것은 발사 연출·이펙트
 

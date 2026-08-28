@@ -85,6 +85,7 @@ public class IngameScene : BaseScene {
     IngameHealthBarUI _ingameHealthBarUI;
     IngameSettingUI _ingameSettingUI;
     IngameKillLogUI _ingameKillLogUI;
+    IngameWeaponUI _ingameWeaponUI;
 
     protected override void Init() {
         base.Init();
@@ -121,6 +122,12 @@ public class IngameScene : BaseScene {
         if (settingObj != null) {
             _ingameSettingUI = settingObj.GetComponent<IngameSettingUI>();
             _ingameSettingUI.Init(this);
+        }
+
+        GameObject weaponUIObj = GameObject.Find("IngameWeaponUI");
+        if (weaponUIObj != null) {
+            _ingameWeaponUI = weaponUIObj.GetComponent<IngameWeaponUI>();
+            _ingameWeaponUI.Init();
         }
 
         GameObject killLogObj = GameObject.Find("IngameKillLogUI");
@@ -322,6 +329,7 @@ public class IngameScene : BaseScene {
         if (!_spawnCompleted || !_itemLoaded) return;
         _weaponInitialized = true;
         _inventory.InitWeapon();
+        SyncWeaponUI();
     }
 
     private void InitWeaponPrefabCache() {
@@ -591,6 +599,8 @@ public class IngameScene : BaseScene {
 
         if (_playerController != null)
             _playerController.EquipWeapon(weaponId);
+
+        SyncWeaponUI();
     }
 
     // 무기 슬롯 조작 뒤 손에 든 무기를 서버 규칙대로 맞춘다.
@@ -612,6 +622,10 @@ public class IngameScene : BaseScene {
         }
 
         _playerController.EquipWeapon(held != null ? held.item_id : 0);
+
+        // ApplyEquipItem이 SyncInventoryUI()를 먼저 부르고 여기를 나중에 부른다 — 앞의 호출
+        // 시점에는 손에 든 무기가 아직 낡은 값이라, 여기서 한 번 더 덮어야 표시가 맞는다
+        SyncWeaponUI();
     }
 
     public bool IsContainerOpen => _isContainerOpen;
@@ -687,9 +701,37 @@ public class IngameScene : BaseScene {
         // 실드 예측이 이 안의 방어구 스펙 캐시에 의존하므로 UI 유무와 무관하게 먼저 돈다
         SyncHealthBarMax();
 
+        // 아래 인벤토리 UI 가드보다 앞이어야 한다 — 무기 표시는 인벤토리 UI 존재에 종속되지 않는다
+        SyncWeaponUI();
+
         if (_ingameInventoryUI == null) return;
         _ingameInventoryUI.SyncMyInventory();
         _ingameInventoryUI.SyncEquipment();
+    }
+
+    // 손에 든 무기의 이름·탄창·예비탄 표시. 갱신 지점이 다섯이라(전체 동기화·재장전 응답·
+    // 아이템 조작 / 장착·해제 / 무기 전환 확정 / 최초 장착 / 매 발사) 전부 이 함수를 거치게 한다.
+    // 흩어서 각자 텍스트를 건드리면 반드시 한 경로가 빠져 표시가 어긋난다
+    public void SyncWeaponUI() {
+        if (_ingameWeaponUI == null) return;
+
+        InventoryItem weapon = _inventory.CurrentWeapon;
+        if (weapon == null) {
+            // 맨손은 설계상 없는 상태다. 무기 슬롯 둘을 모두 비우는 인벤토리 조작 중에만
+            // 잠깐 지나가므로 값을 비우기만 하고 창은 그대로 둔다
+            _ingameWeaponUI.SetWeapon("", 0, 0);
+            return;
+        }
+
+        InventoryItem magazine = _inventory.CurrentMagazine;
+        int magazineAmmo = magazine != null ? magazine.quantity : 0;
+
+        // 스펙을 못 찾으면 탄종을 몰라 예비탄을 셀 수 없다. 이름·탄창은 그대로 보여준다
+        int spareAmmo = 0;
+        if (ItemDBHelper.TryGetWeaponSpec(weapon.item_id, out WeaponSpec weaponSpec))
+            spareAmmo = _inventory.CountAmmo(weaponSpec.AmmoType);
+
+        _ingameWeaponUI.SetWeapon(ItemDBHelper.GetName(weapon.item_id), magazineAmmo, spareAmmo);
     }
 
     private void SyncHealthBarMax() {
