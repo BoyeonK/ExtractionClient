@@ -95,57 +95,32 @@ public class IngameScene : BaseScene {
 
         Managers.Scene.ResetLoadSceneOp();
 
-        GameObject inventoryObj = GameObject.Find("IngameInventoryUI");
-        if (inventoryObj != null) {
-            _ingameInventoryUI = inventoryObj.GetComponent<IngameInventoryUI>();
-            _ingameInventoryUI.Init(this);
-        }
+        _ingameInventoryUI = BindSceneComponent<IngameInventoryUI>("IngameInventoryUI");
+        if (_ingameInventoryUI != null) _ingameInventoryUI.Init(this);
 
-        GameObject dragGhostObj = GameObject.Find("IngameDragGhost");
-        if (dragGhostObj != null) {
-            _ingameDragGhost = dragGhostObj.GetComponent<IngameDragGhost>();
-            _ingameDragGhost.Init();
-        }
+        _ingameDragGhost = BindSceneComponent<IngameDragGhost>("IngameDragGhost");
+        if (_ingameDragGhost != null) _ingameDragGhost.Init();
 
-        GameObject interactObj = GameObject.Find("InteractUI");
-        if (interactObj != null) {
-            _interactUI = interactObj.GetComponent<InteractUI>();
-            _interactUI.Init(this);
-        }
+        _interactUI = BindSceneComponent<InteractUI>("InteractUI");
+        if (_interactUI != null) _interactUI.Init(this);
 
-        GameObject healthBarObj = GameObject.Find("IngameHealthBarUI");
-        if (healthBarObj != null) {
-            _ingameHealthBarUI = healthBarObj.GetComponent<IngameHealthBarUI>();
-            _ingameHealthBarUI.Init();
-        }
+        _ingameHealthBarUI = BindSceneComponent<IngameHealthBarUI>("IngameHealthBarUI");
+        if (_ingameHealthBarUI != null) _ingameHealthBarUI.Init();
 
-        GameObject settingObj = GameObject.Find("IngameSettingUI");
-        if (settingObj != null) {
-            _ingameSettingUI = settingObj.GetComponent<IngameSettingUI>();
-            _ingameSettingUI.Init(this);
-        }
+        _ingameSettingUI = BindSceneComponent<IngameSettingUI>("IngameSettingUI");
+        if (_ingameSettingUI != null) _ingameSettingUI.Init(this);
 
-        GameObject staminaBarObj = GameObject.Find("IngameStaminaBarUI");
-        if (staminaBarObj != null) {
-            _ingameStaminaBarUI = staminaBarObj.GetComponent<IngameStaminaBarUI>();
+        _ingameStaminaBarUI = BindSceneComponent<IngameStaminaBarUI>("IngameStaminaBarUI");
+        if (_ingameStaminaBarUI != null) {
             _ingameStaminaBarUI.Init();
             _ingameStaminaBarUI.SetStamina(_currentStamina, MAX_STAMINA);
         }
 
-        GameObject weaponUIObj = GameObject.Find("IngameWeaponUI");
-        if (weaponUIObj != null) {
-            _ingameWeaponUI = weaponUIObj.GetComponent<IngameWeaponUI>();
-            _ingameWeaponUI.Init();
-        }
+        _ingameWeaponUI = BindSceneComponent<IngameWeaponUI>("IngameWeaponUI");
+        if (_ingameWeaponUI != null) _ingameWeaponUI.Init();
 
-        GameObject killLogObj = GameObject.Find("IngameKillLogUI");
-        if (killLogObj != null) {
-            _ingameKillLogUI = killLogObj.GetComponent<IngameKillLogUI>();
-            if (_ingameKillLogUI != null)
-                _ingameKillLogUI.Init(this);
-            else
-                Util.LogError("씬의 IngameKillLogUI 오브젝트에 IngameKillLogUI 스크립트가 붙어 있지 않다");
-        }
+        _ingameKillLogUI = BindSceneComponent<IngameKillLogUI>("IngameKillLogUI");
+        if (_ingameKillLogUI != null) _ingameKillLogUI.Init(this);
 
         // OPTION: 씬 오브젝트 없이 코드로 세운 크로스헤어. 정식 IngameSceneUI 자산으로
         //         다시 만들게 되면 이 줄을 지운다 (IngameCrosshair.cs 상단 참조)

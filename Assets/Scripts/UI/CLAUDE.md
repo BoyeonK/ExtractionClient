@@ -26,11 +26,9 @@ UI_Base (abstract)
 
 ## 씬 내장 UI (`IngameSceneUI/`)
 
-UIManager가 아닌 씬 자체에 존재하는 MonoBehaviour UI 오브젝트. `IngameScene.Init()`에서 `GameObject.Find()`로 바인딩 + `Init()` 호출:
+UIManager가 아닌 씬 자체에 존재하는 MonoBehaviour UI 오브젝트. `IngameScene.Init()`에서 바인딩 + `Init()` 호출:
 
-> **바인딩이 `Find` 결과만 검사하고 `GetComponent` 결과는 보지 않는다** — 씬에 **이름은 맞는 오브젝트가 있는데 스크립트가 안 붙어 있으면** `Init()` 호출에서 NRE가 나고, **그 아래 초기화(크로스헤어 생성·키 리스너 등록 등)가 통째로 안 돈다.** 킬 피드 바인딩에만 `Util.LogError` 가드가 있고 **나머지 7종은 아직 뚫려 있다.** 맵 씬이 늘어날 때마다 5종을 배치해야 하는 구조라 **같은 실수가 맵마다 반복될 자리**이며, `Find`+`GetComponent`+실패 로그를 헬퍼로 묶으면 여섯 곳이 한 번에 닫힌다.
->
-> **씬에는 활성 상태로 저장할 것** — `GameObject.Find`는 비활성 오브젝트를 못 찾는다. 필요하면 각 `Init()`이 바인딩 직후 스스로 끈다.
+> **바인딩은 반드시 `BaseScene.BindSceneComponent<T>(오브젝트명)`로 할 것.** 규칙·근거는 `Scenes/CLAUDE.md`의 '씬 배치 오브젝트 바인딩'에 있다 — **UI 전용 함수가 아니다.**
 
 **이 UI들은 각자 자기 `Canvas`를 들고 `sortingOrder`를 90~100대로 쓴다.** `UIManager`가 매기는 값(SceneUI 0~, PopupUI 20~)보다 크지만 **결함이 아니라 이쪽의 관례다** — 인게임 HUD는 `UIManager` 계열과 같은 스택에서 겨루지 않는다. 값이 커 보인다고 낮추지 말 것.
 

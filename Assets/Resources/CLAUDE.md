@@ -67,7 +67,7 @@ Assets/Resources/
 
 - **계약은 프리팹 파일 이름이 아니라 씬 오브젝트 이름이다.** 프리팹 이름을 맞춰도 씬의 인스턴스 이름이 다르면 못 찾는다
 - **씬에는 활성 상태로 저장해야 한다** — `GameObject.Find`는 비활성 오브젝트를 못 찾는다. 필요하면 각 `Init()`이 바인딩 직후 스스로 끈다
-- **스크립트가 붙어 있어야 한다** — 이름만 맞고 컴포넌트가 없으면 `Init()` 호출에서 NRE가 나고, 킬 피드 외 7종은 아직 그 가드가 없다(`Assets/Scripts/UI/CLAUDE.md`)
+- **스크립트가 붙어 있어야 한다** — 이름만 맞고 컴포넌트가 없으면 그 UI가 죽는다. 원인은 `BaseScene.BindSceneComponent<T>`가 `LogError`로 드러내므로 **콘솔부터 볼 것**(`Assets/Scripts/Scenes/CLAUDE.md`)
 
 ## 씬 내장 UI 프리팹 계층 규격
 

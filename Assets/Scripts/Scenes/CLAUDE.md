@@ -1,12 +1,22 @@
 # 씬 구성
 
-- **`BaseScene`**: 모든 씬의 베이스. `Awake → Init()`에서 EventSystem 자동 생성
+- **`BaseScene`**: 모든 씬의 베이스. `Awake → Init()`에서 EventSystem 자동 생성 + 아래 `BindSceneComponent<T>` 제공
 - **`LobbyScene`**: `LobbyState` enum 상태 머신 (BeforeConnect → BeforeAuth → Lobby → Matching)
 - **`LoadingScene`**: 비동기 로딩 → 90%에서 Blueprint 요청 → 응답 완료 시 전환
 - **`IngameScene`**: 맵 씬들의 공통 베이스. 정적 오브젝트 스폰 + 씬 내장 UI 바인딩 + 스폰 요청. 실제 맵 씬이 이걸 상속한다
 - **`GameResultScene`**: 매치 결과 표시 + 엔터로 로비 복귀. 진입 경로는 `IngameScene.CompleteMatchExit()` 하나뿐
 - 씬 전환은 반드시 `Managers.Scene`으로 한다
 - **입력 리스너·업데이트 루프 안에서 씬을 직접 내리지 말고 `Managers.ExecuteAtMainThread`로 예약할 것** — `LoadScene()`의 `Managers.Clear()`가 순회 중인 구독 목록을 비운다
+
+## 씬 배치 오브젝트 바인딩 (`BaseScene.BindSceneComponent<T>`)
+
+씬에 미리 놓인 오브젝트를 이름으로 잡을 때 쓴다. **`GameObject.Find` + `GetComponent`를 직접 쓰지 말 것** — 이름은 맞는데 스크립트가 안 붙어 있으면 뒤이은 `Init()` 호출에서 NRE가 나고 **그 아래 초기화가 통째로 안 돈다**(크로스헤어 생성·키 리스너 등록 등).
+
+- **UI 전용이 아니다.** 지금 소비자가 씬 내장 UI 11종뿐이라 UI 함수로 보이기 쉽지만, 함수 안에 UI 개념이 없고 제약도 `where T : Component`다. 씬에 미리 놓인 것을 이름으로 잡는 자리면 무엇이든 여기를 쓸 것 — **"UI용이니까"라며 `Find`를 직접 쓰면 위 구멍이 그대로 되살아난다**
+  - 다만 **레이캐스트로 찾는 것은 대상이 아니다**(`RecallSpotController`·컨테이너는 `GetComponentInParent`로 잡힌다). 이름 조회가 아닌 것을 여기로 끌어오지 말 것
+- 오브젝트 없음·스크립트 없음 둘 다 `LogError`로 드러내고 `null`을 돌려준다. **호출부의 null 검사는 남길 것** — 원인은 알려주지만 `Init()`은 여전히 NRE가 난다
+- **씬에는 활성 상태로 저장할 것** — `GameObject.Find`는 비활성 오브젝트를 못 찾는다. 숨겨야 하면 각 `Init()`이 바인딩 직후 스스로 끈다
+- 프리팹 **내부** 경로 조회는 이쪽이 아니라 `Util.BindComponent(path, go)`다. 조회 축이 다르다(씬의 이름 ↔ GameObject 안의 경로)
 
 ## 씬 이름 규칙
 

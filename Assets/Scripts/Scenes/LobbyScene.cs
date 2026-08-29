@@ -61,20 +61,17 @@ public class LobbyScene : BaseScene {
         _characterSelectUI = Managers.UI.CacheSceneUI<UI_CharacterSelect>();
         _matchProgressUI = Managers.UI.CacheSceneUI<UI_MatchProcess>();
 
-        GameObject reconfirmObj = GameObject.Find("LobbyReconfirmUI");
-        if (reconfirmObj != null) {
-            _lobbyReconfirmUI = reconfirmObj.GetComponent<LobbyReconfirmUI>();
-            _lobbyReconfirmUI.Init();
-        }
-        GameObject settingObj = GameObject.Find("LobbySettingUI");
-        if (settingObj != null) {
-            _lobbySettingUI = settingObj.GetComponent<LobbySettingUI>();
+        _lobbyReconfirmUI = BindSceneComponent<LobbyReconfirmUI>("LobbyReconfirmUI");
+        if (_lobbyReconfirmUI != null) _lobbyReconfirmUI.Init();
+
+        _lobbySettingUI = BindSceneComponent<LobbySettingUI>("LobbySettingUI");
+        if (_lobbySettingUI != null) {
             _lobbySettingUI.Init();
             _lobbySettingUI.Hide();
         }
-        GameObject selectedCharObj = GameObject.Find("SelectedCharacter");
-        if (selectedCharObj != null) {
-            _selectedCharacter = selectedCharObj.GetComponent<SelectedCharacter>();
+
+        _selectedCharacter = BindSceneComponent<SelectedCharacter>("SelectedCharacter");
+        if (_selectedCharacter != null) {
             _selectedCharacter.Init();
             _selectedCharacter.SetCharacterType(_selectedCharacterType);
         }
