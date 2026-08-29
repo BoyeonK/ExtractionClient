@@ -55,7 +55,7 @@ Assets/Resources/
 | `PlayerObject`·`OppoPlayerObject`의 직계 자식 `SoundPoint` | 이름 고정 + `AudioSource` 부착 | 양쪽 `Setup()`의 `transform.Find` (아래) |
 | `Images/Items/icon_item_{item_id}` | item_id | 슬롯 3종(`ISlot`·`IngameISlot`·`SSlot`) |
 | `Images/MapSprites/map_sprite_{mapId}` | mapId | `UI_MapSelect` |
-| `Images/WeaponSprites/weapon_sprite_{id}` | 위와 같은 꼴이나 **아직 참조하는 코드가 없다** | — |
+| `Images/WeaponSprites/weapon_sprite_{무기 item_id}` | item_id | `IngameWeaponUI` |
 
 ## 경로로 로드되는 프리팹 vs 씬에 배치되는 프리팹
 
@@ -109,7 +109,7 @@ IngameWeaponUI                  ← GameObject.Find 대상. 이름 고정 + 씬�
 
 - 볼륨 슬라이더는 Min 0 / Max 100(로비와 동일), **감도 슬라이더는 Min 0.1 / Max 5.0 / Value 1.0** — `SettingManager.MIN/MAX_MOUSE_SENSITIVITY` 및 **로비 프리팹의 같은 슬라이더와 손으로 맞추는 값**이다(맞출 곳이 셋)
 - `IngameHealthBarUI`의 Fill 이미지는 **Type이 `Filled`여야 한다** — `Simple`이면 `fillAmount` 대입이 조용히 무시된다. **`IngameStaminaBarUI`(`StaminaBarBg/StaminaBarFill`)도 같은 규칙**이며 이쪽은 이미 `Filled`로 맞춰져 있다
-- `IngameWeaponUI`의 `WeaponImage`는 자리만 있고 **아직 코드가 채우지 않는다**(`TODO:`) — **쓸 이미지가 정해지지 않았고, `Images/WeaponSprites/*`는 여기에 쓰는 것이 아니다**
+- `IngameWeaponUI`의 `WeaponImage`는 **스프라이트를 물려두지 않는다** — 코드가 `weapon_sprite_{item_id}`를 넣는다. **`Preserve Aspect`는 꺼둔 것이 의도다**(스프라이트 √2:1, 슬롯 비율이 그에 가까워 찌그러짐을 감수했다). 스프라이트가 순백 실루엣이라 **`Color`가 곧 표시색이고 코드는 색을 건드리지 않는다**
 - `IngameWeaponUI`는 **그래픽 7개 모두 `raycastTarget`을 꺼둔다.** HUD가 클릭을 가로채면 인벤토리를 열어 커서가 풀린 상태에서 겹치는 영역의 드래그를 먹는다. 요소를 추가할 때도 함께 끌 것
 
 ## `SoundPoint` — 월드 소리를 내보내는 3D 소스
@@ -145,6 +145,5 @@ IngameWeaponUI                  ← GameObject.Find 대상. 이름 고정 + 씬�
 - `Prefabs/System/@Managers` — `Managers`는 `GameObject.Find` 후 없으면 **런타임 생성**이라 이 프리팹을 경로로 로드하지 않는다
 - `Prefabs/System/EventSystem` — 코드가 쓰는 것은 `UI/EventSystem` 쪽이다. **같은 것이 두 벌 있다**
 - `Prefabs/Scene/*`(4종), `Prefabs/TestLobbyScene/`, `Prefabs/TestPlayer`, `Prefabs/UI/LobbySceneUI/LobbySettingUIBackup`
-- `Images/WeaponSprites/*` — 명명 규약은 아이템·맵과 같은 꼴이라 쓰일 자리를 예비해 둔 것으로 보인다
 - **`Sounds/` 12개 중 6개** — 재생 호출부가 있는 것은 `empty_gun_shot`(`EmptyAmmoFire()`), `foot_step1~3`·`run_foot_step`(`ProcessFootstep()` — 로컬·오포 양쪽), `gun_shot_1`(`Fire()`)이다. 재장전음 3종·UI음 2종은 파일로만 준비돼 있고 재생을 붙이면 되는 상태이며, 이건 `progress.md`의 이펙트 항목과 같은 자리다
   - **클립을 못 찾아도 아무 소리 없이 넘어간다** — `SoundManager.Play()`가 null이면 그대로 return하고 `GetOrAddAudioClip()`은 **그 null을 딕셔너리에 캐시까지 한다.** 즉 파일명을 한 글자 틀리면 그 소리만 영구히 무음이고 로그도 남지 않는다. 위 '이름이 곧 계약인 자리'가 사운드에도 그대로 걸리며, 로드 실패가 `LogError`로 드러나는 프리팹 쪽과 여기가 다르다

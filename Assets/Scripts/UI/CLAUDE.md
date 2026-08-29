@@ -70,13 +70,14 @@ SingleKillLog                   ← Resources/Prefabs/UI/IngameSceneUI/
 
 ### `IngameWeaponUI` — 무기·탄약 표시
 
-**값을 스스로 구하지 않는다.** `IngameScene.SyncWeaponUI()`가 이름·탄창 잔량·예비탄을 계산해 `SetWeapon(name, magazine, spare)`로 밀어넣고, 이 클래스는 텍스트 대입만 한다. 그래서 `Init()`이 무인자이고 씬 참조를 들지 않는다.
+**값을 스스로 구하지 않는다.** `IngameScene.SyncWeaponUI()`가 이름·무기 id·탄창 잔량·예비탄을 계산해 `SetWeapon(name, weaponId, magazine, spare)`로 밀어넣고, 이 클래스는 대입과 스프라이트 로드만 한다. 그래서 `Init()`이 무인자이고 씬 참조를 들지 않는다.
 
 - **갱신 지점이 다섯인데 전부 `SyncWeaponUI()` 하나를 거친다** — `SyncInventoryUI()`(전체 동기화·재장전 응답·아이템 조작이 이미 여기로 모인다) / `SyncHeldWeapon()` / `ApplyServerWeaponState()` / `TryInitWeapon()` / `PlayerController.Fire()`의 탄약 차감 직후. **각자 텍스트를 건드리게 만들지 말 것** — 한 경로만 빠져도 표시가 조용히 어긋난다
 - **`SyncHeldWeapon()` 쪽을 빠뜨리면 안 된다.** `ApplyEquipItem()`이 `SyncInventoryUI()`를 먼저 부르고 `SyncHeldWeapon()`을 나중에 부르는 순서라, 앞의 호출 시점에는 손에 든 무기가 아직 낡은 값이다. 양쪽 다 걸어 **마지막 호출이 이기게** 둔다(텍스트 대입이라 중복 1회는 비용이 없다)
 - **`SyncWeaponUI()` 호출은 `SyncInventoryUI()`의 `_ingameInventoryUI` null 가드보다 앞이다** — 무기 표시는 인벤토리 UI 존재에 종속되지 않는다(`SyncHealthBarMax()`와 같은 이유)
 - **탄창 잔량의 출처는 `IngameInventory.CurrentMagazine`이고 발사 판정과 같은 것을 쓴다.** 여기서 `IsPrimaryWeaponApplyed`를 다시 판단하지 말 것 — 쏘는 탄창과 보여주는 탄창이 갈린다
 - **예비탄은 인벤토리 25칸만 센다**(`IngameInventory.CountAmmo`). 장착된 탄창은 `MagazineAmmoCount` 쪽이라 이중 계상이 되고, 컨테이너 슬롯은 내 소지품이 아니다. 탄종은 `WeaponSpec.AmmoType`(= 탄약 item_id)
+- **무기 이미지는 `weaponId`가 바뀔 때만 로드한다**(`_shownWeaponId` 가드). `SetWeapon()`이 발사마다 불리므로 가드가 없으면 총을 쏠 때마다 `Resources.Load`가 돈다. **이미지 전용 갱신 경로를 따로 만들지 말 것** — id의 출처가 서버가 확정한 '손에 든 무기'라 **가드를 통과하는 시점이 곧 교체 확정 시점**이고, 경로를 나누면 위의 '갱신 지점 다섯' 함정이 그대로 되살아난다
 - **탄창 용량은 표시하지 않는다**(확정). 프리팹에 자리가 없고 `30/30` 꼴로 합치지도 않는다
 - **맨손은 설계상 없는 상태다.** 숨김 처리를 만들지 말 것 — 무기 슬롯 둘을 모두 비우는 인벤토리 조작 중에만 잠깐 지나가며, 그때는 값만 비우고 창은 그대로 둔다
 
@@ -91,7 +92,8 @@ IngameWeaponUI                  ← GameObject.Find로 잡으므로 이름 고�
   └ WeaponInfoPanel/{WeaponImage, MagazineAmmoCount, RemainAmmoCount}
 ```
 
-- `WeaponImage`는 **아직 코드가 건드리지 않는다**(`TODO:`) — 자리는 있으나 **쓸 이미지가 정해지지 않았다.** `Images/WeaponSprites/*`는 여기에 쓰는 것이 아니다
+- `WeaponImage`에는 `Images/WeaponSprites/weapon_sprite_{무기 item_id}`를 코드가 넣는다. **`Preserve Aspect`는 꺼둔 것이 의도다** — 스프라이트가 √2:1이고 슬롯 비율이 그에 가까워 약간의 찌그러짐을 감수하기로 했다(빠뜨린 설정으로 보고 켜지 말 것)
+- **스프라이트가 없으면 `Image.enabled`를 끈다** — 스프라이트 없는 `Image`는 흰 사각형으로 그려지므로 맨손·파일 누락이 그대로 노출된다. **창을 숨기지 말라는 위 규칙과 다른 이야기다**(창은 그대로 두고 이미지만 끈다)
 - 그래픽 7개 모두 `raycastTarget`이 꺼져 있다. HUD가 클릭을 가로채지 않아야 하기 때문이며, **새 요소를 추가할 때도 꺼둘 것**(인벤토리를 열어 커서가 풀린 상태에서 겹치는 영역의 드래그를 먹는다)
 
 ### `IngameCrosshair` — 규칙의 유일한 예외 (유지 확정)

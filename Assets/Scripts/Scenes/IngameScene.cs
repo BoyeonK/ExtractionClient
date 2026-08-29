@@ -795,7 +795,7 @@ public class IngameScene : BaseScene {
         if (weapon == null) {
             // 맨손은 설계상 없는 상태다. 무기 슬롯 둘을 모두 비우는 인벤토리 조작 중에만
             // 잠깐 지나가므로 값을 비우기만 하고 창은 그대로 둔다
-            _ingameWeaponUI.SetWeapon("", 0, 0);
+            _ingameWeaponUI.SetWeapon("", 0, 0, 0);
             return;
         }
 
@@ -807,7 +807,7 @@ public class IngameScene : BaseScene {
         if (ItemDBHelper.TryGetWeaponSpec(weapon.item_id, out WeaponSpec weaponSpec))
             spareAmmo = _inventory.CountAmmo(weaponSpec.AmmoType);
 
-        _ingameWeaponUI.SetWeapon(ItemDBHelper.GetName(weapon.item_id), magazineAmmo, spareAmmo);
+        _ingameWeaponUI.SetWeapon(ItemDBHelper.GetName(weapon.item_id), weapon.item_id, magazineAmmo, spareAmmo);
     }
 
     private void SyncHealthBarMax() {
