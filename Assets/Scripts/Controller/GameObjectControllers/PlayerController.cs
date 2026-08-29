@@ -164,6 +164,10 @@ public class PlayerController : GameObjectController, ICombatTarget {
         _aimTarget = transform.Find("Aim");
         _camera = _viewPoint.GetComponentInChildren<Camera>();
 
+        // FOV는 여기서 1회만 읽는다. 매 프레임 읽는 마우스 감도와 갈리는데, 인게임 설정 창에
+        // FOV 항목이 없어(매치 중 변경 금지) 진입 후 값이 바뀔 경로가 없기 때문이다
+        if (_camera != null) _camera.fieldOfView = Managers.Setting.GetFov();
+
         string modelName = $"HB{characterType}Player";
         Managers.Resource.Instantiate($"GameObject/PlayerObject_ingredient/{modelName}", this.transform);
         _rigBuilder = Util.BindComponent<RigBuilder>($"{modelName}", this.gameObject);

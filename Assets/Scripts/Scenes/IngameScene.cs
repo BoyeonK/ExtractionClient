@@ -1090,13 +1090,46 @@ public class IngameScene : BaseScene {
             SyncHeldWeapon();
     }
 
+    // 거부 사유 비트는 두 Deny 패킷이 공유한다. 이 둘은 서버 내부 오류(0x0200)와 달리
+    // 정상 플레이에서 나오므로 로그 등급도 갈라야 한다 — LogError로 두면 늑대 소년이 된다
+    private const uint DENY_CONTAINER_NOT_OPEN = 0x0400;
+    private const uint DENY_OUT_OF_RANGE       = 0x0800;
+
     public void HandleInteractContainerObjectDeny(uint denyReasonMask) {
-        Util.LogError($"[InteractContainerObjectDeny] denyReasonMask=0x{denyReasonMask:X}");
-        RequestRecentInventoryInfo();
+        HandleContainerDeny("InteractContainerObjectDeny", denyReasonMask);
     }
 
     public void HandleEquipItemDeny(uint denyReasonMask) {
-        Util.LogError($"[EquipItemDeny] denyReasonMask=0x{denyReasonMask:X}");
+        HandleContainerDeny("EquipItemDeny", denyReasonMask);
+    }
+
+    // 두 패킷의 사유 비트가 같으므로 처리도 한곳에 둔다 — 나누면 한쪽만 고쳐져 갈린다
+    private void HandleContainerDeny(string tag, uint denyReasonMask) {
+        bool notOpen = (denyReasonMask & DENY_CONTAINER_NOT_OPEN) != 0;
+        bool outOfRange = (denyReasonMask & DENY_OUT_OF_RANGE) != 0;
+
+        if (notOpen || outOfRange)
+            Util.LogWarning($"[{tag}] denyReasonMask=0x{denyReasonMask:X}");
+        else
+            Util.LogError($"[{tag}] denyReasonMask=0x{denyReasonMask:X}");
+
+        if (notOpen) {
+            // 그 컨테이너는 나에게 열려 있지 않다 — 컨테이너 재동기화 요청 자체가 성립하지 않는다.
+            // 먼저 닫아 IsContainerOpen을 내려야 뒤따르는 재동기화가 내 인벤토리만 요청한다.
+            // 다시 쓰려면 열기부터 해야 한다(서버 계약).
+            //
+            // 이 통보에는 container_object_id가 없어 '어느 컨테이너의 거부인지' 알 수 없다.
+            // 앞 컨테이너 대상 조작의 거부가 늦게 도착하면 방금 연 컨테이너가 닫힌다 —
+            // 알고 감수하는 오작동이며 복구는 다시 여는 것이다. 서버 점유는 거리로 풀린다
+            if (_isContainerOpen)
+                CloseContainerLocal();
+        }
+        else if (outOfRange) {
+            // 가까이 가면 성공하는 일시적 조건이라 아무것도 하지 않는다(확정).
+            // 인벤토리가 바뀐 것이 없어 재동기화가 낭비이고, 멀어진 채 조작을 반복하면 매번 나간다
+            return;
+        }
+
         RequestRecentInventoryInfo();
     }
 

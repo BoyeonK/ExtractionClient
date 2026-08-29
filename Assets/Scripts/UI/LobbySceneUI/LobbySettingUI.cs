@@ -43,6 +43,7 @@ public class LobbySettingUI : MonoBehaviour {
     Button _frameRateLeftButton;
     Button _frameRateRightButton;
     TextMeshProUGUI _frameRateValue;
+    Toggle _vSyncToggle;
     Slider _fovSlider;
     TextMeshProUGUI _fovValue;
 
@@ -57,6 +58,7 @@ public class LobbySettingUI : MonoBehaviour {
     bool _pendingIsWindow;
     Define.Resolution _pendingResolution;
     Define.FrameRate _pendingFrameRate;
+    bool _pendingVSync;
     int _pendingFov;
 
     enum SelectedTab {
@@ -124,17 +126,21 @@ public class LobbySettingUI : MonoBehaviour {
         _frameRateLeftButton = Util.BindComponent<Button>("LobbySettingWindow/ContentArea/GraphicContent/FrameRateRow/FrameRateControl/FrameRateLeftButton", this.gameObject);
         _frameRateRightButton = Util.BindComponent<Button>("LobbySettingWindow/ContentArea/GraphicContent/FrameRateRow/FrameRateControl/FrameRateRightButton", this.gameObject);
         _frameRateValue = Util.BindComponent<TextMeshProUGUI>("LobbySettingWindow/ContentArea/GraphicContent/FrameRateRow/FrameRateControl/FrameRateValue", this.gameObject);
+        _vSyncToggle = Util.BindComponent<Toggle>("LobbySettingWindow/ContentArea/GraphicContent/VSyncRow/VSyncToggle", this.gameObject);
         _fovSlider = Util.BindComponent<Slider>("LobbySettingWindow/ContentArea/GraphicContent/FovRow/FovSlider", this.gameObject);
         _fovValue = Util.BindComponent<TextMeshProUGUI>("LobbySettingWindow/ContentArea/GraphicContent/FovRow/FovValue", this.gameObject);
 
         _pendingIsWindow = Managers.Setting.GetIsWindow();
         _pendingResolution = Managers.Setting.GetResolution();
         _pendingFrameRate = Managers.Setting.GetFrameRate();
+        _pendingVSync = Managers.Setting.GetIsVSync();
         _pendingFov = Managers.Setting.GetFov();
 
         RefreshWindowModeText();
         RefreshResolutionText();
         RefreshFrameRateText();
+        // SetIsOnWithoutNotify가 아니면 onValueChanged를 타고 되돌리는 값이 다시 '변경'으로 들어온다
+        _vSyncToggle.SetIsOnWithoutNotify(_pendingVSync);
         _fovSlider.value = _pendingFov;
         _fovValue.text = _pendingFov.ToString();
 
@@ -143,6 +149,7 @@ public class LobbySettingUI : MonoBehaviour {
         _resolutionRightButton.onClick.AddListener(() => OnClickResolution(1));
         _frameRateLeftButton.onClick.AddListener(() => OnClickFrameRate(-1));
         _frameRateRightButton.onClick.AddListener(() => OnClickFrameRate(1));
+        _vSyncToggle.onValueChanged.AddListener(OnVSyncChanged);
         _fovSlider.onValueChanged.AddListener(OnFovChanged);
 
         // Audio tab bindings
@@ -222,6 +229,10 @@ public class LobbySettingUI : MonoBehaviour {
         RefreshFrameRateText();
     }
 
+    private void OnVSyncChanged(bool value) {
+        _pendingVSync = value;
+    }
+
     private void OnFovChanged(float value) {
         int fov = Mathf.RoundToInt(value);
         _pendingFov = fov;
@@ -238,7 +249,7 @@ public class LobbySettingUI : MonoBehaviour {
     }
 
     private void RefreshFrameRateText() {
-        _frameRateValue.text = _pendingFrameRate == Define.FrameRate._30 ? "30" : "60";
+        _frameRateValue.text = Define.FrameRateValues[_pendingFrameRate].ToString();
     }
 
     private bool HasChanges() {
@@ -249,6 +260,8 @@ public class LobbySettingUI : MonoBehaviour {
         if (_pendingResolution != Managers.Setting.GetResolution())
             return true;
         if (_pendingFrameRate != Managers.Setting.GetFrameRate())
+            return true;
+        if (_pendingVSync != Managers.Setting.GetIsVSync())
             return true;
         if (_pendingFov != Managers.Setting.GetFov())
             return true;
@@ -265,8 +278,10 @@ public class LobbySettingUI : MonoBehaviour {
         Managers.Setting.SetMouseSensitivity(_sensitivitySlider.value);
         Managers.Setting.SetIsWindow(_pendingIsWindow);
         Managers.Setting.SetResolution(_pendingResolution);
+        Managers.Setting.ApplyResolution();
         Managers.Setting.SetFrameRate(_pendingFrameRate);
-        Managers.Setting.ApplyFrameRate();
+        Managers.Setting.SetIsVSync(_pendingVSync);
+        Managers.Setting.ApplyFrameRateAndVSync();
         Managers.Setting.SetFov(_pendingFov);
         Managers.Setting.SetMasterVolume((int)_masterVolumeSlider.value);
         Managers.Setting.SetVolume((int)_effectVolumeSlider.value, Define.Sound.Effect);

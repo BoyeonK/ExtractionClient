@@ -1,13 +1,32 @@
 # 설정 영속화 (`SettingManager`)
 
-필드 8개(볼륨 3 · 마우스 감도 · 창모드 · 해상도 · 프레임레이트 · FOV)를 `PlayerPrefs`에 저장한다. **로비·인게임 설정 UI가 같은 매니저를 쓰므로 여기만 고치면 둘 다 따라온다.**
+필드 9개(볼륨 3 · 마우스 감도 · 창모드 · 해상도 · 프레임레이트 · VSync · FOV)를 `PlayerPrefs`에 저장한다. **로비·인게임 설정 UI가 같은 매니저를 쓰므로 여기만 고치면 둘 다 따라온다.**
 
 - **저장 키는 클래스 상단 상수에 모아 둔다.** 흩어지면 오타 하나로 그 항목만 조용히 기본값으로 돌아간다. 키 이름을 바꾸면 이미 저장된 값은 읽히지 않고 버려진다
 - **enum은 정수가 아니라 이름으로 저장한다.** `Define.Resolution`이 오름차순 정렬이라 새 해상도가 목록 **중간에 삽입되기 쉬운데**, 정수로 저장하면 그 순간 저장된 값이 다른 항목을 가리킨다. 증상이 "설정이 멋대로 바뀐다"라 원인을 짚기 어렵다. `MaxCount`는 실재하는 설정이 아니므로 로드에서 함께 걸러낸다
 - **로드는 필드 직접 대입이 아니라 setter를 통과시킨다.** 범위 검증(`Mathf.Clamp`)이 setter에 있고, `PlayerPrefs`는 사용자가 편집할 수 있는 영역이라 손상된 값이 그대로 들어올 수 있다
 - **로드 순서: 마스터 볼륨이 먼저다.** `SetVolume()`이 `(볼륨 × 마스터)`로 실제 음량을 계산하므로 순서가 뒤집히면 효과음·BGM이 기본 마스터 기준으로 한 번 잘못 적용된다. **`IngameSettingUI.CancelAndHide()`의 되돌리기에도 같은 규칙이 걸려 있다**
-- **`Load()`는 `ApplyFrameRate()`보다 먼저 불러야 한다.** 순서가 뒤집히면 저장된 프레임레이트가 필드에만 들어가고 실제 적용은 기본값으로 이뤄진다
+- **`Load()`는 `Apply` 계열보다 먼저 불러야 한다.** 순서가 뒤집히면 저장된 값이 필드에만 들어가고 실제 적용은 기본값으로 이뤄진다
+- **enum 항목 → 실제 값 매핑은 `Define.*Values` 딕셔너리 하나에서만 한다**(`Resolution`·`FrameRate` 둘 다). 호출부에서 삼항·`switch`로 다시 매기면 **항목을 추가할 때 그 자리만 빠져 컴파일은 통과하고 새 항목이 조용히 옛 값으로 동작한다**
 - `SettingManager`는 `Managers.Clear()` 대상이 아니라 **씬 전환에서 살아남는다.** `Init()`은 프로세스당 1회이므로 재로드를 걱정할 필요가 없다
+
+## 적용 시점 (`Apply*()`)
+
+setter는 값을 보관만 한다. **화면·엔진에 실제로 미는 것은 아래 셋뿐이고, 모두 `Init()`(저장값 복원)과 `LobbySettingUI.ApplySetting()`(확정)에서 불린다.**
+
+| 대상 | 적용부 | 비고 |
+|---|---|---|
+| 프레임 상한 · VSync | `ApplyFrameRateAndVSync()` | 아래 |
+| 해상도 · 창모드 | `ApplyResolution()` | 아래 |
+| FOV | **`PlayerController.Setup()`** | `SettingManager`에 적용부가 없다 |
+| 볼륨 3종 | `SetVolume()`이 즉시 민다 | 별도 `Apply`가 없다 |
+| 마우스 감도 | `PlayerController`가 **매 프레임** 읽는다 | 적용부 자체가 없다 |
+
+- **프레임 상한과 VSync는 `ApplyFrameRateAndVSync()` 한 함수에서 함께 적용한다 — 나누지 말 것.** `vSyncCount > 0`이면 Unity가 `Application.targetFrameRate`를 **통째로 무시**하므로, 따로 적용하면 증상이 "상한을 바꿨는데 안 먹는다"로 나오고 원인이 다른 설정에 있다
+- **해상도·창모드는 에디터에서 아무 일도 일어나지 않는다.** `Screen.SetResolution()`이 스탠드얼론 전용이고 Game 뷰는 상단 드롭다운이 지배한다 — **검증은 빌드에서만 되며, 에디터에서 안 바뀐다고 결함으로 보지 말 것**
+- 전체화면은 `FullScreenWindow`(테두리 없는 창)다. `ExclusiveFullScreen`은 디스플레이 모드를 실제로 바꿔 알트탭 복귀가 느리고 멀티모니터에서 말썽이 난다
+- **FOV 적용부만 `SettingManager` 밖에 있다** — 카메라가 `PlayerController` 하위라 매니저가 닿지 못한다. `Setup()`에서 카메라를 잡은 직후 **1회만** 읽으며, 인게임 설정 창에 FOV 항목이 없어(매치 중 변경 금지) 그것으로 충분하다. **인게임에서 FOV를 바꾸게 하려면 갱신 경로를 새로 만들어야 한다**
+  - 사망 연출 카메라는 원본에서 `fieldOfView`를 복사하므로 따로 적용할 필요가 없다
 
 ## 저장 시점 (`Save()` = `PlayerPrefs.Save()`)
 
@@ -24,7 +43,9 @@ setter는 **메모리에만** 쓴다. 디스크로 내리는 것은 아래 셋�
 
 ## 마우스 감도 범위
 
-`MIN_MOUSE_SENSITIVITY`(0.1) / `MAX_MOUSE_SENSITIVITY`(3.0)는 **설정 창 슬라이더의 Min/Max와 손으로 맞추는 값이다.** 여기만 넓히면 슬라이더로는 못 넣는 값이 저장 파일 편집으로 들어오고, 슬라이더만 넓히면 조작이 이 범위에서 잘린다. 실제 도/픽셀은 이 값 × `PlayerController.MOUSE_SENSITIVITY_DEG_PER_PIXEL`(0.1)이다.
+`MIN_MOUSE_SENSITIVITY`(0.1) / `MAX_MOUSE_SENSITIVITY`(5.0)는 **설정 창 슬라이더 Min/Max와 손으로 맞추는 값이고, 프리팹이 로비·인게임 둘이라 맞출 곳이 셋이다.** 여기만 넓히면 슬라이더로는 못 넣는 값이 저장 파일 편집으로 들어오고, 슬라이더만 넓히면 조작이 이 범위에서 잘린다. 실제 도/픽셀은 이 값 × `PlayerController.MOUSE_SENSITIVITY_DEG_PER_PIXEL`(0.1)이다.
+
+**기본값 1.0은 `_ingameMouseSensitivity` 필드와 슬라이더 두 개의 `Value` 셋이 함께 들고 있다.** 코드만 바꾸면 저장값이 없는 첫 실행에서 **핸들 위치와 실제 값이 어긋난 채 뜬다**(동작은 정상, 표시만 틀리다).
 
 ---
 

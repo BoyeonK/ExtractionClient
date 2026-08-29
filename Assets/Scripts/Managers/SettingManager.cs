@@ -14,11 +14,12 @@ public class SettingManager {
     private const string KEY_RESOLUTION    = "Setting.Resolution";
     private const string KEY_FRAME_RATE    = "Setting.FrameRate";
     private const string KEY_FOV           = "Setting.Fov";
+    private const string KEY_VSYNC         = "Setting.VSync";
 
     // 슬라이더 Min/Max와 손으로 맞추는 값이다. 여기만 넓히면 슬라이더로는 못 넣는 값이
     // 저장 파일 편집으로 들어올 수 있고, 슬라이더만 넓히면 조작이 이 범위에서 잘린다
     public const float MIN_MOUSE_SENSITIVITY = 0.1f;
-    public const float MAX_MOUSE_SENSITIVITY = 3.0f;
+    public const float MAX_MOUSE_SENSITIVITY = 5.0f;
 
     int _effectVolume = 50;
     int _bgmVolume = 10;
@@ -28,6 +29,7 @@ public class SettingManager {
     Define.Resolution _resolution = Define.Resolution._1920x1080;
     Define.FrameRate _frameRate = Define.FrameRate._60;
     int _fov = 60;
+    bool _isVSync = false;
 
     public void Init() {
         GameObject root = GameObject.Find("@Setting");
@@ -37,11 +39,12 @@ public class SettingManager {
             UnityEngine.Object.DontDestroyOnLoad(root);
         }
 
-        // ApplyFrameRate()보다 먼저 와야 한다 — 순서가 뒤집히면 저장된 프레임레이트가
+        // Apply 계열보다 먼저 와야 한다 — 순서가 뒤집히면 저장된 값이
         // 필드에만 들어가고 실제 적용은 기본값으로 이뤄진다
         Load();
 
-        ApplyFrameRate();
+        ApplyFrameRateAndVSync();
+        ApplyResolution();
     }
 
     // ==========================================
@@ -61,6 +64,7 @@ public class SettingManager {
         SetMouseSensitivity(PlayerPrefs.GetFloat(KEY_SENSITIVITY, _ingameMouseSensitivity));
         SetIsWindow(PlayerPrefs.GetInt(KEY_IS_WINDOW, _isWindow ? 1 : 0) != 0);
         SetFov(PlayerPrefs.GetInt(KEY_FOV, _fov));
+        SetIsVSync(PlayerPrefs.GetInt(KEY_VSYNC, _isVSync ? 1 : 0) != 0);
 
         SetResolution(LoadEnum(KEY_RESOLUTION, _resolution, Define.Resolution.MaxCount));
         SetFrameRate(LoadEnum(KEY_FRAME_RATE, _frameRate, Define.FrameRate.MaxCount));
@@ -95,9 +99,20 @@ public class SettingManager {
         PlayerPrefs.Save();
     }
 
-    public void ApplyFrameRate() {
-        int fps = _frameRate == Define.FrameRate._30 ? 30 : 60;
-        Application.targetFrameRate = fps;
+    // 둘을 한 함수에서 함께 적용한다 — VSync가 켜지면 targetFrameRate가 통째로 무시되므로
+    // 따로 적용하면 "상한을 바꿨는데 안 먹는다"가 된다. 나눠서 부르는 형태로 바꾸지 말 것
+    public void ApplyFrameRateAndVSync() {
+        QualitySettings.vSyncCount = _isVSync ? 1 : 0;
+        Application.targetFrameRate = Define.FrameRateValues[_frameRate];
+    }
+
+    // 해상도와 창모드를 함께 적용한다 — Screen.SetResolution()이 둘을 한 번에 받는다.
+    // 전체화면은 ExclusiveFullScreen이 아니라 FullScreenWindow(테두리 없는 창)다.
+    // 전자는 디스플레이 모드를 실제로 바꿔 알트탭 복귀가 느리고 멀티모니터에서 말썽이 난다.
+    // 에디터에서는 Unity가 이 호출을 무시한다(Game 뷰 드롭다운이 지배한다) — 검증은 빌드에서
+    public void ApplyResolution() {
+        var res = Define.ResolutionValues[_resolution];
+        Screen.SetResolution(res.w, res.h, _isWindow ? FullScreenMode.Windowed : FullScreenMode.FullScreenWindow);
     }
 
     public void ApplyPreviousSceneSetting() {
@@ -174,6 +189,15 @@ public class SettingManager {
 
     public Define.FrameRate GetFrameRate() {
         return _frameRate;
+    }
+
+    public void SetIsVSync(bool isVSync) {
+        _isVSync = isVSync;
+        PlayerPrefs.SetInt(KEY_VSYNC, isVSync ? 1 : 0);
+    }
+
+    public bool GetIsVSync() {
+        return _isVSync;
     }
 
     public void SetFov(int fov) {

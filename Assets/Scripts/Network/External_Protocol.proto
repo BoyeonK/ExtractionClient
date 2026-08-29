@@ -9,7 +9,7 @@ option csharp_namespace = "GameProtocol";
 // [작업사항] 클라이언트 반영 대상 — 잔여 항목
 //
 // 이 파일의 "[작업사항]" 으로 시작하는 주석은 클라이언트 작업 지시용 임시 주석이다.
-// 반영이 끝난 항목은 삭제했고, D2CUpdatePlayerStates 한 건만 남아 있다.
+// 반영이 끝난 항목은 삭제했고, D2CUpdatePlayerStates 한 건이 남아 있다.
 // 남은 항목도 반영이 끝나면 "[작업사항]" 블록만 삭제할 것 (그 외 주석은 유지).
 // ============================================================================
 
@@ -160,6 +160,13 @@ message D2CFullInventorySync {
     InventorySlot       secondary_weapon_magazine = 7;
 }
 
+// 컨테이너는 한 번에 한 명만 열 수 있다. 다만 점유자가 상호작용 거리(서버 3m) 밖으로
+// 나갔거나 사라졌으면 요청자가 점유를 가져오고, 뺏긴 쪽은 조작 시 0x0400 을 받는다.
+// 한 플레이어가 동시에 여는 컨테이너도 하나다 — 열어둔 채 다른 컨테이너를 열면 앞의 것이
+// 서버에서 닫히므로, 열림 응답을 받으면 앞서 열어둔 UI 를 정리할 것. 같은 컨테이너를 다시
+// 열어 최신 스냅샷을 받는 것도 허용된다(상태가 어긋났을 때의 복구 수단).
+// 실패는 응답도 거부도 없다 — 열림 응답이 오지 않는 것이 곧 실패다. 요청 자체의 도달은
+// 헤더 ACK 로 확인되므로, 도달했는데 응답이 없으면 거절이다(대개 남이 점유 중인 경우).
 message C2DRequestOpenContainer {
     uint32 container_object_id = 1;
 }
@@ -217,6 +224,7 @@ message D2CResponseEquipItem {
     uint32 my_inventory_version       = 6; // object_id가 컨테이너일 때만 유효: 갱신된 플레이어 인벤토리 버전
 }
 
+// 거부 사유 비트는 아래 두 Deny 패킷이 공유한다. 서버의 상호작용 허용 거리는 3m 다.
 message D2CResponseInteractContainerObjectDeny {
     uint32 deny_reason_mask = 1;
     // 비트필드 마스킹된 거부 사유 (복수 비트 OR 가능)
@@ -228,6 +236,8 @@ message D2CResponseInteractContainerObjectDeny {
     // 0x0020  DENY_BLUEPRINT_MISMATCH    블루프린트 ID 불일치 (merge 타입)
     // 0x0040  DENY_ITEM_TYPE_MISMATCH    아이템 타입 불일치 (merge 타입)
     // 0x0200  DENY_SERVER_INTERNAL       서버 내부 오류
+    // 0x0400  DENY_CONTAINER_NOT_OPEN    지정한 컨테이너가 열려 있지 않음
+    // 0x0800  DENY_OUT_OF_RANGE          컨테이너와의 거리가 상호작용 범위 밖
 }
 
 message D2CResponseEquipItemDeny {
@@ -239,6 +249,8 @@ message D2CResponseEquipItemDeny {
     // 0x0080  DENY_BARE_HANDED            마지막 무기를 내릴 수 없음 (맨손 방지)
     // 0x0100  DENY_MAGAZINE_UNLOAD_FAILED 탄창 언로드 실패
     // 0x0200  DENY_SERVER_INTERNAL        서버 내부 오류
+    // 0x0400  DENY_CONTAINER_NOT_OPEN     지정한 컨테이너가 열려 있지 않음
+    // 0x0800  DENY_OUT_OF_RANGE           컨테이너와의 거리가 상호작용 범위 밖
 }
 
 // 손에 든 무기 변경 통보. 남의 변경은 당사자를 제외한 룸 전체에, 본인의 교체 결과는 본인에게 온다.

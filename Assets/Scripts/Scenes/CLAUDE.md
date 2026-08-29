@@ -302,7 +302,7 @@
 
 - `TryInteract()`: 컨테이너가 열려 있으면 닫고 아니면 대상의 `Interact()`를 부른다. **컨테이너 외의 UI가 떠 있으면 막는다** — 커서가 풀리면 시점이 멈춘 채 직전 조준 대상이 남아, 창을 띄운 상태로 컨테이너·귀환이 눌린다
 - `_isContainerOpen`: objectId가 0일 수 있으므로 별도 bool 플래그를 쓴다
-- Deny 수신 시 `RequestRecentInventoryInfo()`로 재동기화한다
+- Deny 처리는 아래 '거부 사유' 참조
 
 ### 귀환(Recall) 상태 관리
 
@@ -317,4 +317,19 @@
 - 드래그: `BeginDrag`/`UpdateDragPosition`/`EndDrag` → 고스트 제어
 - 아이템 조작: `RequestInteractContainerObject()` (get=0, swap=1, merge=2)
 - 장비 장착: `RequestEquipItem()` (장착=0, 해제=1)
-- Deny 수신 시 `RequestRecentInventoryInfo()`로 재동기화
+
+### 거부 사유 (`HandleContainerDeny`)
+
+`D2CResponseInteractContainerObjectDeny`와 `D2CResponseEquipItemDeny`가 **같은 비트를 쓰므로 처리도 한 함수로 모은다** — 나누면 한쪽만 고쳐져 갈린다. 기본 처리는 `RequestRecentInventoryInfo()` 재동기화이고 아래 둘만 예외다.
+
+| 비트 | 처리 | 근거 |
+|---|---|---|
+| `0x0400` CONTAINER_NOT_OPEN | `CloseContainerLocal()` 후 재동기화 | 그 컨테이너가 **나에게** 열려 있지 않다 |
+| `0x0800` OUT_OF_RANGE | **아무것도 하지 않는다** | 가까이 가면 성공하는 일시적 조건 |
+
+- **UI가 열려 있다고 내 것이라는 보장이 없다** — 가장 흔한 `0x0400`은 소유권 이전이다. 내가 상호작용 거리 밖에 나가 있는 동안 남이 그 컨테이너를 열면 점유가 넘어간다
+- **`0x0400`에서 컨테이너 재동기화 요청은 성립하지 않는다.** 먼저 닫아 `IsContainerOpen`을 내려야 뒤따르는 `RequestRecentInventoryInfo()`가 내 인벤토리만 요청한다. **순서를 뒤집지 말 것**
+- **`CloseContainerLocal()` 앞의 `_isContainerOpen` 가드를 빼지 말 것** — 닫힌 상태에서 부르면 `OnUIClosed()`가 `_uiOpenCount`를 잘못 깎는다. 내가 닫은 뒤 앞선 조작의 거부가 도착하는 경로가 실재한다(서버가 close를 먼저 처리한 경우)
+- **이 통보에는 `container_object_id`가 없다** — 앞 컨테이너의 거부가 늦게 오면 방금 연 컨테이너를 닫는다. **감수하기로 한 오작동**이고 복구는 다시 여는 것이다(서버 점유는 거리로 풀린다)
+- **둘 다 서버 오류가 아니라 정상 플레이에서 나오므로 `LogWarning`이다.** `LogError`로 올리면 진짜 내부 오류(`0x0200`)가 묻힌다
+- **자동 재시도를 붙이지 말 것**(서버 계약) — 재전송해도 결과가 같다. 다시 쓰려면 열기부터 한다

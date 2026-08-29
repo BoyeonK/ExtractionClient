@@ -107,7 +107,7 @@ IngameWeaponUI                  ← GameObject.Find 대상. 이름 고정 + 씬�
   └ WeaponInfoPanel/{WeaponImage, MagazineAmmoCount, RemainAmmoCount}
 ```
 
-- 볼륨 슬라이더는 Min 0 / Max 100(로비와 동일), **감도 슬라이더는 Min 0.1 / Max 3.0 / Value 1.0** — `SettingManager.MIN/MAX_MOUSE_SENSITIVITY`와 **손으로 맞추는 값**이다
+- 볼륨 슬라이더는 Min 0 / Max 100(로비와 동일), **감도 슬라이더는 Min 0.1 / Max 5.0 / Value 1.0** — `SettingManager.MIN/MAX_MOUSE_SENSITIVITY` 및 **로비 프리팹의 같은 슬라이더와 손으로 맞추는 값**이다(맞출 곳이 셋)
 - `IngameHealthBarUI`의 Fill 이미지는 **Type이 `Filled`여야 한다** — `Simple`이면 `fillAmount` 대입이 조용히 무시된다. **`IngameStaminaBarUI`(`StaminaBarBg/StaminaBarFill`)도 같은 규칙**이며 이쪽은 이미 `Filled`로 맞춰져 있다
 - `IngameWeaponUI`의 `WeaponImage`는 자리만 있고 **아직 코드가 채우지 않는다**(`TODO:`) — **쓸 이미지가 정해지지 않았고, `Images/WeaponSprites/*`는 여기에 쓰는 것이 아니다**
 - `IngameWeaponUI`는 **그래픽 7개 모두 `raycastTarget`을 꺼둔다.** HUD가 클릭을 가로채면 인벤토리를 열어 커서가 풀린 상태에서 겹치는 영역의 드래그를 먹는다. 요소를 추가할 때도 함께 끌 것

@@ -74,8 +74,17 @@ public static class Define {
     public enum FrameRate {
         _30,
         _60,
+        _120,
+        _144,
         MaxCount,
     }
+
+    public static readonly Dictionary<FrameRate, int> FrameRateValues = new Dictionary<FrameRate, int>() {
+        { FrameRate._30,  30  },
+        { FrameRate._60,  60  },
+        { FrameRate._120, 120 },
+        { FrameRate._144, 144 },
+    };
 
     public enum Map {
         TestMap,

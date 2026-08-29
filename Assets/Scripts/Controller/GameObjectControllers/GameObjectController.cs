@@ -73,7 +73,7 @@ public class GameObjectController : MonoBehaviour {
 	// 타이머 갱신이 재생 조건보다 먼저 와야 한다 — 멈춰 있는 동안에도 상한까지 차오르므로
 	// 첫 걸음이 즉발이 된다. 순서를 뒤집으면 첫 걸음이 한 간격만큼 밀린다
 	private const float WALK_FOOTSTEP_INTERVAL = 0.6f;
-	private const float RUN_FOOTSTEP_INTERVAL = 1f / 3f;   // 초당 3번
+	private const float RUN_FOOTSTEP_INTERVAL = 0.25f;   // 초당 4번
 	private float _footstepTimer = 0f;
 
 	protected void UpdateFootstep(AudioSource source, bool isStepping, bool isRunning) {

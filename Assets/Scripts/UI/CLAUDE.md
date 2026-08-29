@@ -108,7 +108,7 @@ IngameWeaponUI                  ← GameObject.Find로 잡으므로 이름 고�
 
 ### `IngameSettingUI` — 인게임 설정 창 (ESC)
 
-`LobbySettingUI`를 재사용하지 않고 **별도 UI로 만들었다.** 로비 쪽은 창모드·해상도·프레임·FOV까지 다루는데 **매치 중에 바꾸면 안 되는 값들이라**(사용자 확정), 인게임에는 **마우스 감도 + 볼륨 3종만** 담는다. 로비 씬을 필드로 직접 참조하는 것도 재사용을 막는 이유였다.
+`LobbySettingUI`를 재사용하지 않고 **별도 UI로 만들었다.** 로비 쪽은 창모드·해상도·프레임·VSync·FOV까지 다루는데 **매치 중에 바꾸면 안 되는 값들이라**(사용자 확정), 인게임에는 **마우스 감도 + 볼륨 3종만** 담는다. 로비 씬을 필드로 직접 참조하는 것도 재사용을 막는 이유였다.
 
 - **로비와 반영 정책이 갈린다 — 여기는 슬라이더를 움직이는 즉시 `Managers.Setting`에 반영하고, 취소하면 `Show()` 시점 스냅샷으로 되돌린다.** 볼륨은 귀로 들어야 맞출 수 있어서다. 그래서 **'적용'은 확정이 아니라 '이대로 닫기'**이고 로비처럼 재확인 팝업을 띄우지 않는다(인게임에 그 팝업이 없기도 하다)
 - **되돌릴 때는 마스터 볼륨을 먼저 넣는다** — `SetMasterVolume()`이 효과·BGM을 다시 밀어내므로 순서가 뒤집히면 복원값이 덮인다
@@ -134,7 +134,7 @@ IngameSettingUI                         ← 루트. GameObject.Find로 잡으므
   └ Footer/ButtonContainer/{ApplyButton, CancelButton}
 ```
 
-- 볼륨 슬라이더는 Min 0 / Max 100(로비와 동일). **감도 슬라이더는 Min 0.1 / Max 3.0 / Value 1.0** — 값 × `PlayerController.MOUSE_SENSITIVITY_DEG_PER_PIXEL`(0.1)이 실제 도/픽셀이므로 이 범위가 0.01~0.3 deg/px에 해당한다
+- 볼륨 슬라이더는 Min 0 / Max 100(로비와 동일). **감도 슬라이더는 Min 0.1 / Max 5.0 / Value 1.0이고 로비 쪽과 같아야 한다** — 값 × `PlayerController.MOUSE_SENSITIVITY_DEG_PER_PIXEL`(0.1)이 실제 도/픽셀이므로 이 범위가 0.01~0.5 deg/px에 해당한다. 갈리면 **같은 설정을 어느 창에서 만졌느냐로 상한이 달라진다**
 
 ## 씬 내장 UI (`LobbySceneUI/`)
 
