@@ -1031,7 +1031,8 @@ public class IngameScene : BaseScene {
     }
 
     public void ApplyEquipItem(uint actionType, uint equipmentSlotType,
-        uint objectId, uint objectVersion, uint objectSlotIdx, uint myInventoryVersion) {
+        uint objectId, uint objectVersion, uint objectSlotIdx, uint myInventoryVersion,
+        InventoryItem serverUnloadedAmmo) {
 
         if (actionType == 0) {
             // equip: 슬롯 → 장비
@@ -1046,6 +1047,13 @@ public class IngameScene : BaseScene {
             _inventory.SetSlotByObjectId(objectId, objectSlotIdx, equipItem);
             _inventory.SetEquipmentSlot(equipmentSlotType, slotItem);
         }
+
+        // 무기 슬롯 조작은 장착·해제 양쪽 모두 스왑을 마친 뒤 탄창을 쏟는다 — 서버와 같은 순서여야 한다.
+        // 앞으로 옮기면 빈 칸에 내린 무기가 방금 쏟은 탄약과 자리를 다툰다(목적지가 최소 인덱스
+        // 빈 칸이면 배치 규칙 ②가 그 칸을 골라버린다). 스왑 뒤에는 무기가 그 칸을 차지해 후보에서 빠진다
+        InventoryItem localUnloadedAmmo = null;
+        if (equipmentSlotType <= 1)
+            localUnloadedAmmo = _inventory.UnloadMagazineToInventory(equipmentSlotType);
 
         _inventory.SetVersionByObjectId(objectId, objectVersion);
         if (objectId != PLAYER_OBJECT_ID)
@@ -1063,27 +1071,57 @@ public class IngameScene : BaseScene {
         // 서버 규칙을 클라가 직접 반영해야 한다
         if (equipmentSlotType <= 1)
             SyncHeldWeapon();
+
+        VerifyUnloadedAmmo(localUnloadedAmmo, serverUnloadedAmmo);
+    }
+
+    // 탄창 언로드 배치는 클라가 서버와 같은 규칙으로 계산하고 응답의 unloaded_ammo_slot으로 검산한다.
+    // 서버값을 그대로 대입하지 않는 것은 계약이다 — 대입하면 규칙이 갈린 것을 영영 모른다.
+    // 배치가 어긋났다면 계산 전체를 믿을 수 없으므로 스냅샷을 다시 받는다
+    private void VerifyUnloadedAmmo(InventoryItem local, InventoryItem server) {
+        // quantity는 비교하지 않는다 — 발사 탄약이 느슨한 동기화라 로컬 탄창 수치가 서버보다 작은 것이
+        // 정상 범위다(PlayerController.Fire의 로컬 차감). 넣으면 쏘고 나서 무기를 바꿀 때마다 헛 재동기화가 나간다.
+        // 배치 규칙 ①②③이 수량에 의존하지 않으므로 어느 칸에 무엇이 갔는지만 보면 충분하다
+        bool matched = local == null
+            ? server == null
+            : server != null && local.slot_index == server.slot_index && local.item_id == server.item_id;
+
+        if (matched) return;
+
+        Util.LogError($"[EquipItem] 탄창 언로드 배치 불일치 — 로컬={DescribeAmmoSlot(local)} / 서버={DescribeAmmoSlot(server)}");
+        RequestRecentInventoryInfo();
+    }
+
+    private string DescribeAmmoSlot(InventoryItem item) {
+        if (item == null) return "없음";
+        return $"slot={item.slot_index} itemId={item.item_id} x{item.quantity}";
     }
 
     // 거부 사유 비트는 두 Deny 패킷이 공유한다. 이 둘은 서버 내부 오류(0x0200)와 달리
     // 정상 플레이에서 나오므로 로그 등급도 갈라야 한다 — LogError로 두면 늑대 소년이 된다
-    private const uint DENY_CONTAINER_NOT_OPEN = 0x0400;
-    private const uint DENY_OUT_OF_RANGE       = 0x0800;
+    private const uint DENY_CONTAINER_NOT_OPEN  = 0x0400;
+    private const uint DENY_OUT_OF_RANGE        = 0x0800;
+    private const uint DENY_ITEM_TYPE_MISMATCH  = 0x0040;
 
     public void HandleInteractContainerObjectDeny(uint denyReasonMask) {
-        HandleContainerDeny("InteractContainerObjectDeny", denyReasonMask);
+        HandleContainerDeny("InteractContainerObjectDeny", denyReasonMask, isEquip: false);
     }
 
     public void HandleEquipItemDeny(uint denyReasonMask) {
-        HandleContainerDeny("EquipItemDeny", denyReasonMask);
+        HandleContainerDeny("EquipItemDeny", denyReasonMask, isEquip: true);
     }
 
     // 두 패킷의 사유 비트가 같으므로 처리도 한곳에 둔다 — 나누면 한쪽만 고쳐져 갈린다
-    private void HandleContainerDeny(string tag, uint denyReasonMask) {
+    private void HandleContainerDeny(string tag, uint denyReasonMask, bool isEquip) {
         bool notOpen = (denyReasonMask & DENY_CONTAINER_NOT_OPEN) != 0;
         bool outOfRange = (denyReasonMask & DENY_OUT_OF_RANGE) != 0;
 
-        if (notOpen || outOfRange)
+        // 타입 불일치는 경로에 따라 성격이 다르다. 장비 경로에서는 탄약 칸에 무기를 내리는 식의
+        // 흔한 오조작이라 경고지만, 컨테이너 merge 쪽은 클라가 item_id 일치를 확인하고 보내므로
+        // 거기서 나오면 진짜 이상 신호다 — 등급을 합치면 한쪽이 반드시 묻힌다
+        bool equipTypeMismatch = isEquip && (denyReasonMask & DENY_ITEM_TYPE_MISMATCH) != 0;
+
+        if (notOpen || outOfRange || equipTypeMismatch)
             Util.LogWarning($"[{tag}] denyReasonMask=0x{denyReasonMask:X}");
         else
             Util.LogError($"[{tag}] denyReasonMask=0x{denyReasonMask:X}");

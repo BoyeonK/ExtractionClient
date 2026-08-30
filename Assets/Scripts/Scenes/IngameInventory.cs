@@ -170,4 +170,43 @@ public class IngameInventory {
             case 2: _armor = item; break;
         }
     }
+
+    // 무기 슬롯 조작(장착·해제) 뒤 그 슬롯의 탄창을 인벤토리로 쏟는다. 배치 규칙은 서버와 같아야 한다 —
+    // ① 같은 item_id 스택 중 최소 인덱스에 합산(수량 상한 없음) ② 없으면 최소 인덱스 빈 칸 ③ 폐기.
+    // 목적지는 언제나 플레이어 인벤토리다. 컨테이너 대상 조작이어도 탄약은 컨테이너로 가지 않는다.
+    // 옮긴 칸의 최종 상태를 돌려주고 옮긴 것이 없으면 null이다(호출부가 서버값과 대조한다)
+    public InventoryItem UnloadMagazineToInventory(uint equipmentSlotType) {
+        if (equipmentSlotType > 1) return null;
+
+        bool isPrimary = equipmentSlotType == 0;
+        InventoryItem magazine = isPrimary ? _primaryWeaponMagazine : _secondaryWeaponMagazine;
+
+        // 무기가 슬롯을 떠난 이상 탄창은 어느 갈래로 가든 비운다(서버도 네 경로 전부 Clear한다).
+        // 배치 성공 여부에 묶으면 폐기된 경우에 무기 없는 탄창이 남는다
+        if (isPrimary) SetPrimaryWeaponMagazine(null);
+        else SetSecondaryWeaponMagazine(null);
+
+        // 서버는 잔탄 0을 빈 슬롯으로 만들지만 클라는 발사마다 로컬 예측으로 차감해
+        // quantity == 0인 탄창이 다음 동기화 전까지 실재한다. 둘을 같게 봐야 검산이 헛돌지 않는다
+        if (magazine == null || magazine.quantity <= 0) return null;
+
+        for (int i = 0; i < INVENTORY_SLOT_COUNT; i++) {
+            InventoryItem slot = _inventorySlots[i];
+            if (slot == null || slot.item_id != magazine.item_id) continue;
+            slot.quantity += magazine.quantity;
+            // slot_index는 로컬 이동 경로에서 갱신되지 않아 낡아 있을 수 있다. 검산이 이 값을 쓰므로
+            // 돌려주기 전에 실제 배열 인덱스로 맞춘다
+            slot.slot_index = i;
+            return slot;
+        }
+
+        for (int i = 0; i < INVENTORY_SLOT_COUNT; i++) {
+            if (_inventorySlots[i] != null) continue;
+            magazine.slot_index = i;
+            _inventorySlots[i] = magazine;
+            return magazine;
+        }
+
+        return null;
+    }
 }

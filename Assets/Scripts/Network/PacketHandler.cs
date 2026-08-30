@@ -997,11 +997,12 @@ public class PacketHandler {
         uint objectVersion      = pkt.ObjectInventoryVersion;
         uint objectSlotIdx      = pkt.ObjectSlotIdx;
         uint myInventoryVersion = pkt.MyInventoryVersion;
+        InventoryItem unloadedAmmo = ToInventoryItem(pkt.UnloadedAmmoSlot);
 
         Managers.ExecuteAtMainThread(() => {
             if (Managers.Scene.CurrentScene is not IngameScene ingameScene) return;
             ingameScene.ApplyEquipItem(actionType, equipmentSlotType,
-                objectId, objectVersion, objectSlotIdx, myInventoryVersion);
+                objectId, objectVersion, objectSlotIdx, myInventoryVersion, unloadedAmmo);
         });
     }
 
