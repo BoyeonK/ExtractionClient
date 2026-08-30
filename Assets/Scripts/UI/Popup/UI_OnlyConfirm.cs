@@ -19,6 +19,7 @@ public class UI_OnlyConfirm : UI_Popup {
 
         if (_confirmButton != null) {
             _confirmButton.onClick.AddListener(() => {
+                Managers.Sound.PlayUISubmit();
                 confirmOnClickEvent?.Invoke();
                 Destroy(gameObject);
             });

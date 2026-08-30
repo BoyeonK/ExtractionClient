@@ -27,7 +27,9 @@ public class UI_TestStart : UI_Scene {
     }
 
     void TryConnectToServer() {
+        // 중복 클릭 가드 뒤에 둔다 — 앞에 두면 접속 중에 연타할 때마다 소리만 난다
         if (_isRequestSending == true) return;
+        Managers.Sound.PlayUISubmit();
         _isRequestSending = true;
         _testSpinnerText.gameObject.SetActive(true);
         _scene.TryConnectToServer();

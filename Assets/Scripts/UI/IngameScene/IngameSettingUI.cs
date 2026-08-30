@@ -58,12 +58,13 @@ public class IngameSettingUI : MonoBehaviour {
         if (trAudioPanel != null)   _audioPanel = trAudioPanel.gameObject;
 
         if (_generalTab != null) {
-            _generalTab.OnClickHandler += _ => ChangeTab(SelectedTab.General);
+            // 소리는 ChangeTab 안이 아니라 여기서 낸다 — 그 함수는 Init에서도 불려 창이 뜨기도 전에 울린다
+            _generalTab.OnClickHandler += _ => { Managers.Sound.PlayUISubmit(); ChangeTab(SelectedTab.General); };
             _generalTab.OnPointerEnterHandler += _ => { if (_selectedTab != SelectedTab.General) _generalTabColor.color = HOVER_TAB_COLOR; };
             _generalTab.OnPointerExitHandler  += _ => { if (_selectedTab != SelectedTab.General) _generalTabColor.color = UNSELECTED_TAB_COLOR; };
         }
         if (_audioTab != null) {
-            _audioTab.OnClickHandler += _ => ChangeTab(SelectedTab.Audio);
+            _audioTab.OnClickHandler += _ => { Managers.Sound.PlayUISubmit(); ChangeTab(SelectedTab.Audio); };
             _audioTab.OnPointerEnterHandler += _ => { if (_selectedTab != SelectedTab.Audio) _audioTabColor.color = HOVER_TAB_COLOR; };
             _audioTab.OnPointerExitHandler  += _ => { if (_selectedTab != SelectedTab.Audio) _audioTabColor.color = UNSELECTED_TAB_COLOR; };
         }
@@ -84,8 +85,10 @@ public class IngameSettingUI : MonoBehaviour {
 
         _applyButton  = Util.BindComponent<Button>("IngameSettingWindow/Footer/ButtonContainer/ApplyButton", this.gameObject);
         _cancelButton = Util.BindComponent<Button>("IngameSettingWindow/Footer/ButtonContainer/CancelButton", this.gameObject);
-        if (_applyButton != null)  _applyButton.onClick.AddListener(Hide);
-        if (_cancelButton != null) _cancelButton.onClick.AddListener(CancelAndHide);
+        // 소리를 Hide()/CancelAndHide() 안에 넣지 않는다 — Hide()는 BeginMatchExit()도 부르므로
+        // 죽거나 귀환할 때마다 UI음이 난다. 버튼 등록 지점에서만 낸다
+        if (_applyButton != null)  _applyButton.onClick.AddListener(() => { Managers.Sound.PlayUISubmit(); Hide(); });
+        if (_cancelButton != null) _cancelButton.onClick.AddListener(() => { Managers.Sound.PlayUIReturn(); CancelAndHide(); });
 
         RefreshFromSetting();
         ChangeTab(_selectedTab);

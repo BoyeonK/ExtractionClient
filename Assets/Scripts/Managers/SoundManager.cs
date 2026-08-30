@@ -45,6 +45,14 @@ public class SoundManager {
         }
     }
 
+    // UI 피드백 3종. 2D 재생이며 SoundPoint(월드 3D)와 경계를 넘기지 말 것 — 넘기면 클릭음이
+    // 가슴팍에서 3D로 난다. 클립 이름을 호출부에서 조립하지 않는 것은 GetGunShotSound와 같은 이유로,
+    // 못 찾은 클립은 무음이고 GetOrAddAudioClip이 그 null을 캐시까지 해서 로그조차 남지 않는다.
+    // 호출부가 수십 곳이라 문자열을 흩으면 오타 하나가 그 버튼만 영구히 죽인다
+    public void PlayUISubmit() => Play("ui_submit");
+    public void PlayUIReturn() => Play("ui_return");
+    public void PlayInventoryChange() => Play("inventory_change");
+
     // 월드에서 난 소리 — 오브젝트에 붙은 3D 소스에서 재생한다. UI 피드백은 위의 Play를 쓸 것.
     //
     // 소리별 음량 밸런스는 반드시 volumeScale로 잡는다. source.volume은 소스 단위 속성이라

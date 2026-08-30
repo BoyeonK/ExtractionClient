@@ -100,9 +100,10 @@ public class LobbySettingUI : MonoBehaviour {
         _applyButton = Util.BindComponent<Button>("LobbySettingWindow/Footer/ButtonContainer/ApplyButton", this.gameObject);
         _cancelButton = Util.BindComponent<Button>("LobbySettingWindow/Footer/ButtonContainer/CancelButton", this.gameObject);
 
-        _generalTab.OnClickHandler += _ => ChangeTab(SelectedTab.General);
-        _graphicTab.OnClickHandler += _ => ChangeTab(SelectedTab.Graphic);
-        _audioTab.OnClickHandler   += _ => ChangeTab(SelectedTab.Audio);
+        // 소리는 ChangeTab 안이 아니라 여기서 낸다 — 그 함수는 Init에서도 불려 창이 뜨기도 전에 울린다
+        _generalTab.OnClickHandler += _ => { Managers.Sound.PlayUISubmit(); ChangeTab(SelectedTab.General); };
+        _graphicTab.OnClickHandler += _ => { Managers.Sound.PlayUISubmit(); ChangeTab(SelectedTab.Graphic); };
+        _audioTab.OnClickHandler   += _ => { Managers.Sound.PlayUISubmit(); ChangeTab(SelectedTab.Audio); };
 
         _generalTab.OnPointerEnterHandler += _ => { if (_selectedTab != SelectedTab.General) _generalTabColor.color = _hoverTabColor; };
         _generalTab.OnPointerExitHandler  += _ => { if (_selectedTab != SelectedTab.General) _generalTabColor.color = _unselectedTabColor; };
@@ -180,8 +181,11 @@ public class LobbySettingUI : MonoBehaviour {
     public void Show() => gameObject.SetActive(true);
     public void Hide() => gameObject.SetActive(false);
 
+    // 재확인 팝업으로 가는 갈래에서는 소리를 내지 않는다 — 팝업이 자기 확인·취소음을 내므로 두 번 울린다.
+    // 변경이 없어 그냥 닫히는 갈래만 여기서 낸다
     private void OnClickApply() {
         if (!HasChanges()) {
+            Managers.Sound.PlayUISubmit();
             Hide();
             return;
         }
@@ -190,6 +194,7 @@ public class LobbySettingUI : MonoBehaviour {
 
     private void OnClickCancel() {
         if (!HasChanges()) {
+            Managers.Sound.PlayUIReturn();
             Hide();
             return;
         }
@@ -209,11 +214,13 @@ public class LobbySettingUI : MonoBehaviour {
     }
 
     private void OnClickWindowMode() {
+        Managers.Sound.PlayUISubmit();
         _pendingIsWindow = !_pendingIsWindow;
         RefreshWindowModeText();
     }
 
     private void OnClickResolution(int dir) {
+        Managers.Sound.PlayUISubmit();
         int cur = (int)_pendingResolution + dir;
         if (cur < 0) cur = (int)Define.Resolution.MaxCount - 1;
         else if (cur >= (int)Define.Resolution.MaxCount) cur = 0;
@@ -222,6 +229,7 @@ public class LobbySettingUI : MonoBehaviour {
     }
 
     private void OnClickFrameRate(int dir) {
+        Managers.Sound.PlayUISubmit();
         int cur = (int)_pendingFrameRate + dir;
         if (cur < 0) cur = (int)Define.FrameRate.MaxCount - 1;
         else if (cur >= (int)Define.FrameRate.MaxCount) cur = 0;

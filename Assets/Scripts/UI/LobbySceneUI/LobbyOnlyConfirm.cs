@@ -22,6 +22,7 @@ public class lobbyOnlyConfirm : MonoBehaviour {
 
         if (_confirmButton != null) {
             _confirmButton.onClick.AddListener(() => {
+                Managers.Sound.PlayUISubmit();
                 confirmOnClickEvent?.Invoke();
                 DeactiveThisUI();
             });

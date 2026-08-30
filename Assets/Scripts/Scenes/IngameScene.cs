@@ -1028,6 +1028,11 @@ public class IngameScene : BaseScene {
         SyncInventoryUI();
         if (_isContainerOpen && _ingameInventoryUI != null)
             _ingameInventoryUI.SyncContainer();
+
+        // 조작음은 서버가 승인한 이 자리에서 낸다 — 요청 지점(IngameISlot.OnDrop)에서 내면
+        // 거부된 조작이 성공한 것처럼 들린다. 전체 동기화(ApplyFullSync)에는 붙이지 말 것:
+        // 조작이 아니라 동기화라 재장전 응답과 재동기화마다 소리가 난다
+        Managers.Sound.PlayInventoryChange();
     }
 
     public void ApplyEquipItem(uint actionType, uint equipmentSlotType,
@@ -1071,6 +1076,9 @@ public class IngameScene : BaseScene {
         // 서버 규칙을 클라가 직접 반영해야 한다
         if (equipmentSlotType <= 1)
             SyncHeldWeapon();
+
+        // 위 ApplyInteractContainerObject와 같은 이유로 서버 승인 뒤에 낸다
+        Managers.Sound.PlayInventoryChange();
 
         VerifyUnloadedAmmo(localUnloadedAmmo, serverUnloadedAmmo);
     }

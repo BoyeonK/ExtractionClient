@@ -28,7 +28,7 @@ Assets/Resources/
 │  ├ Scene/, System/, TestLobbyScene/   코드 참조 없음(아래 '참조 없는 자산')
 ├ Images/{Items, MapSprites, WeaponSprites}
 ├ Fonts/                    7종. 코드 경로 없이 프리팹이 직접 참조한다
-└ Sounds/                   12개 중 6개를 재생한다(아래). 재장전음·UI음은 아직 호출부가 없다
+└ Sounds/                   12종 전부 재생 호출부가 있다(아래)
 ```
 
 ## 경로 접두어가 호출부마다 다르다
@@ -145,5 +145,6 @@ IngameWeaponUI                  ← GameObject.Find 대상. 이름 고정 + 씬�
 - `Prefabs/System/@Managers` — `Managers`는 `GameObject.Find` 후 없으면 **런타임 생성**이라 이 프리팹을 경로로 로드하지 않는다
 - `Prefabs/System/EventSystem` — 코드가 쓰는 것은 `UI/EventSystem` 쪽이다. **같은 것이 두 벌 있다**
 - `Prefabs/Scene/*`(4종), `Prefabs/TestLobbyScene/`, `Prefabs/TestPlayer`, `Prefabs/UI/LobbySceneUI/LobbySettingUIBackup`
-- **`Sounds/` 12개 중 6개** — 재생 호출부가 있는 것은 `empty_gun_shot`(`EmptyAmmoFire()`), `foot_step1~3`·`run_foot_step`(`ProcessFootstep()` — 로컬·오포 양쪽), `gun_shot_1`(`Fire()`)이다. 재장전음 3종·UI음 2종은 파일로만 준비돼 있고 재생을 붙이면 되는 상태이며, 이건 `progress.md`의 이펙트 항목과 같은 자리다
+- **`Sounds/`는 12종 전부 호출부가 있다** — 월드 3D(`SoundPoint`)는 `foot_step1~3`·`run_foot_step`·`gun_shot_1`·`m4_reload_{start,sequence1,complete}`, 2D는 `empty_gun_shot`·`ui_submit`·`ui_return`·`inventory_change`다
+  - **클립 이름은 코드 한 곳에만 둔다** — 월드 쪽은 `GameObjectController.GetGunShotSound`/`GetReloadSound`, UI 쪽은 `SoundManager.PlayUISubmit`/`PlayUIReturn`/`PlayInventoryChange`다. **호출부에서 문자열을 조립하지 말 것**(UI음은 호출부가 40곳이 넘는다)
   - **클립을 못 찾아도 아무 소리 없이 넘어간다** — `SoundManager.Play()`가 null이면 그대로 return하고 `GetOrAddAudioClip()`은 **그 null을 딕셔너리에 캐시까지 한다.** 즉 파일명을 한 글자 틀리면 그 소리만 영구히 무음이고 로그도 남지 않는다. 위 '이름이 곧 계약인 자리'가 사운드에도 그대로 걸리며, 로드 실패가 `LogError`로 드러나는 프리팹 쪽과 여기가 다르다

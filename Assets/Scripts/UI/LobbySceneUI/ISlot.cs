@@ -115,6 +115,10 @@ public class ISlot : MonoBehaviour {
             sourceUI.SetItemAtSlot(source.SlotIndex, targetItem);
             targetUI.SetItemAtSlot(SlotIndex, sourceItem);
         }
+
+        // 로비 인벤토리는 판정이 완전히 로컬이라 여기가 곧 확정 시점이다 — 인게임(IngameISlot)은
+        // 서버가 판정하므로 요청 지점이 아니라 응답 핸들러에서 낸다. 두 곳의 자리가 다르다
+        Managers.Sound.PlayInventoryChange();
     }
 
     private void OnDestroy() {

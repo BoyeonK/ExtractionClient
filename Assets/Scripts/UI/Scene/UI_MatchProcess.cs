@@ -46,6 +46,7 @@ public class UI_MatchProcess : UI_Scene {
     }
 
     private void OnClickCancelBtn() {
+        Managers.Sound.PlayUIReturn();
         _cancelBtn.interactable = false;
         _scene.OnMatchCancelBtnClick();
     }

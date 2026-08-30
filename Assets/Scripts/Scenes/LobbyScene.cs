@@ -715,6 +715,7 @@ public class LobbyScene : BaseScene {
 
             InventoryItem splitItem = new InventoryItem { item_id = item.item_id, quantity = smaller };
             _inventoryUI.SetItemAtSlot(emptySlot.SlotIndex, splitItem);
+            Managers.Sound.PlayInventoryChange();
         }
         else if (ui is UI_Warehouse) {
             ISlot emptySlot = _warehouseUI.FirstEmptySlot;
@@ -728,6 +729,7 @@ public class LobbyScene : BaseScene {
 
             InventoryItem splitItem = new InventoryItem { item_id = item.item_id, quantity = smaller };
             _warehouseUI.SetItemAtSlot(emptySlot.SlotIndex, splitItem);
+            Managers.Sound.PlayInventoryChange();
         }
     }
 

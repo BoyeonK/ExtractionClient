@@ -45,6 +45,9 @@ public class UI_Login : UI_Scene {
             return;
         }
 
+        // 유효성 가드 뒤에서 낸다 — 앞에 두면 빈 칸으로 눌러도 성공한 것처럼 들린다.
+        // 엔터 입력도 이 함수를 거치므로 키·버튼이 같은 소리를 낸다
+        Managers.Sound.PlayUISubmit();
         _isTryingLogin = true;
         _scene.TryLogin(id, password);
     }
@@ -70,6 +73,7 @@ public class UI_Login : UI_Scene {
     }
 
     private void OnClickCloseBtn() {
+        Managers.Sound.PlayUIReturn();
         _scene.BackToAuthNoneSelected();
     }
 

@@ -50,6 +50,8 @@ public class UI_Register : UI_Scene {
             return;
         }
 
+        // 유효성 가드 뒤에서 낸다 — 앞에 두면 빈 칸으로 눌러도 성공한 것처럼 들린다
+        Managers.Sound.PlayUISubmit();
         _isTryingRegister = true;
         _scene.TryRegister(id, password);
     }
@@ -74,7 +76,9 @@ public class UI_Register : UI_Scene {
         }
     }
 
+    // 닫기와 '로그인으로 돌아가기'가 같은 핸들러를 공유하므로 둘 다 여기서 소리를 낸다
     private void OnClickCloseBtn() {
+        Managers.Sound.PlayUIReturn();
         _scene.BackToAuthNoneSelected();
     }
 

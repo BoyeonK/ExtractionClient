@@ -24,6 +24,7 @@ public class LobbyConfirmOrCancel : MonoBehaviour {
 
         if (_confirmButton != null) {
             _confirmButton.onClick.AddListener(() => {
+                Managers.Sound.PlayUISubmit();
                 confirmOnClickEvent?.Invoke();
                 DeactiveThisUI();
             });
@@ -31,6 +32,7 @@ public class LobbyConfirmOrCancel : MonoBehaviour {
 
         if (_cancelButton != null) {
             _cancelButton.onClick.AddListener(() => {
+                Managers.Sound.PlayUIReturn();
                 cancelOnClickEvent?.Invoke();
                 DeactiveThisUI();
             });

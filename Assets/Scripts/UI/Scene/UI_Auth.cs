@@ -22,9 +22,9 @@ public class UI_Auth : UI_Scene {
         _registerButton = BindComponent<Button>("Card/RegisterButton");
         _guestLoginButton = BindComponent<Button>("Card/GuestLoginButton");
 
-        _loginButton.onClick.AddListener(() => { _scene.OnClickSelectLogin(); });
-        _registerButton.onClick.AddListener(() => { _scene.OnClickSelectRegister(); });
-        _guestLoginButton.onClick.AddListener(() => { _scene.OnClickGuestLogin(); });
+        _loginButton.onClick.AddListener(() => { Managers.Sound.PlayUISubmit(); _scene.OnClickSelectLogin(); });
+        _registerButton.onClick.AddListener(() => { Managers.Sound.PlayUISubmit(); _scene.OnClickSelectRegister(); });
+        _guestLoginButton.onClick.AddListener(() => { Managers.Sound.PlayUISubmit(); _scene.OnClickGuestLogin(); });
 
         base.OnInitComplete();
     }

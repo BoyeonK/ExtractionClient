@@ -57,18 +57,21 @@ public class UI_MapSelect : UI_Scene {
     }
 
     private void OnLeftBtnClick() {
+        Managers.Sound.PlayUISubmit();
         int max = (int)Define.Map.MaxCount;
         _selectedMapId = (_selectedMapId + max - 1) % max;
         RefreshMapSelectWindow();
     }
 
     private void OnRightBtnClick() {
+        Managers.Sound.PlayUISubmit();
         int max = (int)Define.Map.MaxCount;
         _selectedMapId = (_selectedMapId + 1) % max;
         RefreshMapSelectWindow();
     }
 
     private void OnMatchStartBtnClick() {
+        Managers.Sound.PlayUISubmit();
         if (Managers.Network.httpManager.AuthState == HTTPManager.LoginState.Guest) {
             _scene.TryMatchMake(_selectedMapId, "FREE");
             return;
@@ -77,16 +80,19 @@ public class UI_MapSelect : UI_Scene {
     }
 
     private void OnCustomLoadoutBtnClick() {
+        Managers.Sound.PlayUISubmit();
         _scene.TryMatchMake(_selectedMapId, "CUSTOM");
         SetNormalState();
     }
 
     private void OnFreeLoadoutBtnClick() {
+        Managers.Sound.PlayUISubmit();
         _scene.TryMatchMake(_selectedMapId, "FREE");
         SetNormalState();
     }
 
     private void OnCancelBtnClick() {
+        Managers.Sound.PlayUIReturn();
         SetNormalState();
     }
 

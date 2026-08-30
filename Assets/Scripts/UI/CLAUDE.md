@@ -24,6 +24,27 @@ UI_Base (abstract)
 - **인벤토리 데이터 소유**: `LobbyScene`이 `_inventorySlots`, `_loadoutSlots`, `_warehouseSlots` 배열 소유. UI는 뷰 역할만 — `SetItemAtSlot()`이 scene setter + Refresh 담당. `SyncSlot` 없음
 - **Shift+클릭 분할**: `LobbyScene.OnSlotClick()` — 수량을 절반으로 나눠 `FirstEmptySlot`에 배치. 인벤토리/창고 각각 독립 처리
 
+## UI 사운드 (`ui_submit` / `ui_return` / `inventory_change`)
+
+전부 2D `Managers.Sound.Play` 계열이고 **`SoundPoint`(월드 3D)와 경계를 넘기지 말 것** — 넘기면 클릭음이 가슴팍에서 3D로 난다. **클립 이름을 호출부에서 만들지 않는다**(`SoundManager.PlayUISubmit`/`PlayUIReturn`/`PlayInventoryChange`) — 못 찾은 클립은 무음이고 로그도 안 남아, 호출부가 40곳이 넘는 상황에서 오타 하나가 그 버튼만 영구히 죽인다.
+
+**분기 기준(확정)** — 확인·진입·적용·값 변경은 `ui_submit`, 취소·뒤로가기·닫기는 `ui_return`. **기준 없이 자리마다 고르지 말 것**: 같은 성격의 버튼이 화면마다 다른 소리를 낸다.
+
+- **조기 return 가드 뒤에서 낼 것** — 앞에 두면 아무 일도 안 하는 클릭(빈 로그인 폼, 이미 선택된 탭, 접속 중 연타)이 성공한 것처럼 들린다
+- **팝업을 여는 버튼은 소리를 내지 않는다** — 팝업이 자기 확인·취소음을 내므로 두 번 울린다. 해당하는 곳은 헤더 로그아웃과 `LobbySettingUI`의 적용·취소(변경이 있을 때)다
+- **`Hide()`처럼 코드가 부르는 경로가 있는 함수 안에 넣지 말 것** — `IngameSettingUI.Hide()`는 `BeginMatchExit()`도 부르므로 죽거나 귀환할 때마다 UI음이 난다. 버튼 등록 지점에서 낸다. `ChangeTab()`도 같은 이유로 `Init()`에서 불린다
+- **씬을 바꾸는 `ui_submit`은 소리가 잘린다** — `Managers.Clear()`가 `SoundManager.Clear()`로 모든 소스를 `Stop()`한다. 매치 시작·로비 복귀·로그아웃이 해당하며 코드로 막을 방법이 마땅치 않다
+
+**`inventory_change`는 자리가 둘로 갈린다 — 판정 주체가 다르기 때문이다.**
+
+| | 판정 | 소리를 내는 곳 |
+|---|---|---|
+| 로비 (`ISlot.OnDrop`, `LobbyScene.OnSlotClick`) | 로컬 | 조작 지점 그대로 |
+| 인게임 (`IngameISlot.OnDrop`) | **서버** | `ApplyInteractContainerObject` / `ApplyEquipItem` |
+
+- **인게임은 요청 지점에서 내지 말 것** — 거부된 조작이 성공한 것처럼 들린다
+- **`ApplyFullSync`에는 붙이지 말 것** — 조작이 아니라 동기화라 재장전 응답·재동기화마다 소리가 난다
+
 ## 씬 내장 UI (`IngameSceneUI/`)
 
 UIManager가 아닌 씬 자체에 존재하는 MonoBehaviour UI 오브젝트. `IngameScene.Init()`에서 바인딩 + `Init()` 호출:

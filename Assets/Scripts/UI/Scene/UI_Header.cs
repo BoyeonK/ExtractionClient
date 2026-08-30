@@ -177,26 +177,32 @@ public class UI_Header : UI_Scene {
     }
 
     private void OnClickLobbyBtn() {
+        Managers.Sound.PlayUISubmit();
         _scene.BackToLobbyMain();
     }
 
     private void OnClickInventoryBtn() {
+        Managers.Sound.PlayUISubmit();
         _scene.ShowInventory();
     }
 
     private void OnClickShopBtn() {
+        Managers.Sound.PlayUISubmit();
         _scene.ShowShop();
     }
 
     private void OnClickCharacterBtn() {
+        Managers.Sound.PlayUISubmit();
         _scene.ShowCharacter();
     }
 
+    // 소리를 내지 않는다 — 확인 팝업을 여는 버튼이라 팝업 쪽 소리와 겹쳐 두 번 울린다
     private void OnClickLogoutBtn() {
         _scene.LogoutPopup();
     }
 
     private void OnClickOptionBtn() {
+        Managers.Sound.PlayUISubmit();
         _scene.ShowSettingUI();
     }
 

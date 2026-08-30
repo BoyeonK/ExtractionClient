@@ -49,6 +49,7 @@ public class UI_CharacterSelect : UI_Scene {
     }
 
     void SelectCharacter(int type) {
+        Managers.Sound.PlayUISubmit();
         _selectedType = type;
         _scene.SetCharacterType(type);
         UpdateVisual();
@@ -64,6 +65,7 @@ public class UI_CharacterSelect : UI_Scene {
     }
 
     void OnClickSelectBtn() {
+        Managers.Sound.PlayUISubmit();
         _scene.BackToLobbyMain();
     }
 

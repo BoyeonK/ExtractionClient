@@ -21,6 +21,7 @@ public class UI_ConfirmOrCancel : UI_Popup {
 
         if (_confirmButton != null) {
             _confirmButton.onClick.AddListener(() => {
+                Managers.Sound.PlayUISubmit();
                 confirmOnClickEvent?.Invoke();
                 Destroy(gameObject);
             });
@@ -28,6 +29,7 @@ public class UI_ConfirmOrCancel : UI_Popup {
 
         if (_cancelButton != null) {
             _cancelButton.onClick.AddListener(() => {
+                Managers.Sound.PlayUIReturn();
                 cancelOnClickEvent?.Invoke();
                 Destroy(gameObject);
             });

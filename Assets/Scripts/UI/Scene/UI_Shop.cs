@@ -170,13 +170,17 @@ public class UI_Shop : UI_Scene {
         _totalPrice.text = (_selectedItemPrice * _quantity).ToString();
     }
 
+    // 수량 ± 버튼에는 소리를 넣지 않는다(확정) — 연타 대상이라 클릭음이 그대로 소음이 된다.
+    // 아래 버튼들은 전부 조기 return 가드 뒤에서 낸다 — 앞에 두면 아무 일도 안 하는 클릭이 소리만 낸다
     private void OnBuyBtnClick() {
         if (_selectedItemId == -1) return;
+        Managers.Sound.PlayUISubmit();
         _scene.TryPurchase(_selectedItemId, _quantity);
     }
 
     private void OnAllBtnClick() {
         if (_selectedTab == SelectedTab.All) return;
+        Managers.Sound.PlayUISubmit();
         _selectedTab = SelectedTab.All;
         SetUnselectedColor();
         _allBtnColor.color = _selectedTabColor;
@@ -185,6 +189,7 @@ public class UI_Shop : UI_Scene {
 
     private void OnWeaponBtnClick() {
         if (_selectedTab == SelectedTab.Weapon) return;
+        Managers.Sound.PlayUISubmit();
         _selectedTab = SelectedTab.Weapon;
         SetUnselectedColor();
         _weaponBtnColor.color = _selectedTabColor;
@@ -193,6 +198,7 @@ public class UI_Shop : UI_Scene {
 
     private void OnEquipBtnClick() {
         if (_selectedTab == SelectedTab.Equipment) return;
+        Managers.Sound.PlayUISubmit();
         _selectedTab = SelectedTab.Equipment;
         SetUnselectedColor();
         _equipmentBtnColor.color = _selectedTabColor;
@@ -201,6 +207,7 @@ public class UI_Shop : UI_Scene {
 
     private void OnAmmoBtnClick() {
         if (_selectedTab == SelectedTab.Ammo) return;
+        Managers.Sound.PlayUISubmit();
         _selectedTab = SelectedTab.Ammo;
         SetUnselectedColor();
         _ammoBtnColor.color = _selectedTabColor;
@@ -209,6 +216,7 @@ public class UI_Shop : UI_Scene {
 
     private void OnMiscBtnClick() {
         if (_selectedTab == SelectedTab.Misc) return;
+        Managers.Sound.PlayUISubmit();
         _selectedTab = SelectedTab.Misc;
         SetUnselectedColor();
         _miscBtnColor.color = _selectedTabColor;
