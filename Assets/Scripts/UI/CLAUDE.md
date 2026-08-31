@@ -166,3 +166,13 @@ UIManager가 아닌 씬 자체에 존재하는 MonoBehaviour UI 오브젝트. `L
 | `LobbyReconfirmUI` | 확인/취소 팝업 |
 | `LobbySettingUI` | 설정 패널 (Show/Hide) |
 | `SelectedCharacter` | 선택된 캐릭터 모델 표시 (HB0/1/2Selected 활성화 전환). `LobbyScene.SetCharacterType()` → `SelectedCharacter.SetCharacterType()` 연동 |
+
+### 로비 ESC 우선순위 (`LobbyScene.OnEscapeInput`)
+
+한 번의 입력은 가장 위에 있는 것 하나만 소비한다. 순서는 **팝업 → 설정 창 → `_lobbyState` 분기**이고, 앞의 둘은 `_lobbyState`와 무관한 오버레이라 **분기 바깥**에 있다 — 안으로 넣으면 상태마다 가드가 복제되고 새 상태에서 하나가 빠져 **팝업이 뜬 채 뒤 화면만 바뀐다.**
+
+- **ESC는 모든 층에서 '취소'다**(확정). 설정 창은 취소 버튼과 같은 경로(`CancelByEscape` → `OnClickCancel`)라 변경이 있으면 재확인 팝업이 뜬다. **그 결과로 변경사항이 있는 설정 창은 ESC만으로 닫히지 않는다 — 결함이 아니라 이 규칙의 귀결이다**("변경사항을 취소하시겠습니까?"에 대한 ESC는 "아니오"다)
+- **`LobbyOnlyConfirm`만 예외로 확인이다** — 결말이 하나뿐이라 그게 곧 '정하고 가는 것'이고, 무동작으로 두면 그 자리에서 ESC가 죽은 키가 된다. 확인 콜백이 실제 흐름을 들고 있는 자리가 있으므로(로그아웃 완료) 그대로 태우는 것이 맞다
+- **팝업 해제는 반드시 `Button.onClick.Invoke()`를 거칠 것**(`DismissByEscape`). 리스너에 소리·비활성화·`isActive` 해제가 함께 달려 있어, 콜백만 직접 부르면 **`isActive`가 true로 굳어 그 뒤 모든 팝업이 뜨지 않는다**
+- **`ui_return`은 호출부에 둔다** — `BackToLobbyMain()`·`BackToAuthNoneSelected()`는 헤더·닫기 버튼도 부르고 그쪽은 이미 자기 소리를 낸다. 함수 안에 넣으면 버튼 클릭에서 두 번 울린다. 같은 함수인데 헤더는 `ui_submit`(진입), ESC는 `ui_return`(뒤로가기)으로 갈리는 것은 분기 기준대로이며 **통일 대상이 아니다**
+- 팝업을 여는 갈래(로그아웃·종료·연결 화면 복귀)는 **무음**이다

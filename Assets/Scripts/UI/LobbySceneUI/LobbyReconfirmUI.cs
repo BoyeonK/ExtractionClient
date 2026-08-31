@@ -42,6 +42,20 @@ public class LobbyReconfirmUI : MonoBehaviour {
         return true;
     }
 
+    public bool IsActive => isActive;
+
+    // ESC는 확인/취소 팝업에서 취소로, 확인만 있는 팝업에서 확인으로 간다.
+    // 어느 쪽이든 버튼을 태우므로 DeactiveFlagThis가 함께 돌아 isActive가 정상 해제된다 —
+    // 콜백을 직접 부르면 플래그가 true로 굳어 그 뒤 모든 팝업이 뜨지 않는다
+    public void DismissByEscape() {
+        if (isActive == false) return;
+
+        if (_confirmOrCancelUI.gameObject.activeSelf)
+            _confirmOrCancelUI.InvokeCancel();
+        else if (_onlyConfirmUI.gameObject.activeSelf)
+            _onlyConfirmUI.InvokeConfirm();
+    }
+
     private void DeactiveFlagThis() {
         isActive = false;
     }

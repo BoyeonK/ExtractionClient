@@ -615,7 +615,21 @@ public class LobbyScene : BaseScene {
     // ------------------------------------------------
     // ---------- 공통적으로 사용되는 메서드 ----------
     // ------------------------------------------------
+    // 한 번의 입력은 가장 위에 있는 것 하나만 소비한다. 팝업·설정 창은 _lobbyState와 무관한
+    // 오버레이라 분기 바깥에서 먼저 처리한다 — 안으로 넣으면 상태마다 같은 가드가 복제되고
+    // 새 상태가 생길 때 반드시 하나가 빠져, 팝업이 뜬 채 뒤 화면만 바뀐다
     public void OnEscapeInput() {
+        if (_lobbyReconfirmUI != null && _lobbyReconfirmUI.IsActive) {
+            _lobbyReconfirmUI.DismissByEscape();
+            return;
+        }
+
+        if (_lobbySettingUI != null && _lobbySettingUI.IsShown) {
+            _lobbySettingUI.CancelByEscape();
+            return;
+        }
+
+        // 팝업을 여는 갈래는 무음이다 — 팝업이 자기 확인·취소음을 내므로 두 번 울린다
         switch (_lobbyState) {
             case LobbyState.BeforeConnect:
                 QuitPopup();
@@ -624,12 +638,18 @@ public class LobbyScene : BaseScene {
                 if (_beforeAuthState == BeforeAuthState.NoneSelected) {
                     BackToBeforeConnectPopup();
                 } else {
+                    Managers.Sound.PlayUIReturn();
                     BackToAuthNoneSelected();
                 }
                 break;
             case LobbyState.Lobby:
-                if (_userState == UserState.Inventory || _userState == UserState.Shop || _userState == UserState.Character)
+                // Main이 아니면 뒤로가기다. 나열형으로 두면 UserState가 늘 때 조용히 빠뜨린다
+                if (_userState == UserState.Main) {
+                    LogoutPopup();
+                } else {
+                    Managers.Sound.PlayUIReturn();
                     BackToLobbyMain();
+                }
                 break;
             case LobbyState.Matching:
                 break;

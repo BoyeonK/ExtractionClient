@@ -29,6 +29,12 @@ public class lobbyOnlyConfirm : MonoBehaviour {
         }
     }
 
+    // 결말이 확인 하나뿐이라 ESC도 이리로 온다. 콜백만 따로 부르지 않는 이유는 LobbyConfirmOrCancel과 같다
+    public void InvokeConfirm() {
+        if (_confirmButton != null)
+            _confirmButton.onClick.Invoke();
+    }
+
     private void DeactiveThisUI() {
         this.gameObject.SetActive(false);
         _confirmButton.onClick.RemoveAllListeners();

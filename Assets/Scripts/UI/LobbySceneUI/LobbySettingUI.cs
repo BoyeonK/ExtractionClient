@@ -181,6 +181,11 @@ public class LobbySettingUI : MonoBehaviour {
     public void Show() => gameObject.SetActive(true);
     public void Hide() => gameObject.SetActive(false);
 
+    public bool IsShown => gameObject.activeSelf;
+
+    // ESC는 취소 버튼과 같은 경로다. 소리도 OnClickCancel 안에서 갈리므로 호출부에서 따로 내지 말 것
+    public void CancelByEscape() => OnClickCancel();
+
     // 재확인 팝업으로 가는 갈래에서는 소리를 내지 않는다 — 팝업이 자기 확인·취소음을 내므로 두 번 울린다.
     // 변경이 없어 그냥 닫히는 갈래만 여기서 낸다
     private void OnClickApply() {

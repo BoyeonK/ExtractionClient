@@ -39,6 +39,13 @@ public class LobbyConfirmOrCancel : MonoBehaviour {
         }
     }
 
+    // 콜백만 따로 부르지 않고 버튼의 onClick을 그대로 태운다 — 리스너에 소리와 DeactiveThisUI가
+    // 함께 달려 있어 우회하면 팝업이 화면에 남는다
+    public void InvokeCancel() {
+        if (_cancelButton != null)
+            _cancelButton.onClick.Invoke();
+    }
+
     private void DeactiveThisUI() {
         this.gameObject.SetActive(false);
         _confirmButton.onClick.RemoveAllListeners();
