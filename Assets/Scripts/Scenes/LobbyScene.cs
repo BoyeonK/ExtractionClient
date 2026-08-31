@@ -209,12 +209,23 @@ public class LobbyScene : BaseScene {
 
     public async void TryLogin(string id, string password) {
         Util.Log("TryLogin 실행");
-        bool isSuccess = await Managers.Network.httpManager.PostLoginCall(id, password, _cts.Token);
-        if (isSuccess) {
-            OnLoginComplete(UI_Header.HeaderState.Logined);
-        } else {
-            OnAuthRequestFinished();
-            _lobbyReconfirmUI.ActiveOnlyConfirm("아이디와 비밀번호를 확인해주세요.");
+        HTTPManager.LoginResult result = await Managers.Network.httpManager.PostLoginCall(id, password, _cts.Token);
+        switch (result) {
+            case HTTPManager.LoginResult.Success:
+                OnLoginComplete(UI_Header.HeaderState.Logined);
+                break;
+
+            // 진행 중인 매치와 매칭 성사를 서버가 같은 409로 보내며 안내도 하나로 묶는다 —
+            // 둘 다 매치가 끝나기를 기다리는 것 외에 사용자가 할 수 있는 일이 없다
+            case HTTPManager.LoginResult.AlreadyInGame:
+                OnAuthRequestFinished();
+                _lobbyReconfirmUI.ActiveOnlyConfirm("이미 진행중인 매치가 있습니다");
+                break;
+
+            default:
+                OnAuthRequestFinished();
+                _lobbyReconfirmUI.ActiveOnlyConfirm("아이디와 비밀번호를 확인해주세요.");
+                break;
         }
     }
 

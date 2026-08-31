@@ -199,27 +199,45 @@ public class HTTPManager {
         }
     }
 
-    public async Task<bool> PostLoginCall(string id, string password, CancellationToken cancelToken = default) {
-        if (_isRequesting) return false;
-        if (IsMatching) return false;
+    // 로그인 결과. 실패를 둘로 나누는 이유는 사용자에게 할 안내가 다르기 때문이다 —
+    // Failed는 아이디·비밀번호를 다시 입력하면 되지만,
+    // AlreadyInGame은 입력과 무관해 매치가 끝나기 전에는 몇 번을 다시 눌러도 결과가 같다
+    public enum LoginResult {
+        Success,
+        Failed,
+        AlreadyInGame,
+    }
+
+    private const int HTTP_CONFLICT = 409;
+
+    public async Task<LoginResult> PostLoginCall(string id, string password, CancellationToken cancelToken = default) {
+        if (_isRequesting) return LoginResult.Failed;
+        if (IsMatching) return LoginResult.Failed;
 
         if (AuthState != LoginState.None) {
             Managers.ExecuteAtMainThread(() => Util.LogWarning("이미 로그인된 상태입니다."));
-            return false;
+            return LoginResult.Failed;
         }
         if (!IsValidId(id) || string.IsNullOrEmpty(password)) {
             Managers.ExecuteAtMainThread(() => Util.LogWarning("아이디 또는 비밀번호의 형식이 올바르지 않습니다."));
-            return false;
+            return LoginResult.Failed;
         }
 
         _isRequesting = true;
 
         try {
             string jsonString = JsonUtility.ToJson(new AuthRequest { id = id, password = password });
-            string responseText = await SendRequestAsync(HttpMethod.Post, _loginUrl, jsonString, false, cancelToken);
-            if (responseText == null) return false;
+            HttpCallResult call = await SendRequestWithStatusAsync(HttpMethod.Post, _loginUrl, jsonString, false, cancelToken);
+            if (!call.HasResponse) return LoginResult.Failed;
 
-            AuthResponse resData = JsonUtility.FromJson<AuthResponse>(responseText);
+            // 본문을 파싱하기 전에 상태 코드로 가른다 — 409 본문 형식이 명세에 없어 비어 올 수 있다
+            if (call.StatusCode == HTTP_CONFLICT) {
+                Managers.ExecuteAtMainThread(() => Util.LogWarning("진행 중인 매치가 있어 로그인할 수 없습니다."));
+                return LoginResult.AlreadyInGame;
+            }
+            if (string.IsNullOrEmpty(call.Body)) return LoginResult.Failed;
+
+            AuthResponse resData = JsonUtility.FromJson<AuthResponse>(call.Body);
             if (resData != null && resData.success) {
                 SessionId = resData.data.sessionId;
                 Uid = resData.data.uid;
@@ -232,11 +250,17 @@ public class HTTPManager {
                 Managers.ExecuteAtMainThread(() => {
                     Util.Log($"로그인 성공! [Session: {resData.data.sessionId} ]");
                 });
-                return true;
+                return LoginResult.Success;
+            }
+
+            // 200으로 감싸 보내는 실패 응답도 있으므로 본문의 code로 한 번 더 가려낸다 (세션 유지와 같은 이유)
+            if (resData != null && resData.code == HTTP_CONFLICT) {
+                Managers.ExecuteAtMainThread(() => Util.LogWarning("진행 중인 매치가 있어 로그인할 수 없습니다."));
+                return LoginResult.AlreadyInGame;
             }
 
             Managers.ExecuteAtMainThread(() => Util.LogError("서버에서 실패 응답을 보냈습니다."));
-            return false;
+            return LoginResult.Failed;
         }
         finally {
             _isRequesting = false;
