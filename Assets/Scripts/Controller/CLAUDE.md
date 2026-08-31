@@ -177,7 +177,7 @@ public interface ICombatTarget { int GetObjectId(); }
 5. 스프레드 증가
 
 - **발사음은 탄약이 있을 때만 난다.** 빈 탄창은 `EmptyAmmoFire()`의 딸깍(2D)이고 이쪽은 월드 소리다 — 다른 경로이며 합치지 말 것
-- **`Max Distance`(30)를 발소리와 공유해 오포 총성이 30m에서 끊긴다.** 카테고리별 가청 거리 분리는 `SoundManager.PlayOneShotAt`의 `OPTION:`에 있다(거리 값을 재생마다 갈아끼우는 방식이 왜 답이 아닌지도 거기 있다)
+- **`Max Distance`(30)를 발소리와 공유한다 — 총성만 따로 조정할 수단이 없다.** 30 자체는 실측에서 거슬리지 않았지만(2026-08-31) 확정된 값이 아니므로 **"거리가 충분하니 해소됐다"로 읽지 말 것.** 카테고리별 분리는 `SoundManager.PlayOneShotAt`의 `OPTION:`에 있다(거리 값을 재생마다 갈아끼우는 방식이 왜 답이 아닌지도 거기 있다)
 
 #### 발사선 (`CalculateFireRay`)
 

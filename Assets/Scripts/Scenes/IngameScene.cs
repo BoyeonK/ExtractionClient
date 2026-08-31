@@ -40,6 +40,17 @@ public class IngameScene : BaseScene {
     private const float RECALL_TIMEOUT = 10f;   // 서버 검사 5초 + 왕복·지터 여유
     private float _recallTimer = 0f;
 
+    // 귀환 승인 ~ 최종 결과 사이의 카운트다운. 요청 시점이 아니라 승인 시점에 켜는 것은
+    // 5라는 숫자의 출처가 서버의 1초 간격 5회 검사이고 그 시계가 승인에서 시작하기 때문이다 —
+    // 요청부터 세면 승인이 늦은 만큼 숫자가 실제보다 빨리 흐른다.
+    // ESCAPE_COUNTDOWN_SEC은 그 검사 횟수와 손으로 맞추는 값이다. 패킷으로 오지 않으므로
+    // 서버가 횟수를 바꾸면 조용히 어긋난다(증상: 1에서 한참 멈추거나, 숫자가 남았는데 결과가 온다).
+    // _recallTimer를 재사용하지 않는 것은 기점(요청 vs 승인)도 길이(10 vs 5)도 목적도 달라서다
+    private const int ESCAPE_COUNTDOWN_SEC = 5;
+    private bool _isInEscapeSequence = false;
+    private float _escapeCountdownTimer = 0f;
+    private int _shownCountdown = 0;
+
     private bool _isGetResponseSpawnMe = false;
     private Vector3 _spawnPoint;
     private int _characterType = -1;
@@ -87,6 +98,7 @@ public class IngameScene : BaseScene {
     IngameKillLogUI _ingameKillLogUI;
     IngameWeaponUI _ingameWeaponUI;
     IngameStaminaBarUI _ingameStaminaBarUI;
+    IngameEscapeCountdownUI _ingameEscapeCountdownUI;
 
     protected override void Init() {
         base.Init();
@@ -121,6 +133,11 @@ public class IngameScene : BaseScene {
 
         _ingameKillLogUI = BindSceneComponent<IngameKillLogUI>("IngameKillLogUI");
         if (_ingameKillLogUI != null) _ingameKillLogUI.Init(this);
+
+        _ingameEscapeCountdownUI = BindSceneComponent<IngameEscapeCountdownUI>("IngameEscapeCountdownUI");
+        if (_ingameEscapeCountdownUI != null) _ingameEscapeCountdownUI.Init();
+        // 씬에는 활성으로 저장하고 여기서 끈다 — GameObject.Find는 비활성을 못 찾는다
+        SetEscapeSequence(false);
 
         // OPTION: 씬 오브젝트 없이 코드로 세운 크로스헤어. 정식 IngameSceneUI 자산으로
         //         다시 만들게 되면 이 줄을 지운다 (IngameCrosshair.cs 상단 참조)
@@ -900,6 +917,45 @@ public class IngameScene : BaseScene {
         // 승인 시점에는 잠금을 유지한다. 서버가 1초 간격 5회 검사 후
         // D2CNotifyRecallResult로 최종 결과를 통보한다.
         Util.Log($"귀환 승인 (spotIndex={recallSpotIndex})");
+        SetEscapeSequence(true);
+    }
+
+    // 플래그와 UI를 한 자리에서 바꾼다. _isInEscapeSequence에 직접 대입하지 말 것 —
+    // 대입 지점이 늘면 카운트다운이 화면에 남거나 반대로 안 뜨는 상태가 생긴다
+    private void SetEscapeSequence(bool value) {
+        _isInEscapeSequence = value;
+        _escapeCountdownTimer = 0f;
+        _shownCountdown = 0;
+
+        if (_ingameEscapeCountdownUI == null) return;
+
+        if (value) {
+            // 켜는 시점에 숫자를 먼저 넣는다 — 다음 OnUpdate까지 기다리면
+            // 프리팹에 저장된 값이 한 프레임 보인다
+            ShowEscapeCountdown(ESCAPE_COUNTDOWN_SEC);
+            _ingameEscapeCountdownUI.ActiveThis();
+        } else {
+            _ingameEscapeCountdownUI.DeactiveThis();
+        }
+    }
+
+    // 카운트다운은 표시일 뿐이고 종료를 판정하지 않는다 — 1에서 멈춰 결과를 기다린다.
+    // 0까지 내려가거나 스스로 꺼지면 서버 지터로 결과가 5초를 넘길 때 화면과 실제가 갈린다
+    private void UpdateEscapeCountdown() {
+        if (_isInEscapeSequence == false) return;
+
+        _escapeCountdownTimer += Time.deltaTime;
+        int remain = Mathf.CeilToInt(ESCAPE_COUNTDOWN_SEC - _escapeCountdownTimer);
+        ShowEscapeCountdown(Mathf.Clamp(remain, 1, ESCAPE_COUNTDOWN_SEC));
+    }
+
+    // 숫자가 바뀔 때만 민다 — SetCountdown이 int.ToString()을 하므로 매 프레임 부르면
+    // 5초 동안 문자열을 300번 만든다(IngameWeaponUI의 _shownWeaponId와 같은 가드)
+    private void ShowEscapeCountdown(int value) {
+        if (_shownCountdown == value) return;
+        _shownCountdown = value;
+        if (_ingameEscapeCountdownUI != null)
+            _ingameEscapeCountdownUI.SetCountdown(value);
     }
 
     // 승인된 귀환의 최종 결과. reason은 RecallResultReason
@@ -928,6 +984,7 @@ public class IngameScene : BaseScene {
             default:
                 // OUT_OF_ZONE·SERVER_INTERNAL·UNKNOWN은 상황이 바뀌면 다시 시도할 수 있다
                 _recallRequested = false;
+                SetEscapeSequence(false);
                 break;
         }
     }
@@ -1338,6 +1395,9 @@ public class IngameScene : BaseScene {
         // 값은 이미 반영된 뒤라 되돌리지 않고 그대로 닫는다
         if (_ingameSettingUI != null)
             _ingameSettingUI.Hide();
+        // 이탈의 캐치올이다 — 귀환 성공·사망·연결 끊김이 모두 여기를 지나므로,
+        // 카운트다운 중 사망처럼 통보 순서가 뒤집히는 경우에도 UI가 연출 위에 남지 않는다
+        SetEscapeSequence(false);
 
         Util.Log($"[MatchExit] 이탈 시작 (reason={reason}) — {MATCH_EXIT_DELAY}초 뒤 연결을 종료한다");
 
@@ -1566,10 +1626,12 @@ public class IngameScene : BaseScene {
             _recallTimer += Time.deltaTime;
             if (_recallTimer >= RECALL_TIMEOUT) {
                 _recallRequested = false;
+                SetEscapeSequence(false);
                 Util.LogWarning($"귀환 응답 미수신 ({RECALL_TIMEOUT}초) — 요청 잠금 해제");
             }
         }
 
+        UpdateEscapeCountdown();
         UpdateAction();
 
         // 인터랙션 UI 업데이트

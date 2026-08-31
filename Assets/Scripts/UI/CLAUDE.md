@@ -63,6 +63,7 @@ UIManager가 아닌 씬 자체에 존재하는 MonoBehaviour UI 오브젝트. `I
 | `IngameSettingUI` | `Init(IngameScene)` | 인게임 설정 창(ESC). 마우스 감도 + 볼륨 3종. 아래 절 참조 |
 | `IngameKillLogUI` | `Init(IngameScene)` | 킬 피드. `SingleKillLog`를 찍어내고 목록으로 관리한다. 아래 절 참조 |
 | `IngameWeaponUI` | `Init()` | 손에 든 무기 이름 + 탄창 잔량 + 예비탄. 아래 절 참조 |
+| `IngameEscapeCountdownUI` | `Init()` | 귀환 승인 후 5초 카운트다운. **값을 스스로 구하지 않고 `IngameScene`이 민다** — 켜고 끄는 것도 씬의 `SetEscapeSequence()` 한 곳이다(`Scenes/CLAUDE.md`의 '귀환 카운트다운'). `FixedText`는 코드가 건드리지 않는 고정 문안이라 **에디터에서 채워둘 것** |
 | `IngameStaminaBarUI` | `Init()` | 달리기 스태미나 게이지. `SetStamina(current, max)` + `SetVisible(bool)`로 씬이 민다. **평소에는 숨어 있고 달리는 중이거나 스태미나가 문턱 이하일 때만 보인다** — 조건 판단은 씬에 있다(아래). **`StaminaBarFill`의 Image Type이 `Filled`여야 한다**(체력바와 같은 함정) |
 
 ### `IngameKillLogUI` / `SingleKillLog` — 킬 피드

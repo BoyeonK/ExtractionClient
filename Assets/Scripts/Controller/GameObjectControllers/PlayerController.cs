@@ -498,11 +498,6 @@ public class PlayerController : GameObjectController, ICombatTarget {
                 hitObjectId = (uint)combatTarget.GetObjectId();
         }
 
-        // TEMP: 피격 대상 판정 확인용. 비플레이어 전투 오브젝트에 ICombatTarget이 보급되면
-        //       그 검증에도 쓰고 끝난 뒤 제거할 것 — 연사 중 명중할 때마다 찍힌다
-        if (hitObjectId != 0xFFFFFFFF)
-            Util.Log($"[Fire] 피격 대상 objectId={hitObjectId}");
-
         // 서버에 발사 패킷 전송
         Managers.Network.udpManager.SendC2DRequestWeaponFire(
             weaponDbid,

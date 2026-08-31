@@ -63,7 +63,7 @@ Assets/Resources/
 
 지금 경로로 로드하는 것: `UI/Scene/{클래스명}`, `UI/Popup/{클래스명}`, `UI/EventSystem`, `UI/IngameSceneUI/SingleKillLog`(킬 로그 한 줄), `UI/GameResultSceneUI/LootContainerSlot`(전리품 한 칸).
 
-나머지 씬 내장 UI(`IngameInventoryUI`·`IngameDragGhost`·`InteractUI`·`IngameHealthBarUI`·`IngameSettingUI`·`IngameKillLogUI`·`IngameWeaponUI`·`IngameStaminaBarUI`·`GameResultSceneUI`·`LobbySceneUI` 계열)는 **씬에 배치돼 `GameObject.Find`로 잡힌다.** 따라서
+나머지 씬 내장 UI(`IngameInventoryUI`·`IngameDragGhost`·`InteractUI`·`IngameHealthBarUI`·`IngameSettingUI`·`IngameKillLogUI`·`IngameWeaponUI`·`IngameStaminaBarUI`·`IngameEscapeCountdownUI`·`GameResultSceneUI`·`LobbySceneUI` 계열)는 **씬에 배치돼 `GameObject.Find`로 잡힌다.** 따라서
 
 - **계약은 프리팹 파일 이름이 아니라 씬 오브젝트 이름이다.** 프리팹 이름을 맞춰도 씬의 인스턴스 이름이 다르면 못 찾는다
 - **씬에는 활성 상태로 저장해야 한다** — `GameObject.Find`는 비활성 오브젝트를 못 찾는다. 필요하면 각 `Init()`이 바인딩 직후 스스로 끈다
@@ -105,6 +105,13 @@ IngameWeaponUI                  ← GameObject.Find 대상. 이름 고정 + 씬�
 └ WeaponUIWindow
   ├ Header/{AccentLine, WeaponName}       AccentLine은 코드가 찾지 않는 장식
   └ WeaponInfoPanel/{WeaponImage, MagazineAmmoCount, RemainAmmoCount}
+```
+
+```
+IngameEscapeCountdownUI                 ← 루트. 이름 고정 + 씬에서 활성(코드가 Init에서 끈다)
+└ TextArea
+  ├ CountdownText                       (TextMeshProUGUI) 코드가 5→1을 넣는다
+  └ FixedText                           코드가 건드리지 않는 고정 문안 — 에디터에서 채워둘 것
 ```
 
 ```
