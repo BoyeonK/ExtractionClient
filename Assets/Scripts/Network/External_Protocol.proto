@@ -85,9 +85,12 @@ message C2DRequestSpawnMe {
 }
 
 message D2CResponseSpawnMeSpawnSpot {
-    Vector3 spawn_point    = 1;
-    int32   character_type = 2;
-    uint32  object_id      = 3;
+    Vector3 spawn_point       = 1;
+    int32   character_type    = 2;
+    uint32  object_id         = 3;
+    // 룸의 잔여 수명. 이 시간이 지나면 룸 안의 모든 플레이어가 사망 처리된다.
+    // 마감을 넘긴 뒤 응답하면 0 이며 음수로 내려가지 않는다
+    uint32  remaining_life_ms = 4;
 }
 
 message D2CResponseSpawnMeDynamicObjects {
@@ -238,7 +241,8 @@ message D2CResponseEquipItemDeny {
     // 비트필드 마스킹된 거부 사유 (복수 비트 OR 가능)
     // 0x0001  DENY_VERSION_MISMATCH       인벤토리/컨테이너 버전이 클라이언트와 다름
     // 0x0002  DENY_SLOT_EMPTY             소스 슬롯이 비어 있음
-    // 0x0040  DENY_ITEM_TYPE_MISMATCH     아이템 타입 불일치 (예: 장갑 슬롯에 무기)
+    // 0x0040  DENY_ITEM_TYPE_MISMATCH     장비 슬롯으로 들어갈 아이템의 타입 불일치 — 장착이면 소스 칸,
+    //                                     해제면 스왑으로 들어오는 목적지 칸을 본다
     // 0x0080  DENY_BARE_HANDED            마지막 무기를 내릴 수 없음 (맨손 방지)
     // 0x0100  DENY_MAGAZINE_UNLOAD_FAILED 탄창 언로드 실패
     // 0x0200  DENY_SERVER_INTERNAL        서버 내부 오류

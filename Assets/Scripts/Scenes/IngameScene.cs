@@ -56,6 +56,42 @@ public class IngameScene : BaseScene {
     private int _characterType = -1;
     private uint _myObjectId = 0;
 
+    // 룸 수명 마감. D2CResponseSpawnMeSpawnSpot.remaining_life_ms를 받은 시점을 기점으로 잡는다.
+    // 기점은 '룸이 시작한 시각'이 아니라 '내가 스폰 응답을 받은 시각'이므로, 표시 길이
+    // (MatchDeadlineSpanMs)는 룸의 총 수명이 아니라 내가 들어온 뒤 남아 있던 시간이다.
+    // MATCH_DEADLINE_SAFETY_MS는 서버의 실제 마감보다 일찍 0을 보여주기 위한 안전 여유이며,
+    // 실측으로 싱크가 확인되면 조정될 잠정값이다.
+    // 표시일 뿐 종료를 판정하지 않는다 — 마감이 지나면 서버가 룸 전원을 사망 처리하므로
+    // 클라가 0에서 이탈을 시작하면 서버 지터에서 화면과 실제가 갈린다(귀환 카운트다운과 같은 이유)
+    private const uint MATCH_DEADLINE_SAFETY_MS = 30000;
+    private uint _matchDeadlineBaseMs = 0;
+    private uint _matchDeadlineMs = 0;
+
+    // 남은 매치 시간(ms). 마감을 지나면 0에서 멈춘다
+    public uint RemainMatchTimeMs {
+        get {
+            uint now = NowMs();
+            return now >= _matchDeadlineMs ? 0u : _matchDeadlineMs - now;
+        }
+    }
+
+    // 표시용 전체 길이(ms). 진행바의 분모가 되는 값이며 0일 수 있다(마감이 여유값 이하로 남은 채 스폰)
+    public uint MatchDeadlineSpanMs => _matchDeadlineMs - _matchDeadlineBaseMs;
+
+    // 시각의 출처를 한 곳에 가둔다 — 마감을 찍을 때와 남은 시간을 잴 때가 갈리면 표시가 조용히 어긋난다.
+    // Time.time을 쓰지 않는 것은 timeScale에 휘둘려 실제 시계와 갈리기 때문이다
+    private static uint NowMs() => (uint)(Time.realtimeSinceStartup * 1000f);
+
+    // 비교가 뺄셈보다 앞이어야 한다 — uint라 여유값을 먼저 빼면 언더플로로 약 49일 뒤가 되고,
+    // 증상이 "타이머가 줄지 않는다"라 원인을 짚기 어렵다.
+    // remaining_life_ms는 마감을 넘긴 뒤 응답하면 0이므로(서버 계약) 그 경우도 여기에 걸린다
+    private void SetMatchDeadline(uint remainingLifeMs) {
+        _matchDeadlineBaseMs = NowMs();
+        _matchDeadlineMs = remainingLifeMs <= MATCH_DEADLINE_SAFETY_MS
+            ? _matchDeadlineBaseMs
+            : _matchDeadlineBaseMs + (remainingLifeMs - MATCH_DEADLINE_SAFETY_MS);
+    }
+
     private GameObject _characterGo;
     private PlayerController _playerController;
     public PlayerController PlayerController => _playerController;
@@ -177,10 +213,11 @@ public class IngameScene : BaseScene {
             SpawnMeAndRequestPlayerObjects();
     }
 
-    public void HandleSpawnSpot(Vector3 spawnPoint, int characterType, uint objectId) {
+    public void HandleSpawnSpot(Vector3 spawnPoint, int characterType, uint objectId, uint remainingLifeMs) {
         _spawnPoint = spawnPoint;
         _characterType = characterType;
         _myObjectId = objectId;
+        SetMatchDeadline(remainingLifeMs);
         _isGetResponseSpawnMe = true;
         TryCompleteSpawnMe();
     }
