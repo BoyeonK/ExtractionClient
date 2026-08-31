@@ -61,9 +61,9 @@ Assets/Resources/
 
 **두 방식은 개수가 정해져 있지 않다 — 아래는 규칙이 아니라 현재 상태의 목록이다.** 어느 쪽으로 만들지는 그 UI를 **런타임에 찍어내야 하는지**로 갈린다(찍어내야 하면 경로 로드, 처음부터 한 벌만 있으면 씬 배치).
 
-지금 경로로 로드하는 것: `UI/Scene/{클래스명}`, `UI/Popup/{클래스명}`, `UI/EventSystem`, `UI/IngameSceneUI/SingleKillLog`(킬 로그 한 줄), `UI/GameResultSceneUI/LootContainerSlot`(전리품 한 칸).
+지금 경로로 로드하는 것: `UI/Scene/{클래스명}`, `UI/Popup/{클래스명}`, `UI/EventSystem`, `UI/IngameSceneUI/SingleKillLog`(킬 로그 한 줄), `UI/IngameSceneUI/IngameDamageIndicatorContent`(피격 방향 표시 하나), `UI/GameResultSceneUI/LootContainerSlot`(전리품 한 칸).
 
-나머지 씬 내장 UI(`IngameInventoryUI`·`IngameDragGhost`·`InteractUI`·`IngameHealthBarUI`·`IngameSettingUI`·`IngameKillLogUI`·`IngameWeaponUI`·`IngameStaminaBarUI`·`IngameEscapeCountdownUI`·`IngameTimeoutUI`·`IngameEscUI`·`GameResultSceneUI`·`LobbySceneUI` 계열)는 **씬에 배치돼 `GameObject.Find`로 잡힌다.** 따라서
+나머지 씬 내장 UI(`IngameInventoryUI`·`IngameDragGhost`·`InteractUI`·`IngameHealthBarUI`·`IngameSettingUI`·`IngameKillLogUI`·`IngameWeaponUI`·`IngameStaminaBarUI`·`IngameEscapeCountdownUI`·`IngameTimeoutUI`·`IngameEscUI`·`IngameDamageIndicatorUI`·`GameResultSceneUI`·`LobbySceneUI` 계열)는 **씬에 배치돼 `GameObject.Find`로 잡힌다.** 따라서
 
 - **계약은 프리팹 파일 이름이 아니라 씬 오브젝트 이름이다.** 프리팹 이름을 맞춰도 씬의 인스턴스 이름이 다르면 못 찾는다
 - **씬에는 활성 상태로 저장해야 한다** — `GameObject.Find`는 비활성 오브젝트를 못 찾는다. 필요하면 각 `Init()`이 바인딩 직후 스스로 끈다
@@ -132,6 +132,17 @@ IngameEscUI                             ← 루트. 이름 고정 + 씬에서 �
 ```
 
 - **패널 둘의 이름이 계약이다** — `Util.BindComponent`가 못 찾으면 `LogError`를 남기고 `null`을 돌려주므로 **터지지 않고 그 버튼만 조용히 죽는다**
+
+```
+IngameDamageIndicatorUI                 ← 루트. 이름 고정 + 씬에서 활성(코드가 끄지 않는다)
+                                          Content가 이 아래에 직접 붙는다
+
+IngameDamageIndicatorContent            ← Prefabs/UI/IngameSceneUI/ (호출마다 찍어내므로 경로로 로드)
+└ Image                                   (Image) 위를 가리키도록 저작한다 — 회전의 기준이다
+```
+
+- **Content 루트는 `anchor 0.5,0.5 / pivot 0.5,0.5 / size 0`이어야 한다.** 자식 이미지가 그 지점에서 위로 떨어져 있어야 루트를 돌렸을 때 화면 중앙을 축으로 공전한다. **루트에 크기를 주면 회전 중심이 어긋난다**
+- 루트의 `anchoredPosition`은 **코드가 0으로 덮으므로** 저작값이 무엇이든 상관없다
 
 ```
 GameResultSceneUI                       ← 루트. 이름 고정 + 씬에서 활성

@@ -10,8 +10,6 @@
 
 ### 네트워크/UI
 
-- [x] (2026-08-31 #6) **로그인 409 처리 — 진행 중인 매치 때문에 막힌 것이 "비밀번호를 확인하세요"로 안내되던 것을 갈랐다** — 명세에 `/api/login` 409(`ERR_ALREADY_IN_GAME` / `ERR_MATCH_ALREADY_SUCCESS`)가 추가됐는데 `PostLoginCall`이 상태 코드를 버리는 `SendRequestAsync`를 쓰고 있어 401과 구분 없이 실패 한 갈래로 나갔고, 인게임 중 강제 종료 후 재로그인한 사용자는 계정 문제로 오해해 같은 시도를 반복하게 된다. 반환을 `LoginResult` 3상태로 바꾸고 `SendRequestWithStatusAsync`로 교체해 **"이미 진행중인 매치가 있습니다"** 팝업을 붙였으며, **두 에러 코드는 안내를 하나로 묶었다**(둘 다 매치가 끝나기를 기다리는 것 외에 사용자가 할 수 있는 일이 없다). **409 판정은 본문 파싱보다 앞에 뒀다** — 409 본문 형식이 명세에 없어 비어 올 수 있고, 빈 문자열이 `JsonUtility.FromJson`에 들어가면 예외가 `async void` 호출부로 빠져나가 **팝업조차 뜨지 않고 로그인 버튼이 굳는다.**
-
 - [x] (2026-08-31 #7) **로비 인증 요청의 401 처리 — 세션이 죽은 채로 로비에 남던 구멍이 닫혔다** — `requireAuth` 호출 일곱이 전부 상태 코드를 버리는 `SendRequestAsync`를 쓰고 있어 만료를 알 방법이 없었는데, 401은 어느 요청에서 왔든 결론이 '재로그인' 하나라 호출부마다 3상태 enum을 늘리는 대신 **`SendRequestWithStatusAsync` 한 곳에서 감지해 `OnSessionExpired`를 발화**한다(예외는 세션 수명을 스스로 다루는 둘 — 세션 유지는 이중 발화 방지, 로그아웃은 401이 곧 목적 달성이라 성공 처리). **전이를 팝업 버튼에 걸지 않고 정리·전이를 먼저 한 뒤 팝업은 통보만 시킨다** — `ActiveOnlyConfirm`은 다른 팝업이 떠 있으면 아무것도 하지 않으므로, 콜백에 걸면 팝업이 묻히는 순간 전이까지 사라져 죽은 세션이 로비에 남는다. 곁들여 `ClearAuthStateLocal()`이 `IsMatching`을 안 지워 **매칭 중 만료 시 재로그인이 통째로 막히던 것**과, `OnLogoutComplete()`의 `DisableUI("UI_MatchProgress")` 오타(타입은 `UI_MatchProcess`라 예외도 로그도 없이 아무 일도 안 했고, 기존 "매칭 취소 후 로그아웃" 경로에도 같이 걸려 있었다)를 함께 고쳤다.
 
 - [x] (2026-08-31 #8) **룸 잔여 수명 수신 — 매치 마감을 클라가 알게 됐다** — `D2CResponseSpawnMeSpawnSpot`에 `remaining_life_ms`가 추가돼, `HandleSpawnSpot`이 받은 시점을 기점으로 `_matchDeadlineBaseMs`·`_matchDeadlineMs`를 잡고 `RemainMatchTimeMs`·`MatchDeadlineSpanMs`로 내준다(핸들러가 이미 `ExecuteAtMainThread` 안이라 시각을 여기서 찍고, 출처는 `NowMs()` 하나로 가뒀다 — 마감을 찍을 때와 남은 시간을 잴 때가 갈리면 표시가 조용히 어긋난다). **`MATCH_DEADLINE_SAFETY_MS`를 빼기 전에 비교가 먼저 온다** — `uint`라 순서가 뒤집히면 언더플로로 마감이 약 49일 뒤가 되고, 증상이 "타이머가 줄지 않는다"라 원인을 짚기 어렵다. **표시일 뿐 종료를 판정하지 않는다** — 마감이 지나면 서버가 룸 전원을 사망 처리하므로 클라가 0에서 이탈을 시작하면 화면과 실제가 갈린다(귀환 카운트다운과 같은 이유).
@@ -30,6 +28,8 @@
 
 - [x] (2026-09-01 #6) **인게임 ESC 2지 선택 UI 배선 — 판을 뜨는 자발적 경로가 생겼다** — `IngameEscUI`를 씬 내장 UI 열한 번째로 붙여 ESC가 설정을 곧장 여는 대신 **옵션 / 게임 종료**를 먼저 묻게 했고, 배선 전에 프리팹 경로 오타(`OptionOrExit` → `OptionOrExitUI`)를 고쳤다 — `Util.BindComponent`가 `LogError` 후 `null`을 돌려주는 형태라 **버튼 둘이 터지지 않고 조용히 죽는 상태**였다. **종료는 `CompleteMatchExit()`을 거치지 않고 `Disconnect()` 후 곧장 앱을 끈다** — 그 함수가 결과 씬을 로드하는데 앱을 끌 것이라 볼 사람이 없고, `Application.Quit()`으로는 `Managers.Clear()`가 돌지 않아 `Clear()`의 정리가 보장되지 않으므로 연결만 직접 끊는다. **종료 요청 패킷은 보내지 않는다**(서버 확인) — 서버가 강제 종료 플레이어를 정상 이탈 처리하고 **탈출을 제외한 모든 이탈이 인벤토리 소실 전제**라 포기를 따로 알릴 이유가 없다.
 
+- [x] (2026-09-01 #7) **피격 방향 표시 배선 — 맞은 쪽을 화면이 알려준다** — `HandleHealthChange`의 가해자 갱신 자리에 걸려 있던 `OPTION:`을 풀어, 플레이어 루트 forward 기준 수평 signed yaw로 `IngameDamageIndicatorUI`를 돌린다(**UI 회전은 반시계가 양수라 월드 각과 부호가 반대다** — 마이너스를 빼면 좌우가 뒤집힌다). 배선 전에 `IngameDamageIndicatorContent`의 프리팹 경로 오타(`IndicatorImage` → `Image`)를 고쳤는데, **여기는 조용히 죽는 정도가 아니라 바인딩 실패 다음 줄에서 NRE가 나던 자리**였다. **인디케이터는 개수 상한 없이 겹치고 각자 0.3초 뒤 스스로 파괴된다**(부모가 목록을 들지 않아 `SingleKillLog`와 수명 관리가 갈린다). **붉은 비네트는 만들지 않기로 확정**했다 — 항목 원문이 "비네트·방향 표시 등"이라 근거를 남기지 않으면 미완으로 읽힌다.
+
 ---
 
 ## 진행 중 / 다음 할 것들
@@ -40,14 +40,13 @@
 
 1. **`TEMP:` 회수 1건 — 오브젝트 킬 이름 로그 (대기)** — 워치독 둘은 (2026-09-01 #2)에서 항구 방어 코드로 승격돼 회수 대상이 아니고, 명중 로그는 (2026-08-31 #4)에서 회수했다. 남은 하나는 (2026-08-27 #7)에서 확인용으로만 실은 `killer_object_name`이며, **원복 지점이 `Handle_D2CNotifyObjectKilled`의 추출과 `IngameScene.HandleObjectKilled`의 파라미터 두 곳이라 한 쌍으로 되돌린다**(오브젝트 킬은 킬 피드 미적용이 확정이라 소비처가 생길 일이 없다). **`ICombatTarget` 보급에 종속된다** — 전투 오브젝트가 없으면 `[ObjectKill] name=…`이 아예 밟히지 않아 확인할 수 없으므로, 그전까지는 손댈 수 없는 대기 항목이다
     - **`TODO:` 귀환·상호작용의 행동 잠금 편입 범위 (미결)** — 귀환(`_recallRequested`)은 구조가 사실상 같아 그대로 흡수되고 **워치독도 하나로 합쳐진다.** 반면 **상호작용은 컨테이너가 열려 있는 동안 지속되는 상태라 `Pending`으로 잡으면 여는 내내 모든 행동이 잠긴다** — "요청~응답 구간만" 잠그고 열린 상태는 기존 `_isContainerOpen`/`_uiOpenCount`에 맡기는 쪽이 유력하다. 코드에는 `IngameScene.RequestRecall()` 위에 같은 `TODO:`가 걸려 있다
-2. **피격 화면 연출 — 내가 맞았을 때** — 피해자 본인 화면의 HUD 피드백(붉은 비네트·피격 방향 표시 등). **월드에 그리는 것이 아니라 화면 오버레이다** — 접기로 한 탄착 이펙트와 헷갈리지 말 것(그쪽은 맞은 지점의 월드 파티클이었고 기준점도 배치처도 겹치지 않는다). 발동 시점은 HP가 서버값으로 갱신되는 자리를 그대로 쓴다
-3. **캐릭터 description 다듬기** — `Define.CharacterDescriptions` 3종(0 스크랩 / 1 G-EXPlorer-04 / 2 UHM) 문안 수정. 코드 구조 변경은 없다
-4. **외형 다듬기 3건 (자산·씬 작업, 코드 변경 거의 없음)**
+2. **캐릭터 description 다듬기** — `Define.CharacterDescriptions` 3종(0 스크랩 / 1 G-EXPlorer-04 / 2 UHM) 문안 수정. 코드 구조 변경은 없다
+3. **외형 다듬기 3건 (자산·씬 작업, 코드 변경 거의 없음)**
     - **`LobbyScene` 에셋 배치** — 배경·소품 배치로 로비를 꾸민다
     - **`MapSelectUI` 외형** — 맵 스프라이트(`Images/MapSprites/map_sprite_{mapId}`)는 이미 배선돼 있으므로 레이아웃과 스프라이트 품질 쪽이다
     - **`LoadingScene` 다듬기**
-5. **실제 맵 씬 디자인·에셋 배치 → IngameScene 상속 완성** — Test 맵이 아닌 실사용 맵 씬을 만들고(레벨 디자인 + 에셋 배치), `IngameScene`을 상속하는 맵별 씬 컴포넌트를 구현한다. **씬 내장 UI 11종(`IngameInventoryUI`·`IngameDragGhost`·`InteractUI`·`IngameHealthBarUI`·`IngameSettingUI`·`IngameKillLogUI`·`IngameWeaponUI`·`IngameStaminaBarUI`·`IngameEscapeCountdownUI`·`IngameTimeoutUI`·`IngameEscUI`)을 맵 씬마다 배치해야 한다**(크로스헤어만 코드가 세우므로 예외). **(2026-08-29 #8)에서 바인딩이 `BindSceneComponent<T>`로 통합돼 빠뜨린 UI가 조용히 죽지 않고 콘솔에 원인이 뜬다** — 배치 누락은 이제 로그로 잡히므로, 남은 것은 씬 작업과 맵별 컴포넌트뿐이다. **씬에는 활성 상태로 저장할 것**(`GameObject.Find`가 비활성을 못 찾는다)
-    - **맵이 서고 나서야 시작할 수 있는 후속 UI 둘** — 지형이 확정돼야 만들 수 있으므로 이 항목이 닫히기 전에는 착수하지 않는다. ① **`IngameMapUI`** — `M` 키로 열고 대략적인 지도와 현재 위치를 표시 ② **`IngameCompassBarUI`** — 화면 상단에 상주하며 바라보는 방향의 방위(0~360)를 표시. **둘 다 씬 내장 UI가 되므로 배치 대상이 11종에서 13종으로 늘어난다**
+4. **실제 맵 씬 디자인·에셋 배치 → IngameScene 상속 완성** — Test 맵이 아닌 실사용 맵 씬을 만들고(레벨 디자인 + 에셋 배치), `IngameScene`을 상속하는 맵별 씬 컴포넌트를 구현한다. **씬 내장 UI 12종(`IngameInventoryUI`·`IngameDragGhost`·`InteractUI`·`IngameHealthBarUI`·`IngameSettingUI`·`IngameKillLogUI`·`IngameWeaponUI`·`IngameStaminaBarUI`·`IngameEscapeCountdownUI`·`IngameTimeoutUI`·`IngameEscUI`·`IngameDamageIndicatorUI`)을 맵 씬마다 배치해야 한다**(크로스헤어만 코드가 세우므로 예외). **(2026-08-29 #8)에서 바인딩이 `BindSceneComponent<T>`로 통합돼 빠뜨린 UI가 조용히 죽지 않고 콘솔에 원인이 뜬다** — 배치 누락은 이제 로그로 잡히므로, 남은 것은 씬 작업과 맵별 컴포넌트뿐이다. **씬에는 활성 상태로 저장할 것**(`GameObject.Find`가 비활성을 못 찾는다)
+    - **맵이 서고 나서야 시작할 수 있는 후속 UI 둘** — 지형이 확정돼야 만들 수 있으므로 이 항목이 닫히기 전에는 착수하지 않는다. ① **`IngameMapUI`** — `M` 키로 열고 대략적인 지도와 현재 위치를 표시 ② **`IngameCompassBarUI`** — 화면 상단에 상주하며 바라보는 방향의 방위(0~360)를 표시. **둘 다 씬 내장 UI가 되므로 배치 대상이 12종에서 14종으로 늘어난다**
 
 ### 진행 고려사항
 

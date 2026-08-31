@@ -114,6 +114,14 @@
 - **`0`은 실재하는 objectId다.** proto3 기본값이라고 '미설정'으로 해석하면 오귀속이 된다
 - 교전 상대 추적: `_lastAttackerObjectId`는 `ATTACKER_TRACK_DURATION` 안에서만 유효하며 `LastAttackerObjectId`/`HasRecentAttacker`로 조회한다
 
+### 피격 방향 표시 (`ShowDamageIndicator`)
+
+`HandleHealthChange`의 가해자 갱신 자리에서 부른다. 각도는 **플레이어 루트 forward 기준 수평 signed yaw**이고 루트가 요만 따라가므로 `transform.forward`가 곧 수평 시선이다.
+
+- **가해자 위치를 못 찾는 경로가 정상이다** — 아직 스폰되지 않은 플레이어나 비플레이어 전투 오브젝트가 쏘면 `_oppoPlayers`에 없다. 방향을 모르므로 **조용히 표시하지 않는다**(발사 브로드캐스트의 `hit_point` 비대칭과 같은 성격)
+- **`reason`을 보지 않는다** — 회복에는 가해자가 없어 `attacker_object_id != 0xFFFFFFFF` 가드가 이미 걸러낸다. 조건을 둘로 늘리면 서버가 사유를 추가할 때 한쪽이 빠진다
+- **UI 회전은 반시계가 양수라 월드 signed yaw와 부호가 반대다** — `-Vector3.SignedAngle(...)`의 마이너스를 빼면 좌우가 뒤집힌다
+
 ### 실드 재생 예측
 
 전용 통보 패킷이 없다. 서버는 매 틱 회복만 시키고 아무것도 보내지 않으므로 클라가 같은 공식으로 예측하고 피격 통보마다 서버 절대값으로 리셋한다.

@@ -157,6 +157,7 @@ public class IngameScene : BaseScene {
     IngameEscapeCountdownUI _ingameEscapeCountdownUI;
     IngameTimeoutUI _ingameTimeoutUI;
     IngameEscUI _ingameEscUI;
+    IngameDamageIndicatorUI _ingameDamageIndicatorUI;
 
     protected override void Init() {
         base.Init();
@@ -203,6 +204,10 @@ public class IngameScene : BaseScene {
 
         _ingameEscUI = BindSceneComponent<IngameEscUI>("IngameEscUI");
         if (_ingameEscUI != null) _ingameEscUI.Init(this);
+
+        // 자식이 없으면 아무것도 그리지 않으므로 끄지 않는다(IngameTimeoutUI와 같다)
+        _ingameDamageIndicatorUI = BindSceneComponent<IngameDamageIndicatorUI>("IngameDamageIndicatorUI");
+        if (_ingameDamageIndicatorUI != null) _ingameDamageIndicatorUI.Init();
 
         // OPTION: 씬 오브젝트 없이 코드로 세운 크로스헤어. 정식 IngameSceneUI 자산으로
         //         다시 만들게 되면 이 줄을 지운다 (IngameCrosshair.cs 상단 참조)
@@ -1368,10 +1373,7 @@ public class IngameScene : BaseScene {
         if (attackerObjectId != NO_ATTACKER_OBJECT_ID) {
             _lastAttackerObjectId = attackerObjectId;
             _lastAttackedTime = Time.realtimeSinceStartup;
-
-            // OPTION: 피격 방향 표시. _oppoPlayers에서 가해자 위치를 찾아 캐릭터 forward 기준
-            //         signed yaw를 산출한다. 가해자가 아직 스폰되지 않았거나 비플레이어
-            //         전투 오브젝트인 경우가 있으므로 위치를 못 찾는 경로를 정상으로 다룰 것.
+            ShowDamageIndicator(attackerObjectId);
         }
 
         Util.Log($"[HealthChange] hp={healthPoint} shield={shieldPoint} reason={reason} attacker={attackerObjectId}");
@@ -1383,6 +1385,27 @@ public class IngameScene : BaseScene {
             _ingameHealthBarUI.SetHP(healthPoint);
             _ingameHealthBarUI.SetArmor(shieldPoint);
         }
+    }
+
+    // 피격 방향 표시. **가해자 위치를 못 찾는 경로가 정상이다** — 아직 스폰되지 않은 플레이어나
+    // 비플레이어 전투 오브젝트가 쏜 경우이며, 방향을 모르므로 조용히 표시하지 않는다
+    // (발사 브로드캐스트의 hit_point 비대칭과 같은 성격).
+    // reason은 보지 않는다 — 회복에는 가해자가 없어 호출부의 NO_ATTACKER 가드가 이미 걸러낸다.
+    // 조건을 둘로 늘리면 서버가 사유를 추가할 때 한쪽이 빠진다
+    private void ShowDamageIndicator(uint attackerObjectId) {
+        if (_ingameDamageIndicatorUI == null || _playerController == null) return;
+        if (!_oppoPlayers.TryGetValue(attackerObjectId, out OppoPlayerController attacker)) return;
+
+        Vector3 toAttacker = attacker.transform.position - _playerController.transform.position;
+        toAttacker.y = 0f;
+        if (toAttacker.sqrMagnitude < 0.0001f) return;
+
+        // 루트는 요만 따라가므로 forward가 곧 수평 시선이다(피치는 카메라가 갖는다).
+        // 화면 회전은 반시계가 양수라 월드 signed yaw와 부호가 반대다
+        Vector3 forward = _playerController.transform.forward;
+        forward.y = 0f;
+
+        _ingameDamageIndicatorUI.ShowIndicator(-Vector3.SignedAngle(forward, toAttacker, Vector3.up));
     }
 
     // ── 킬 피드 ──
