@@ -22,6 +22,10 @@ UI_Base (abstract)
   - **`IngameLSlot.Init(scene, acceptedType, equipmentSlotType)`**: `base.Init(-1, scene, SlotOwnerType.PlayerInventory)` 호출. `_equipmentSlotType`(`uint`: 0=주무기, 1=보조무기, 2=방어구)·`_acceptedType` 설정. `CanAcceptItem()` 오버라이드로 아이템 타입 검증
   - **드래그 핸들러**: `OnBeginDrag` → `_scene.BeginDrag(this)`, `OnDrag` → `_scene.UpdateDragPosition()`, `OnEndDrag` → `_scene.EndDrag()`
   - **`OnDrop()` 분기**: source/target 조합에 따라 서버 요청 결정 — 장비↔일반: `RequestEquipItem()`, 일반↔일반: `RequestInteractContainerObject()` (get=빈 슬롯 이동, swap=교환, merge=합산)
+- **슬롯 아이콘의 표시·숨김은 `Image.enabled`다 — 색을 건드리지 말 것**(`ISlot`·`IngameISlot`·`SSlot`·`LootContainerSlot` 공통). 알파를 토글하던 옛 방식은 `SetItem`이 RGB를 남기고 `ClearSlot`이 흰색으로 덮어, **슬롯 이력에 따라 같은 아이콘의 밝기가 달라졌다**(비워진 적 있는 칸과 처음부터 채워진 칸이 나란히 다르게 보인다)
+  - **그래서 프리팹 `Fill`의 색이 곧 아이콘 틴트다.** 어두운 회색을 쓰는 것은 심미 판단으로 확정된 것이고 결함이 아니다 — 코드에서 흰색으로 덮어 "원래 밝기"로 되돌리지 말 것
+  - **네 프리팹이 같은 값을 써야 한다** — 갈리면 전리품 아이콘만 인벤토리와 다른 밝기로 보인다
+  - **스프라이트를 못 찾아도 `sprite`에 대입한다** — 안 그러면 **직전 아이템의 아이콘이 새 아이템의 수량과 함께 남는다.** 스프라이트 없는 `Image`는 흰 사각형으로 그려지므로 그때는 `enabled`를 꺼서 누락을 드러낸다(`IngameWeaponUI`와 같은 규칙)
 - **인벤토리 데이터 소유**: `LobbyScene`이 `_inventorySlots`, `_loadoutSlots`, `_warehouseSlots` 배열 소유. UI는 뷰 역할만 — `SetItemAtSlot()`이 scene setter + Refresh 담당. `SyncSlot` 없음
 - **Shift+클릭 분할**: `LobbyScene.OnSlotClick()` — 수량을 절반으로 나눠 `FirstEmptySlot`에 배치. 인벤토리/창고 각각 독립 처리
 

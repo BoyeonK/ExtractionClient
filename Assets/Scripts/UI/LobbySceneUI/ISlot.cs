@@ -36,19 +36,18 @@ public class ISlot : MonoBehaviour {
         _eventHandler.OnClickHandler = OnClick;
     }
 
+    // 표시·숨김은 Image.enabled로 한다 — 색을 건드리면 프리팹의 Fill 색이 아이콘에 곱해져
+    // 슬롯 이력에 따라 같은 아이콘의 밝기가 달라진다(LootContainerSlot·IngameWeaponUI와 같은 방식)
     public void SetItem(InventoryItem item) {
         _item = item;
         if (_iconImage != null && _item != null) {
             string path = $"Images/Items/icon_item_{_item.item_id}";
             Sprite iconSprite = Resources.Load<Sprite>(path);
 
-            if (iconSprite != null) {
-                _iconImage.sprite = iconSprite;
-                
-                Color color = _iconImage.color;
-                color.a = 1.0f;
-                _iconImage.color = color;
-            }
+            // 못 찾았을 때도 대입한다 — 안 그러면 직전 아이템의 아이콘이 새 아이템의 수량과 함께 남는다.
+            // 스프라이트 없는 Image는 흰 사각형으로 그려지므로 그때는 꺼서 누락을 드러낸다
+            _iconImage.sprite = iconSprite;
+            _iconImage.enabled = iconSprite != null;
 
             if (_quantity != null) {
                 _quantity.text = _item.quantity >= 1 ? _item.quantity.ToString() : "";
@@ -58,8 +57,10 @@ public class ISlot : MonoBehaviour {
 
     public void ClearSlot() {
         _item = null;
-        if (_iconImage != null)
-            _iconImage.color = new Color(1f, 1f, 1f, 0f);
+        if (_iconImage != null) {
+            _iconImage.sprite = null;
+            _iconImage.enabled = false;
+        }
         if (_quantity != null)
             _quantity.text = "";
     }
