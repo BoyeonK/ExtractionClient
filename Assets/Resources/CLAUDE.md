@@ -63,7 +63,7 @@ Assets/Resources/
 
 지금 경로로 로드하는 것: `UI/Scene/{클래스명}`, `UI/Popup/{클래스명}`, `UI/EventSystem`, `UI/IngameSceneUI/SingleKillLog`(킬 로그 한 줄), `UI/GameResultSceneUI/LootContainerSlot`(전리품 한 칸).
 
-나머지 씬 내장 UI(`IngameInventoryUI`·`IngameDragGhost`·`InteractUI`·`IngameHealthBarUI`·`IngameSettingUI`·`IngameKillLogUI`·`IngameWeaponUI`·`IngameStaminaBarUI`·`IngameEscapeCountdownUI`·`IngameTimeoutUI`·`GameResultSceneUI`·`LobbySceneUI` 계열)는 **씬에 배치돼 `GameObject.Find`로 잡힌다.** 따라서
+나머지 씬 내장 UI(`IngameInventoryUI`·`IngameDragGhost`·`InteractUI`·`IngameHealthBarUI`·`IngameSettingUI`·`IngameKillLogUI`·`IngameWeaponUI`·`IngameStaminaBarUI`·`IngameEscapeCountdownUI`·`IngameTimeoutUI`·`IngameEscUI`·`GameResultSceneUI`·`LobbySceneUI` 계열)는 **씬에 배치돼 `GameObject.Find`로 잡힌다.** 따라서
 
 - **계약은 프리팹 파일 이름이 아니라 씬 오브젝트 이름이다.** 프리팹 이름을 맞춰도 씬의 인스턴스 이름이 다르면 못 찾는다
 - **씬에는 활성 상태로 저장해야 한다** — `GameObject.Find`는 비활성 오브젝트를 못 찾는다. 필요하면 각 `Init()`이 바인딩 직후 스스로 끈다
@@ -121,6 +121,17 @@ IngameTimeoutUI                         ← 루트. 이름 고정 + 씬에서 �
 ```
 
 - **이것만 `Init()`이 끄지 않는다** — 매치 내내 떠 있으므로 씬에 저장한 활성 상태가 곧 최종 상태다. 다른 씬 내장 UI를 따라 비활성화를 넣지 말 것
+
+```
+IngameEscUI                             ← 루트. 이름 고정 + 씬에서 활성(코드가 Init에서 끈다)
+├ OptionOrExitUI                        선택 패널 — 코드가 이 둘을 갈아 끼운다
+│ ├ OptionButton                        (Button)
+│ └ ExitButton                          (Button)
+└ ExitConfirmOrCancelUI                 종료 확인 패널
+  └ ButtonRow/{ConfirmButton, CancelButton}   (Button)
+```
+
+- **패널 둘의 이름이 계약이다** — `Util.BindComponent`가 못 찾으면 `LogError`를 남기고 `null`을 돌려주므로 **터지지 않고 그 버튼만 조용히 죽는다**
 
 ```
 GameResultSceneUI                       ← 루트. 이름 고정 + 씬에서 활성

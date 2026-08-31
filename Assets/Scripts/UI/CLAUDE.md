@@ -65,6 +65,7 @@ UIManager가 아닌 씬 자체에 존재하는 MonoBehaviour UI 오브젝트. `I
 | `IngameKillLogUI` | `Init(IngameScene)` | 킬 피드. `SingleKillLog`를 찍어내고 목록으로 관리한다. 아래 절 참조 |
 | `IngameWeaponUI` | `Init()` | 손에 든 무기 이름 + 탄창 잔량 + 예비탄. 아래 절 참조 |
 | `IngameEscapeCountdownUI` | `Init()` | 귀환 승인 후 5초 카운트다운. **값을 스스로 구하지 않고 `IngameScene`이 민다** — 켜고 끄는 것도 씬의 `SetEscapeSequence()` 한 곳이다(`Scenes/CLAUDE.md`의 '귀환 카운트다운'). `FixedText`는 코드가 건드리지 않는 고정 문안이라 **에디터에서 채워둘 것** |
+| `IngameEscUI` | `Init(IngameScene)` | ESC로 여는 옵션 / 게임 종료 2지 선택. 한 오브젝트가 **선택 패널과 종료 확인 패널 둘을 갈아 끼운다**(`ActiveOptionOrExitUI`/`ActiveExitConfirmOrCancelUI`). 열림 카운트·종료 실행 규칙은 `Scenes/CLAUDE.md`의 'ESC 창과 게임 종료' |
 | `IngameTimeoutUI` | `Init()` | 매치 잔여 시간을 `mm:ss`로 표시. **값을 스스로 구하지 않고 `IngameScene.UpdateTimeoutDisplay()`가 민다**(규칙은 `Scenes/CLAUDE.md`의 '매치 마감 시각'). **이 표에서 유일하게 `Init()`이 스스로 끄지 않는 항목** — 매치 내내 떠 있으므로 비활성화 호출을 넣지 말 것 |
 | `IngameStaminaBarUI` | `Init()` | 달리기 스태미나 게이지. `SetStamina(current, max)` + `SetVisible(bool)`로 씬이 민다. **평소에는 숨어 있고 달리는 중이거나 스태미나가 문턱 이하일 때만 보인다** — 조건 판단은 씬에 있다(아래). **`StaminaBarFill`의 Image Type이 `Filled`여야 한다**(체력바와 같은 함정) |
 

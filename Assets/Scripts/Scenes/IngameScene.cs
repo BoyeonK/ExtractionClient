@@ -156,6 +156,7 @@ public class IngameScene : BaseScene {
     IngameStaminaBarUI _ingameStaminaBarUI;
     IngameEscapeCountdownUI _ingameEscapeCountdownUI;
     IngameTimeoutUI _ingameTimeoutUI;
+    IngameEscUI _ingameEscUI;
 
     protected override void Init() {
         base.Init();
@@ -199,6 +200,9 @@ public class IngameScene : BaseScene {
         // 매치 내내 떠 있으므로 끄지 않는다 — 다른 씬 내장 UI와 갈리는 지점이다
         _ingameTimeoutUI = BindSceneComponent<IngameTimeoutUI>("IngameTimeoutUI");
         if (_ingameTimeoutUI != null) _ingameTimeoutUI.Init();
+
+        _ingameEscUI = BindSceneComponent<IngameEscUI>("IngameEscUI");
+        if (_ingameEscUI != null) _ingameEscUI.Init(this);
 
         // OPTION: 씬 오브젝트 없이 코드로 세운 크로스헤어. 정식 IngameSceneUI 자산으로
         //         다시 만들게 되면 이 줄을 지운다 (IngameCrosshair.cs 상단 참조)
@@ -807,18 +811,25 @@ public class IngameScene : BaseScene {
             CloseContainer();
             return;
         }
-        // 설정 창 위에 겹쳐 열지 않는다. ESC로 설정을 닫은 뒤가 순서다
+        // 설정·ESC 창 위에 겹쳐 열지 않는다. ESC로 그것을 닫은 뒤가 순서다
         if (_ingameSettingUI != null && _ingameSettingUI.IsOpen) return;
+        if (_ingameEscUI != null && _ingameEscUI.IsOpen) return;
 
         if (_isInventoryOpen) CloseMyInventory();
         else ShowMyInventory();
     }
 
-    // ESC는 항상 '가장 위에 있는 것'을 닫고, 닫을 것이 없을 때만 설정을 연다.
-    // 매치 이탈 중에도 막지 않는다 — 설정은 서버로 나가는 요청이 없다
+    // ESC는 항상 '가장 위에 있는 것'을 닫고, 닫을 것이 없을 때만 ESC 창을 연다.
+    // 매치 이탈 중에도 막지 않는다 — 설정은 서버로 나가는 요청이 없고,
+    // 게임 종료는 이탈 중에도 허용해야 하는 조작이다.
+    // 설정과 ESC 창은 동시에 열리지 않는다(옵션으로 넘어갈 때 ESC 창이 닫힌다)
     private void OnEscapeInput() {
         if (_ingameSettingUI != null && _ingameSettingUI.IsOpen) {
             _ingameSettingUI.CancelAndHide();
+            return;
+        }
+        if (_ingameEscUI != null && _ingameEscUI.IsOpen) {
+            _ingameEscUI.CancelByEscape();
             return;
         }
         if (IsContainerOpen) {
@@ -829,8 +840,30 @@ public class IngameScene : BaseScene {
             CloseMyInventory();
             return;
         }
+        if (_ingameEscUI != null)
+            _ingameEscUI.Show();
+    }
+
+    public void ShowSettingUI() {
         if (_ingameSettingUI != null)
             _ingameSettingUI.Show();
+    }
+
+    // 인게임에서 판을 뜨는 유일한 자발적 경로. CompleteMatchExit()을 쓰지 않는 것은
+    // 그 안이 결과 씬을 로드하기 때문이다 — 앱을 끌 것이라 결과를 볼 사람이 없고,
+    // 같은 이유로 BeginMatchExit()의 4초 유예도 건너뛴다.
+    // Disconnect()를 직접 부르는 것은 Application.Quit()으로는 Managers.Clear()가 돌지 않아
+    // IngameScene.Clear()의 정리가 보장되지 않기 때문이다. 서버는 이 이탈을 강제 종료와
+    // 같은 맥락으로 처리하므로(인벤토리 소실 포함) 별도 종료 요청 패킷을 보내지 않는다
+    public void QuitFromMatch() {
+        Managers.Network.udpManager.Disconnect();
+        Managers.ExecuteAtMainThread(() => {
+#if UNITY_EDITOR
+            UnityEditor.EditorApplication.isPlaying = false;
+#else
+            Application.Quit();
+#endif
+        });
     }
 
     private void ShowMyInventory() {
@@ -1458,6 +1491,8 @@ public class IngameScene : BaseScene {
         // 값은 이미 반영된 뒤라 되돌리지 않고 그대로 닫는다
         if (_ingameSettingUI != null)
             _ingameSettingUI.Hide();
+        if (_ingameEscUI != null)
+            _ingameEscUI.Hide();
         // 이탈의 캐치올이다 — 귀환 성공·사망·연결 끊김이 모두 여기를 지나므로,
         // 카운트다운 중 사망처럼 통보 순서가 뒤집히는 경우에도 UI가 연출 위에 남지 않는다
         SetEscapeSequence(false);
