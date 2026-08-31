@@ -484,7 +484,9 @@ public class PlayerController : GameObjectController, ICombatTarget {
         Managers.Sound.Play("empty_gun_shot");
     }
 
-    // TODO: 피격 이펙트·데미지 표시 미구현, 별도 작업 예정
+    // 탄착 이펙트는 만들지 않기로 확정됐다(총구 화염과 같은 판단) — 빠뜨린 것으로 보고
+    // 다시 추가하지 말 것. 남은 미구현은 데미지 표시뿐이다
+    // TODO: 데미지 표시 미구현, 별도 작업 예정
     private void ProcessHit(RaycastHit hit, bool hasHit) {
         // '장착한' 무기가 아니라 '손에 든' 무기여야 한다. 인벤토리에서 다시 유도하면
         // 교체 확정 전 상태를 실을 수 있어, 서버가 확정해 장착시킨 값을 그대로 쓴다
@@ -505,8 +507,6 @@ public class PlayerController : GameObjectController, ICombatTarget {
             hasHit ? hit.point : UnityEngine.Vector3.zero,
             hitObjectId
         );
-
-        // TODO: 로컬 히트 이펙트 (탄착 파티클 등)
     }
 
     private void ProcessAim() {

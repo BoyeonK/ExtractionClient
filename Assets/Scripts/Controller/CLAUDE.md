@@ -215,8 +215,8 @@ public interface ICombatTarget { int GetObjectId(); }
 
 ### 미구현이 남은 메서드
 
-- `ProcessHit()`: **스텁이 아니다** — `SendC2DRequestWeaponFire()`로 발사 패킷을 보내는 본 기능을 한다. 남은 것은 탄착 이펙트·데미지 표시
-- **`ProcessFire()`는 완료됐다.** **총구 화염은 넣지 않기로 확정됐다** — 빠뜨린 것으로 보고 다시 추가하지 말 것
+- `ProcessHit()`: **스텁이 아니다** — `SendC2DRequestWeaponFire()`로 발사 패킷을 보내는 본 기능을 한다. 남은 것은 데미지 표시뿐이다
+- **`ProcessFire()`는 완료됐다.** **총구 화염과 탄착 이펙트는 넣지 않기로 확정됐다** — 빠뜨린 것으로 보고 다시 추가하지 말 것. 탄착 쪽은 수신 측(`IngameScene.HandleWeaponFireBroadcast`)에도 같이 적용된다
 
 ## OppoPlayerController
 

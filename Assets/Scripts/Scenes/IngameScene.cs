@@ -63,7 +63,7 @@ public class IngameScene : BaseScene {
     // 실측으로 싱크가 확인되면 조정될 잠정값이다.
     // 표시일 뿐 종료를 판정하지 않는다 — 마감이 지나면 서버가 룸 전원을 사망 처리하므로
     // 클라가 0에서 이탈을 시작하면 서버 지터에서 화면과 실제가 갈린다(귀환 카운트다운과 같은 이유)
-    private const uint MATCH_DEADLINE_SAFETY_MS = 30000;
+    private const uint MATCH_DEADLINE_SAFETY_MS = 10000;
     private uint _matchDeadlineBaseMs = 0;
     private uint _matchDeadlineMs = 0;
 
@@ -90,6 +90,26 @@ public class IngameScene : BaseScene {
         _matchDeadlineMs = remainingLifeMs <= MATCH_DEADLINE_SAFETY_MS
             ? _matchDeadlineBaseMs
             : _matchDeadlineBaseMs + (remainingLifeMs - MATCH_DEADLINE_SAFETY_MS);
+    }
+
+    private int _shownTimeoutSec = -1;   // 0이 유효값이라 -1에서 시작한다
+
+    // 초가 바뀔 때만 민다 — SetCountdown이 문자열을 만들므로 매 프레임 부르면 낭비다
+    // (ShowEscapeCountdown·IngameWeaponUI._shownWeaponId와 같은 가드).
+    // 마감이 잡히기 전에는 밀지 않는다 — 그 구간의 RemainMatchTimeMs는 0이라
+    // 스폰 응답이 오기 전까지 00:00이 떴다가 튀어 보인다.
+    // 게이트를 _matchDeadlineMs로 잡지 말 것: 여유값 이하로 남은 채 스폰하면
+    // _matchDeadlineMs == _matchDeadlineBaseMs가 정상이고 그때는 00:00이 맞다
+    private void UpdateTimeoutDisplay() {
+        if (_matchDeadlineBaseMs == 0) return;
+
+        uint remainMs = RemainMatchTimeMs;
+        int sec = (int)(remainMs / 1000);
+        if (_shownTimeoutSec == sec) return;
+
+        _shownTimeoutSec = sec;
+        if (_ingameTimeoutUI != null)
+            _ingameTimeoutUI.SetCountdown(remainMs);
     }
 
     private GameObject _characterGo;
@@ -135,6 +155,7 @@ public class IngameScene : BaseScene {
     IngameWeaponUI _ingameWeaponUI;
     IngameStaminaBarUI _ingameStaminaBarUI;
     IngameEscapeCountdownUI _ingameEscapeCountdownUI;
+    IngameTimeoutUI _ingameTimeoutUI;
 
     protected override void Init() {
         base.Init();
@@ -174,6 +195,10 @@ public class IngameScene : BaseScene {
         if (_ingameEscapeCountdownUI != null) _ingameEscapeCountdownUI.Init();
         // 씬에는 활성으로 저장하고 여기서 끈다 — GameObject.Find는 비활성을 못 찾는다
         SetEscapeSequence(false);
+
+        // 매치 내내 떠 있으므로 끄지 않는다 — 다른 씬 내장 UI와 갈리는 지점이다
+        _ingameTimeoutUI = BindSceneComponent<IngameTimeoutUI>("IngameTimeoutUI");
+        if (_ingameTimeoutUI != null) _ingameTimeoutUI.Init();
 
         // OPTION: 씬 오브젝트 없이 코드로 세운 크로스헤어. 정식 IngameSceneUI 자산으로
         //         다시 만들게 되면 이 줄을 지운다 (IngameCrosshair.cs 상단 참조)
@@ -1444,7 +1469,9 @@ public class IngameScene : BaseScene {
         if (reason == MatchExitReason.Dead && _playerController != null)
             DeathCameraController.Play(_playerController.ViewCamera, _playerController.transform);
 
-        // TODO: 탈출(귀환) 연출
+        // 귀환 성공에는 대응하는 연출을 두지 않는다(확정) — 승인 카운트다운과 결과 씬이
+        // 필요한 정보를 모두 전달한다. 사망 쪽만 카메라를 가져가는 비대칭은 의도이며,
+        // 빠뜨린 배선으로 보고 대칭을 맞추려 들지 말 것
     }
 
     private void CompleteMatchExit() {
@@ -1599,8 +1626,6 @@ public class IngameScene : BaseScene {
             // 내 궤적은 레이를 직접 갖고 있어 빗나가도 그리는데, 정보량 차이에서 오는 비대칭이다
             if (shooter.MuzzlePoint != null)
                 BulletTracer.Play(shooter.MuzzlePoint.position, hitPoint);
-
-            // TODO: 탄착 이펙트 재생 (hitPoint 좌표에)
         }
     }
 
@@ -1670,6 +1695,7 @@ public class IngameScene : BaseScene {
         }
 
         UpdateEscapeCountdown();
+        UpdateTimeoutDisplay();
         UpdateAction();
 
         // 인터랙션 UI 업데이트
