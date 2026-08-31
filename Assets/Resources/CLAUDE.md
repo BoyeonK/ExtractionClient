@@ -61,9 +61,9 @@ Assets/Resources/
 
 **두 방식은 개수가 정해져 있지 않다 — 아래는 규칙이 아니라 현재 상태의 목록이다.** 어느 쪽으로 만들지는 그 UI를 **런타임에 찍어내야 하는지**로 갈린다(찍어내야 하면 경로 로드, 처음부터 한 벌만 있으면 씬 배치).
 
-지금 경로로 로드하는 것: `UI/Scene/{클래스명}`, `UI/Popup/{클래스명}`, `UI/EventSystem`, `UI/IngameSceneUI/SingleKillLog`(킬 로그 한 줄).
+지금 경로로 로드하는 것: `UI/Scene/{클래스명}`, `UI/Popup/{클래스명}`, `UI/EventSystem`, `UI/IngameSceneUI/SingleKillLog`(킬 로그 한 줄), `UI/GameResultSceneUI/LootContainerSlot`(전리품 한 칸).
 
-나머지 씬 내장 UI(`IngameInventoryUI`·`IngameDragGhost`·`InteractUI`·`IngameHealthBarUI`·`IngameSettingUI`·`IngameKillLogUI`·`IngameWeaponUI`·`IngameStaminaBarUI`·`LobbySceneUI` 계열)는 **씬에 배치돼 `GameObject.Find`로 잡힌다.** 따라서
+나머지 씬 내장 UI(`IngameInventoryUI`·`IngameDragGhost`·`InteractUI`·`IngameHealthBarUI`·`IngameSettingUI`·`IngameKillLogUI`·`IngameWeaponUI`·`IngameStaminaBarUI`·`GameResultSceneUI`·`LobbySceneUI` 계열)는 **씬에 배치돼 `GameObject.Find`로 잡힌다.** 따라서
 
 - **계약은 프리팹 파일 이름이 아니라 씬 오브젝트 이름이다.** 프리팹 이름을 맞춰도 씬의 인스턴스 이름이 다르면 못 찾는다
 - **씬에는 활성 상태로 저장해야 한다** — `GameObject.Find`는 비활성 오브젝트를 못 찾는다. 필요하면 각 `Init()`이 바인딩 직후 스스로 끈다
@@ -107,6 +107,22 @@ IngameWeaponUI                  ← GameObject.Find 대상. 이름 고정 + 씬�
   └ WeaponInfoPanel/{WeaponImage, MagazineAmmoCount, RemainAmmoCount}
 ```
 
+```
+GameResultSceneUI                       ← 루트. 이름 고정 + 씬에서 활성
+├ GameResultSummary/GameResultText      (TextMeshProUGUI) 코드가 문구와 색을 함께 넣는다
+├ LootLists/LootContainer               ← LootContainerSlot이 이 아래에 붙는다
+├ LootLists/LostItemsText               (TextMeshProUGUI) 사망 시 전리품을 대신한다. 문안은 고정
+└ BottomBar/ConfirmButton               (Button) 코드가 꺼둔 뒤 연출 끝에 켠다
+
+LootContainerSlot                       ← Prefabs/UI/GameResultSceneUI/ (런타임에 찍어내므로 경로로 로드)
+├ Fill                                  (Image) 코드가 icon_item_{item_id}를 넣는다
+└ Quantity                              (TextMeshProUGUI)
+```
+
+- `GameResultSceneUI`의 **`SubLabel`·`BG`·`DivTop`/`DivBottom`·`TopAccentLine`은 코드가 찾지 않는다.** `SubLabel`은 고정 문안이므로 **에디터에서 채워둘 것** — 코드가 넣어주길 기다리면 영영 비어 있다
+- **`ConfirmButton`과 `LostItemsText`는 씬에 활성으로 저장한다** — 코드가 `Init()`에서 끄고 필요할 때 켠다. 비활성으로 저장해도 `Util.BindComponent`는 찾지만(루트 기준 경로 조회라 활성 여부와 무관), 규칙을 갈라두면 다음 사람이 헷갈린다
+- **`LostItemsText`의 문안은 고정이라 에디터에서 채워둔다** — 코드는 켜고 끄기만 하고 텍스트를 넣지 않는다(`SubLabel`과 같다)
+- `LootContainerSlot`의 **`Fill`에 스프라이트를 물려두지 않는다** — 코드가 넣고, 파일이 없으면 `Image.enabled`를 꺼서 흰 사각형을 막는다
 - 볼륨 슬라이더는 Min 0 / Max 100(로비와 동일), **감도 슬라이더는 Min 0.1 / Max 5.0 / Value 1.0** — `SettingManager.MIN/MAX_MOUSE_SENSITIVITY` 및 **로비 프리팹의 같은 슬라이더와 손으로 맞추는 값**이다(맞출 곳이 셋)
 - `IngameHealthBarUI`의 Fill 이미지는 **Type이 `Filled`여야 한다** — `Simple`이면 `fillAmount` 대입이 조용히 무시된다. **`IngameStaminaBarUI`(`StaminaBarBg/StaminaBarFill`)도 같은 규칙**이며 이쪽은 이미 `Filled`로 맞춰져 있다
 - `IngameWeaponUI`의 `WeaponImage`는 **스프라이트를 물려두지 않는다** — 코드가 `weapon_sprite_{item_id}`를 넣는다. **`Preserve Aspect`는 꺼둔 것이 의도다**(스프라이트 √2:1, 슬롯 비율이 그에 가까워 찌그러짐을 감수했다). 스프라이트가 순백 실루엣이라 **`Color`가 곧 표시색이고 코드는 색을 건드리지 않는다**

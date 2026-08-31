@@ -157,6 +157,27 @@ IngameSettingUI                         ← 루트. GameObject.Find로 잡으므
 
 - 볼륨 슬라이더는 Min 0 / Max 100(로비와 동일). **감도 슬라이더는 Min 0.1 / Max 5.0 / Value 1.0이고 로비 쪽과 같아야 한다** — 값 × `PlayerController.MOUSE_SENSITIVITY_DEG_PER_PIXEL`(0.1)이 실제 도/픽셀이므로 이 범위가 0.01~0.5 deg/px에 해당한다. 갈리면 **같은 설정을 어느 창에서 만졌느냐로 상한이 달라진다**
 
+## 씬 내장 UI (`GameResultSceneUI/`)
+
+`GameResultSceneUI`(씬 배치) + `LootContainerSlot`(경로 로드로 찍어낸다). `GameResultScene.Init()`이 `BindSceneComponent`로 잡고 `Init(scene, result)`를 부른다.
+
+**연출 순서**: 0.3초 → 결과 문구 → 0.3초 → **성공이면** 전리품 슬롯 0.2초 간격 / **실패면** 분실 문구 → 0.3초 → 확인 버튼. 상수 넷은 이 클래스가 유일한 출처다. 프리팹 계층 규격은 `Assets/Resources/CLAUDE.md`에 있다.
+
+- **문구·색과 전리품/분실 갈래는 `ClassifyResult()` 한 곳에서 나온다**(`_isExtractSuccess`). 갈래를 따로 판단하면 사유가 추가될 때 **"탈출 성공"인데 분실 문구가 뜨는** 상태가 된다
+- **실패일 때 전리품을 안 그리는 근거는 가드가 아니라 빈 목록이다** — `BuildLootList()`를 아예 부르지 않아 생성 루프 둘(코루틴·`CompleteImmediately`)이 자연히 비워진다. **루프에 갈래 가드를 덧대지 말 것**(두 곳이 되고 한쪽이 빠진다)
+- **연출의 각 단계는 메서드 하나이고 코루틴과 `CompleteImmediately()`가 같은 메서드를 부른다.** 단계를 추가할 때도 이 형태를 지킬 것 — 한쪽에만 넣으면 건너뛰기에서만 빠지는 표시가 생긴다
+- **분실 문구는 전리품 생성이 시작될 자리에서 켠다.** 요약 문구와 함께 켜면 "전리품을 채우는 대신"이라는 시점이 어긋난다. `_hasResult == false`(결과 없이 진입)에서는 켜지 않는다 — 잃은 것이 없는데 잃었다고 표시하는 꼴이 된다
+- 실패일 때 `LootContainer`는 **비어 있는 채로 남는다**(확정). 숨기지 않는다
+
+- **결과는 씬이 값으로 넘기고 UI는 그것만 본다. `Managers.Scene.LastGameResult`를 UI가 다시 읽지 말 것** — `MoveToLobby()`가 `ClearGameResult()`를 즉시 부르고 `LoadScene`만 다음 프레임으로 미루므로, **연출이 도는 중에 원본이 null이 되는 창이 실재한다**
+- **중단 지점은 `CompleteImmediately()` 하나다.** 연출을 끊고 남은 슬롯을 즉시 다 만든 뒤 버튼을 켠다. 지금 소비자는 '결과 없이 진입'뿐이지만 **연출 건너뛰기가 붙어도 여기를 부른다** — 단계마다 중단 분기를 흩으면 그때 고칠 곳이 넷으로 늘어난다
+- **결과가 null이면 연출을 건너뛰고 즉시 버튼을 켜야 한다.** Enter가 버튼 활성 전까지 막히므로, 안 켜면 **로비로 돌아갈 수단이 아예 없어 영구 정지한다**
+- **표시 순서는 `BuildLootList()`가 먼저 확정한다**(주무기 → 보조무기 → 방어구 → 인벤토리 25칸, null 제외). 루프 안에서 갈래를 판단하면 `CompleteImmediately()`가 '남은 것부터 끝까지'를 표현할 수 없다
+- **`SpawnNextLootSlot()`은 카운터를 먼저 올린다** — 조기 반환에서도 전진해야 `CompleteImmediately()`의 루프가 멈춘다
+- **`MatchExitReason.ConnectionLost`는 `Dead`와 같은 표시이되 `default`에 묻지 않는다**(확정) — 묻어두면 사유가 추가될 때 새 사유가 조용히 '사망'으로 뜬다. `default`는 `LogError` + 사망 표시다
+- **수량 표기는 슬롯 출처가 아니라 아이템 타입으로 가른다** — `ItemDBHelper.GetType`이 `Weapon`·`Armor`면 빈 문자열이다(`ISlot.CanMerge`와 같은 술어·같은 이유: 합산되지 않는 타입이라 수량 개념이 없다). 인벤토리 칸에 들어 있던 장비도 같은 규칙을 받는다
+- **`Fill`은 스프라이트 로드 실패 시 `Image.enabled`를 끈다** — 스프라이트 없는 `Image`는 흰 사각형으로 그려진다(`IngameWeaponUI`와 같은 규칙)
+
 ## 씬 내장 UI (`LobbySceneUI/`)
 
 UIManager가 아닌 씬 자체에 존재하는 MonoBehaviour UI 오브젝트. `LobbyScene.Init()`에서 `GameObject.Find()`로 바인딩 + `Init()` 호출:

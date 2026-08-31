@@ -2,19 +2,26 @@ using UnityEngine;
 using UnityEngine.InputSystem;
 
 public class GameResultScene : BaseScene {
+    GameResultSceneUI _ui;
+    bool _returning;
+
     protected override void Init() {
         base.Init();
         SceneType = Define.Scene.GameResultScene;
         Managers.Scene.ResetLoadSceneOp();
 
-        LogGameResult();
+        GameResult? result = Managers.Scene.LastGameResult;
+        LogGameResult(result);
+
+        _ui = BindSceneComponent<GameResultSceneUI>("GameResultSceneUI");
+        if (_ui != null)
+            _ui.Init(this, result);
 
         Managers.Input.AddKeyListener(Key.Enter, OnEnterInput, InputManager.KeyState.Up);
     }
 
-    // TODO: 결과 표시 UI가 생기면 로그 출력을 UI 바인딩으로 교체
-    private void LogGameResult() {
-        GameResult? result = Managers.Scene.LastGameResult;
+    // 인벤토리는 클라 로컬 상태라 서버와 어긋날 수 있어, 화면 표시와 대조할 자리로 로그를 남겨둔다
+    private void LogGameResult(GameResult? result) {
         if (result == null) {
             Util.LogWarning("[GameResult] 저장된 게임 결과가 없다 — CompleteMatchExit()을 거치지 않고 진입했다");
             return;
@@ -35,13 +42,20 @@ public class GameResultScene : BaseScene {
         return $"itemId={item.item_id} x{item.quantity}";
     }
 
+    // 확인 버튼이 켜지기 전에는 무시한다. 판단 근거는 버튼의 활성 상태 하나뿐이다 —
+    // UI 자체가 없으면(씬 배치 누락) 막지 않는다. 막으면 로비로 나갈 수단이 사라진다
     private void OnEnterInput() {
+        if (_ui != null && _ui.IsConfirmActive == false) return;
         MoveToLobby();
     }
 
     // 씬 전환은 잡큐로 예약해 다음 프레임에 수행한다 — 키 리스너 안에서 바로 부르면
     // LoadScene()의 Managers.Clear()가 InputManager의 순회 중인 _keyActions를 비워 예외가 난다
     public void MoveToLobby() {
+        // 확인 버튼 클릭과 Enter가 겹치면 LoadScene이 두 번 예약된다
+        if (_returning) return;
+        _returning = true;
+
         Managers.Scene.IsReturnFromGameResult = true;
         Managers.Scene.ClearGameResult();
         Managers.ExecuteAtMainThread(() => Managers.Scene.LoadScene(Define.Scene.LobbyScene));

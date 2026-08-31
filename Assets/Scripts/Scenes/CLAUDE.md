@@ -4,7 +4,9 @@
 - **`LobbyScene`**: `LobbyState` enum 상태 머신 (BeforeConnect → BeforeAuth → Lobby → Matching)
 - **`LoadingScene`**: 비동기 로딩 → 90%에서 Blueprint 요청 → 응답 완료 시 전환
 - **`IngameScene`**: 맵 씬들의 공통 베이스. 정적 오브젝트 스폰 + 씬 내장 UI 바인딩 + 스폰 요청. 실제 맵 씬이 이걸 상속한다
-- **`GameResultScene`**: 매치 결과 표시 + 엔터로 로비 복귀. 진입 경로는 `IngameScene.CompleteMatchExit()` 하나뿐
+- **`GameResultScene`**: 매치 결과 표시 + 확인 버튼/엔터로 로비 복귀. 진입 경로는 `IngameScene.CompleteMatchExit()` 하나뿐
+  - **Enter 잠금의 근거는 확인 버튼의 활성 상태 하나다**(`GameResultSceneUI.IsConfirmActive`). 씬에 별도 플래그를 두면 "버튼은 떴는데 Enter가 안 먹는" 상태가 생긴다. **UI 자체가 없을 때는 막지 않는다** — 막으면 로비로 나갈 수단이 사라진다
+  - **버튼도 `MoveToLobby()`를 거치고, 그 안에 1회성 가드가 있다** — 클릭과 Enter가 겹치면 `LoadScene`이 두 번 예약된다
 - 씬 전환은 반드시 `Managers.Scene`으로 한다
 - **입력 리스너·업데이트 루프 안에서 씬을 직접 내리지 말고 `Managers.ExecuteAtMainThread`로 예약할 것** — `LoadScene()`의 `Managers.Clear()`가 순회 중인 구독 목록을 비운다
 
