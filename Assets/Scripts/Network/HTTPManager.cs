@@ -47,9 +47,7 @@ public class HTTPManager {
 
     // 버전 검사의 클라 쪽 유일한 출처. 서버의 latestVersion과 손으로 맞추는 값이며
     // 어긋나면 아무도 로그인 화면에 못 간다(표시가 틀어지는 정도가 아니라 접속이 막힌다)
-    // TEMP: 서버가 보내는 값은 "alpha-1"이다. 불일치 갈래를 실측하려고 일부러 틀리게 둔 값이며,
-    //       확인이 끝나면 "alpha-1"로 맞출 것. 그전까지 버전 검사는 항상 불일치로 떨어진다
-    public const string version = "alphaTest";
+    public const string version = "alpha-1";
     private const string _versionUrl = "api/version";
     private const string _signupUrl = "api/signup";
     private const string _loginUrl = "api/login";

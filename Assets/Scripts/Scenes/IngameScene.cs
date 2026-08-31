@@ -31,12 +31,12 @@ public class IngameScene : BaseScene {
     private const float PLAYER_STATE_INTERVAL = 0.1f;
     private float _playerStateTimer = 0f;
 
-    // TEMP: 귀환 응답 워치독
-    //       "귀환이 실패하면 서버가 반드시 알린다"는 전제가 깨졌을 때(통지 유실,
-    //       SESSION_LOST/SERVER_INTERNAL처럼 통지 경로 자체가 불안한 사유, UDP 끊김)
-    //       _recallRequested가 영구히 잠겨 그 판 탈출이 불가능해지는 것을 막는 임시 안전장치.
-    //       결과를 추측하지 않고 로컬 잠금만 해제하므로 판정 권한은 서버에 그대로 있다.
-    //       서버 통지 신뢰성이 검증되면 이 블록과 OnUpdate()의 TEMP 블록을 함께 제거할 것.
+    // 귀환 응답 워치독. "귀환이 실패하면 서버가 반드시 알린다"는 전제가 깨졌을 때
+    // (통지 유실, SESSION_LOST/SERVER_INTERNAL처럼 통지 경로 자체가 불안한 사유, UDP 끊김)
+    // _recallRequested가 영구히 잠겨 그 판 탈출이 불가능해지는 것을 막는다.
+    // 결과를 추측하지 않고 로컬 잠금만 해제하므로 판정 권한은 서버에 그대로 있고,
+    // 그래서 늦게 도착한 통지도 정상 처리된다 — 헛발동해도 잃는 것이 없다.
+    // 이 비대칭(틀려도 손해 없음 / 없으면 판을 잃음)이 남겨두는 근거다
     private const float RECALL_TIMEOUT = 10f;   // 서버 검사 5초 + 왕복·지터 여유
     private float _recallTimer = 0f;
 
@@ -405,9 +405,10 @@ public class IngameScene : BaseScene {
     private static readonly float[] RELOAD_SEQUENCE_TIMES = { 0f, 1f };
     private int _reloadSequence = -1;   // 마지막으로 발화한 단계. -1 = 아직 없음
 
-    // TEMP: 응답 워치독. 응답이 오지 않으면 발사가 그 판 내내 막히므로 잠금만 풀어둔다.
-    //       결과를 추측하지 않고 로컬 잠금만 해제하므로 판정 권한은 서버에 그대로 있다.
-    //       서버 응답 신뢰성이 검증되면 이 상수와 UpdateAction()의 TEMP 블록을 함께 제거할 것.
+    // 응답 워치독. 응답이 오지 않으면 발사가 그 판 내내 막히므로 잠금만 풀어둔다.
+    // 결과를 추측하지 않고 로컬 잠금만 해제하므로 판정 권한은 서버에 그대로 있고,
+    // 그래서 늦게 도착한 응답도 정상 처리된다 — 헛발동해도 잃는 것이 없다(귀환 워치독과 같은 근거).
+    // 반복해서 뜬다면 워치독이 아니라 서버가 43번을 안 보내는 것이므로 서버 쪽부터 볼 것
     private const float ACTION_PENDING_TIMEOUT = 3f;
 
     private PlayerActionKind  _actionKind  = PlayerActionKind.None;
@@ -475,7 +476,7 @@ public class IngameScene : BaseScene {
         _actionTimer += Time.deltaTime;
 
         if (_actionPhase == PlayerActionPhase.Pending) {
-            // TEMP: 응답 워치독 — 상단 ACTION_PENDING_TIMEOUT 주석 참조. 제거 시 함께 삭제할 것
+            // 응답 워치독 — 근거는 상단 ACTION_PENDING_TIMEOUT 주석 참조
             if (_actionTimer >= ACTION_PENDING_TIMEOUT) {
                 Util.LogWarning($"[Action] {_actionKind} 응답 미수신 ({ACTION_PENDING_TIMEOUT}초) — 행동 잠금 해제");
                 ClearAction();
@@ -940,7 +941,7 @@ public class IngameScene : BaseScene {
         if (IsInputLocked) return;
         if (_recallRequested) return;
         _recallRequested = true;
-        _recallTimer = 0f;   // TEMP: 워치독 시작 (승인 응답·최종 결과 양쪽을 함께 커버)
+        _recallTimer = 0f;   // 워치독 시작 (승인 응답·최종 결과 양쪽을 함께 커버)
         Managers.Network.udpManager.SendC2DRequestRecall(recallSpotIndex);
     }
 
@@ -1658,7 +1659,7 @@ public class IngameScene : BaseScene {
         UpdateShieldRegen();
         UpdateStamina();
 
-        // TEMP: 귀환 응답 워치독 — 상단 RECALL_TIMEOUT 주석 참조. 제거 시 함께 삭제할 것
+        // 귀환 응답 워치독 — 근거는 상단 RECALL_TIMEOUT 주석 참조
         if (_recallRequested) {
             _recallTimer += Time.deltaTime;
             if (_recallTimer >= RECALL_TIMEOUT) {
