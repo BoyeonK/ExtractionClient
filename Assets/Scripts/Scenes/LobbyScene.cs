@@ -365,6 +365,10 @@ public class LobbyScene : BaseScene {
         return _lobbyReconfirmUI.ActiveConfirmOrCancel(msg, onConfirm, onCancel);
     }
 
+    public bool ActiveReconfirmOnlyConfirm(string msg, Action onConfirm = null) {
+        return _lobbyReconfirmUI.ActiveOnlyConfirm(msg, onConfirm);
+    }
+
     public void LogoutPopup() {
         if (_lobbyState == LobbyState.Lobby) {
             _lobbyReconfirmUI.ActiveConfirmOrCancel("로그아웃을 진행하시겠습니까?", TryLogout);

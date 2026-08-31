@@ -44,9 +44,24 @@ public class UI_Register : UI_Scene {
         string id = _idField.text;
         string password = _passwordField.text;
         string password2 = _passwordField2.text;
-        // TODO: 입력값 유효성 검사
-        if(string.IsNullOrEmpty(id) || string.IsNullOrEmpty(password) || string.IsNullOrEmpty(password2)) {
-            // TODO: 입력값이 유효하지 않다는 메시지 띄우기
+        if (string.IsNullOrEmpty(id) || string.IsNullOrEmpty(password) || string.IsNullOrEmpty(password2)) {
+            _scene.ActiveReconfirmOnlyConfirm("모든 항목을 입력해주세요.");
+            return;
+        }
+        if (!HTTPManager.IsValidId(id)) {
+            _scene.ActiveReconfirmOnlyConfirm(HTTPManager.ID_RULE_MESSAGE);
+            return;
+        }
+        // 형식을 일치보다 먼저 본다 — 형식이 틀리면 어차피 두 칸을 다시 치게 되므로,
+        // 일치 안내가 앞에 오면 규칙을 모른 채 같은 값을 한 번 더 치고 다시 막힌다
+        if (!HTTPManager.IsValidPassword(password)) {
+            _scene.ActiveReconfirmOnlyConfirm(HTTPManager.PASSWORD_RULE_MESSAGE);
+            return;
+        }
+        // 서버는 password 하나만 받으므로 확인란 검사는 클라에만 있다 — 빼면 확인란이 장식이 되고
+        // 사용자가 무엇을 쳤는지 모르는 비밀번호로 계정이 그대로 생성된다
+        if (password != password2) {
+            _scene.ActiveReconfirmOnlyConfirm("비밀번호가 일치하지 않습니다.");
             return;
         }
 

@@ -39,9 +39,14 @@ public class UI_Login : UI_Scene {
         string id = _idField.text;
         string password = _passwordField.text;
 
-        // TODO: 입력값 유효성 검사
+        // 검사 항목을 PostLoginCall의 가드와 맞춘다 — 로그인은 이미 만들어진 계정이 대상이라
+        // 비밀번호는 형식이 아니라 비어 있는지만 본다(규칙이 바뀌기 전에 만든 계정을 막지 않는다)
         if (string.IsNullOrEmpty(id) || string.IsNullOrEmpty(password)) {
-            // TODO: 입력값이 유효하지 않다는 메시지 띄우기
+            _scene.ActiveReconfirmOnlyConfirm("아이디와 비밀번호를 모두 입력해주세요.");
+            return;
+        }
+        if (!HTTPManager.IsValidId(id)) {
+            _scene.ActiveReconfirmOnlyConfirm(HTTPManager.ID_RULE_MESSAGE);
             return;
         }
 

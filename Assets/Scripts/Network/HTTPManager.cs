@@ -62,12 +62,18 @@ public class HTTPManager {
     private const string _connectUrl = "api/game/match/connect";
 
     #region 유효성 검사 헬퍼
-    private bool IsValidId(string id) {
+    // 규칙과 안내 문구의 유일한 출처. UI의 선검사와 아래 인증 호출이 같은 것을 본다 —
+    // 복제하면 "클라는 통과인데 서버가 거부"가 되고, 어느 쪽이 낡았는지 알 수 없다
+    public const string ID_RULE_MESSAGE = "아이디는 영문과 숫자를 조합하여 4~16자리로 입력해주세요.";
+    // 특수문자는 '허용'이지 '필수'가 아니다 — 아래 정규식에 특수문자 lookahead가 없다
+    public const string PASSWORD_RULE_MESSAGE = "비밀번호는 영문과 숫자를 모두 포함하여 4~16자리로 입력해주세요.\n(특수문자 !@#$%^&*() 사용 가능)";
+
+    public static bool IsValidId(string id) {
         if (string.IsNullOrEmpty(id)) return false;
         return Regex.IsMatch(id, @"^[a-zA-Z0-9]{4,16}$");
     }
 
-    private bool IsValidPassword(string password) {
+    public static bool IsValidPassword(string password) {
         if (string.IsNullOrEmpty(password)) return false;
         return Regex.IsMatch(password, @"^(?=.*[a-zA-Z])(?=.*[0-9])[a-zA-Z0-9!@#$%^&*()]{4,16}$");
     }
@@ -240,11 +246,11 @@ public class HTTPManager {
             return false;
         }
         if (!IsValidId(id)) {
-            Managers.ExecuteAtMainThread(() => Util.LogWarning("아이디는 영문과 숫자를 조합하여 4~16자리로 입력해주세요."));
+            Managers.ExecuteAtMainThread(() => Util.LogWarning(ID_RULE_MESSAGE));
             return false;
         }
         if (!IsValidPassword(password)) {
-            Managers.ExecuteAtMainThread(() => Util.LogWarning("비밀번호는 영문, 숫자, 특수문자(!@#$%^&*())를 모두 포함하여 4~16자리로 입력해주세요."));
+            Managers.ExecuteAtMainThread(() => Util.LogWarning(PASSWORD_RULE_MESSAGE));
             return false;
         }
 

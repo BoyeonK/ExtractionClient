@@ -29,6 +29,15 @@ UI_Base (abstract)
 - **인벤토리 데이터 소유**: `LobbyScene`이 `_inventorySlots`, `_loadoutSlots`, `_warehouseSlots` 배열 소유. UI는 뷰 역할만 — `SetItemAtSlot()`이 scene setter + Refresh 담당. `SyncSlot` 없음
 - **Shift+클릭 분할**: `LobbyScene.OnSlotClick()` — 수량을 절반으로 나눠 `FirstEmptySlot`에 배치. 인벤토리/창고 각각 독립 처리
 
+## 인증 입력 검사 (`UI_Login` / `UI_Register`)
+
+전송 전 선검사이며 **판정 권한은 서버에 있다**(재장전 진입 문턱과 같은 성격). 형식 규칙·문구는 UI가 갖지 않고 `HTTPManager`에서 가져온다(`Network/CLAUDE.md`).
+
+- **비밀번호 확인란의 일치 검사는 클라에만 있다** — 서버는 `password` 하나만 받으므로, 빼면 확인란이 장식이 되고 **사용자가 무엇을 쳤는지 모르는 비밀번호로 계정이 그대로 생성된다**
+- **로그인은 비밀번호 형식을 검사하지 않는다**(비어 있는지만). 규칙이 바뀌기 전에 만든 계정을 클라가 막아버린다 — `PostLoginCall`의 가드와 항목을 맞춰 둔 것이다
+- **검사 실패는 팝업만 띄우고 입력을 비우지 않는다.** `OnAuthRequestFinished()`를 부르지 말 것 — `Reload()`가 칸을 지워 **고치라는 안내와 함께 고칠 대상이 사라진다**
+- 실패 갈래는 조기 return이라 `PlayUISubmit()`에 닿지 않는다. **소리를 가드 앞으로 올리지 말 것**(아래 분기 기준의 조기 return 규칙) — 팝업이 자기 확인음을 낸다
+
 ## UI 사운드 (`ui_submit` / `ui_return` / `inventory_change`)
 
 전부 2D `Managers.Sound.Play` 계열이고 **`SoundPoint`(월드 3D)와 경계를 넘기지 말 것** — 넘기면 클릭음이 가슴팍에서 3D로 난다. **클립 이름을 호출부에서 만들지 않는다**(`SoundManager.PlayUISubmit`/`PlayUIReturn`/`PlayInventoryChange`) — 못 찾은 클립은 무음이고 로그도 안 남아, 호출부가 40곳이 넘는 상황에서 오타 하나가 그 버튼만 영구히 죽인다.
