@@ -48,6 +48,15 @@
 - 성공하면 `OnLoginComplete()`를 재사용한다 — 별도 진입 경로를 만들지 말 것
 - 실패 처리·폴백은 `Network/CLAUDE.md`의 '세션 유지' 참조
 
+### 세션 만료 처리 (`LobbyScene.OnSessionExpired`)
+
+`HTTPManager.OnSessionExpired` 구독. 로비의 인증 요청이 401을 받으면 로그인 정보를 비우고 `BeforeAuth`로 돌아간다(감지는 `Network/CLAUDE.md` 소관).
+
+- **정리·전이를 먼저 하고 팝업은 통보만 시킨다.** `ActiveOnlyConfirm`은 다른 팝업이 떠 있으면 아무것도 하지 않고 `false`를 돌려주므로, 전이를 버튼 콜백에 걸면 팝업이 묻히는 순간 **전이까지 함께 사라져 죽은 세션인 채로 로비에 남는다**(`TryResumeSession`이 같은 순서를 쓰는 이유)
+- **전이는 `OnLogoutComplete()`를 재사용한다** — 헤더 상태·UI 6종 비활성화·슬롯 배열 셋 정리가 거기 모여 있어, 따로 짜면 **이전 계정의 인벤토리가 보이는 채로 Auth 화면이 뜬다**
+- 도착지가 `BeforeAuth`인 것은 **401을 받았다는 게 서버와 통신은 된다는 뜻**이라서다. `TryResumeSession`의 폴백이 `BeforeConnect`로 가는 것과 갈리는 지점이며, 그쪽은 서버에 닿지도 못한 `Unreachable`과 폴백을 공유한다
+- 구독 해제는 `OnDestroy`의 `Managers.Instance != null` 블록 안이다(키 리스너와 같은 자리)
+
 ## IngameScene 스폰 흐름
 
 1. `RequestSpawnMe()` → `C2DRequestSpawnMe`

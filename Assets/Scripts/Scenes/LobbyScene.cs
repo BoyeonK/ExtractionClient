@@ -79,6 +79,7 @@ public class LobbyScene : BaseScene {
         Managers.Input.AddKeyListener(Key.Escape, OnEscapeInput, InputManager.KeyState.Up);
         Managers.Input.AddKeyListener(Key.Enter, OnEnterInput, InputManager.KeyState.Up);
         Managers.Input.AddKeyListener(Key.Tab, OnTabInput, InputManager.KeyState.Up);
+        Managers.Network.httpManager.OnSessionExpired += OnSessionExpired;
         InitDragGhost();
 
         // GameResultScene 경유 + 살아있는 세션이면 세션 유지 요청으로 Login 과정을 건너뛴다.
@@ -371,16 +372,30 @@ public class LobbyScene : BaseScene {
         _headerUI.ApplyHeaderState(UI_Header.HeaderState.BeforeAuth);
         Managers.UI.ShowSceneUI<UI_Auth>();
         _mapSelectUI.SetNormalState();
+        _matchProgressUI.StopMatching();
         Managers.UI.DisableUI("UI_MapSelect");
         Managers.UI.DisableUI("UI_Inventory");
         Managers.UI.DisableUI("UI_Warehouse");
         Managers.UI.DisableUI("UI_Shop");
         Managers.UI.DisableUI("UI_CharacterSelect");
-        Managers.UI.DisableUI("UI_MatchProgress");
+        Managers.UI.DisableUI("UI_MatchProcess");
 
         Array.Clear(_inventorySlots, 0, _inventorySlots.Length);
         Array.Clear(_warehouseSlots, 0, _warehouseSlots.Length);
         Array.Clear(_loadoutSlots,   0, _loadoutSlots.Length);
+    }
+
+    // 인증 요청이 401을 받았을 때. 감지는 HTTPManager 한 곳에 있고 여기는 결과만 받는다.
+    // 정리·전이를 먼저 하고 팝업은 통보만 시킨다 — ActiveOnlyConfirm은 다른 팝업이 떠 있으면
+    // 아무것도 하지 않고 false를 돌려주므로, 전이를 버튼 콜백에 걸면 팝업이 묻히는 순간
+    // 전이까지 함께 사라져 죽은 세션인 채로 로비에 남는다(TryResumeSession과 같은 순서)
+    private void OnSessionExpired() {
+        if (_lobbyState != LobbyState.Lobby && _lobbyState != LobbyState.Matching)
+            return;
+
+        Managers.Network.httpManager.ClearAuthStateLocal();
+        OnLogoutComplete();
+        _lobbyReconfirmUI.ActiveOnlyConfirm("세션이 만료되었습니다.\n다시 로그인해주세요.");
     }
 
     public void ShowLobby() {
@@ -786,6 +801,7 @@ public class LobbyScene : BaseScene {
             Managers.Input.RemoveKeyListener(Key.Escape, OnEscapeInput, InputManager.KeyState.Up);
             Managers.Input.RemoveKeyListener(Key.Enter, OnEnterInput, InputManager.KeyState.Up);
             Managers.Input.RemoveKeyListener(Key.Tab, OnTabInput, InputManager.KeyState.Up);
+            Managers.Network.httpManager.OnSessionExpired -= OnSessionExpired;
         }
         _cts.Cancel();
         _cts.Dispose();

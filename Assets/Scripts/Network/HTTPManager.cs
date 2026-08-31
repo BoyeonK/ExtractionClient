@@ -22,7 +22,18 @@ public class HTTPManager {
         Guest,
     }
 
-    public LoginState AuthState { get; private set; } = LoginState.None;
+    private LoginState _authState = LoginState.None;
+
+    // 새 세션이 열리는 순간 만료 통보 래치를 다시 무장한다. 대입 지점이 넷(계정 생성·로그인·
+    // 게스트·초기화)이라 각자 풀게 하면 새 인증 경로가 생길 때 반드시 하나가 빠진다
+    public LoginState AuthState {
+        get => _authState;
+        private set {
+            _authState = value;
+            if (value != LoginState.None) _sessionExpiredNotified = false;
+        }
+    }
+
     public bool IsMatching { get; private set; } = false;
     public string SessionId { get; private set; } = null;
     public int Uid { get; private set; } = 0;
@@ -69,13 +80,49 @@ public class HTTPManager {
         public bool HasResponse;
     }
 
-    // requireAuth가 true면 세션이 필요한 요청이므로 헤더에 세션 아이디를 넣어서 보냄 (로그아웃 등)
-    private async Task<string> SendRequestAsync(HttpMethod method, string url, string jsonBody = null, bool requireAuth = false, CancellationToken cancelToken = default) {
-        HttpCallResult result = await SendRequestWithStatusAsync(method, url, jsonBody, requireAuth, cancelToken);
+    // 인증이 필요한 요청이 401을 받았을 때 발화한다. 401은 어느 요청에서 왔든 결론이
+    // '세션이 죽었으니 재로그인'으로 같아 호출자가 분기할 여지가 없다 — 그래서 호출부마다
+    // 반환 타입을 늘리지 않고 감지를 SendRequestWithStatusAsync 한 곳에 모은다
+    public event Action OnSessionExpired;
+
+    // 통보는 세션당 1회다. 해제는 AuthState가 None을 벗어날 때뿐이다
+    private bool _sessionExpiredNotified = false;
+
+    // 세션 만료 통보. 구독자가 UI를 건드리므로 메인 스레드로 넘긴다
+    private void NotifySessionExpired() {
+        if (_sessionExpiredNotified) return;
+        _sessionExpiredNotified = true;
+
+        Managers.ExecuteAtMainThread(() => {
+            Util.LogWarning("세션이 만료되었습니다. 재로그인이 필요합니다.");
+            OnSessionExpired?.Invoke();
+        });
+    }
+
+    // 상태 코드 401 또는 200으로 감싸 온 본문의 code == 401 (로그인·세션 유지와 같은 이유).
+    // 본문이 비었거나 JSON이 아닐 수 있으므로 파싱 실패는 '만료 아님'으로 흘린다 —
+    // 여기서 예외가 새면 모든 인증 요청의 응답 처리가 함께 죽는다
+    private bool IsUnauthorized(int statusCode, string body) {
+        if (statusCode == HTTP_UNAUTHORIZED) return true;
+        if (string.IsNullOrEmpty(body)) return false;
+
+        try {
+            BaseResponse resData = JsonUtility.FromJson<BaseResponse>(body);
+            return resData != null && resData.code == HTTP_UNAUTHORIZED;
+        }
+        catch {
+            return false;
+        }
+    }
+
+    // requireAuth가 true면 세션이 필요한 요청이므로 헤더에 세션 아이디를 넣어서 보냄 (로그아웃 등).
+    // notifySessionExpiry는 세션 수명을 스스로 다루는 호출(세션 유지·로그아웃)만 false로 준다
+    private async Task<string> SendRequestAsync(HttpMethod method, string url, string jsonBody = null, bool requireAuth = false, CancellationToken cancelToken = default, bool notifySessionExpiry = true) {
+        HttpCallResult result = await SendRequestWithStatusAsync(method, url, jsonBody, requireAuth, cancelToken, notifySessionExpiry);
         return result.Body;
     }
 
-    private async Task<HttpCallResult> SendRequestWithStatusAsync(HttpMethod method, string url, string jsonBody = null, bool requireAuth = false, CancellationToken cancelToken = default) {
+    private async Task<HttpCallResult> SendRequestWithStatusAsync(HttpMethod method, string url, string jsonBody = null, bool requireAuth = false, CancellationToken cancelToken = default, bool notifySessionExpiry = true) {
         try {
             using (HttpRequestMessage request = new HttpRequestMessage(method, url)) {
                 // 인증 헤더 추가 (로그아웃 등)
@@ -96,6 +143,10 @@ public class HTTPManager {
 
                 if (!response.IsSuccessStatusCode) {
                     Managers.ExecuteAtMainThread(() => Util.LogWarning($"[{url}] 상태 코드 에러: {response.StatusCode}"));
+                }
+
+                if (requireAuth && notifySessionExpiry && IsUnauthorized((int)response.StatusCode, responseText)) {
+                    NotifySessionExpired();
                 }
 
                 return new HttpCallResult {
@@ -317,14 +368,27 @@ public class HTTPManager {
         try {
             Managers.ExecuteAtMainThread(() => Util.Log("로그아웃 요청을 보냅니다..."));
 
-            string responseText = await SendRequestAsync(HttpMethod.Post, "api/logout", null, true, cancelToken);
-            if (responseText == null) return false;
+            HttpCallResult call = await SendRequestWithStatusAsync(
+                HttpMethod.Post, "api/logout", null, true, cancelToken, notifySessionExpiry: false);
+            if (!call.HasResponse) return false;
 
-            AuthResponse resData = JsonUtility.FromJson<AuthResponse>(responseText);
+            // 401은 서버에 세션이 이미 없다는 뜻이라 로그아웃의 목적은 달성된 것이다.
+            // 만료 통보로 보내지 않는 이유도 같다 — 사용자가 스스로 로그아웃을 눌렀는데
+            // "세션이 만료되었습니다" 안내가 뜨는 꼴이 된다.
+            // 본문 파싱보다 앞에 두는 것은 로그인 409와 같은 이유다(빈 본문이 JsonUtility에
+            // 들어가면 예외가 async void 호출부로 빠져나가 팝업 없이 버튼만 굳는다)
+            if (IsUnauthorized(call.StatusCode, call.Body)) {
+                ClearAuthStateLocal();
+                Managers.ExecuteAtMainThread(() => Util.LogWarning("세션이 이미 만료되어 로그아웃으로 처리합니다."));
+                return true;
+            }
+            if (string.IsNullOrEmpty(call.Body)) return false;
+
+            AuthResponse resData = JsonUtility.FromJson<AuthResponse>(call.Body);
             if (resData != null && resData.success) {
                 ClearAuthStateLocal();
                 Managers.ExecuteAtMainThread(() => {
-                    Util.Log($"로그아웃 성공: {responseText}");
+                    Util.Log($"로그아웃 성공: {call.Body}");
                 });
                 return true;
             }
@@ -345,6 +409,9 @@ public class HTTPManager {
         Uid = 0;
         Money = 0;
         TicketId = null;
+        // IsMatching은 TicketId와 한 쌍이다(StartMatchCall이 함께 세우고 CancelMatchCall이 함께 지운다).
+        // 남겨두면 PostLoginCall의 첫 가드에 걸려 재로그인이 통째로 막힌다
+        IsMatching = false;
         Inventory = null;
         ShopItems = null;
         _token = null;
@@ -376,7 +443,10 @@ public class HTTPManager {
 
         _isRequesting = true;
         try {
-            HttpCallResult call = await SendRequestWithStatusAsync(HttpMethod.Post, _sessionResumeUrl, null, true, cancelToken);
+            // 만료 통보를 태우지 않는다 — 이 호출은 401을 ResumeResult.Expired로 직접 돌려주고
+            // 호출자가 자기 폴백 UI를 돌린다. 통보까지 나가면 팝업과 전이가 두 번씩 돈다
+            HttpCallResult call = await SendRequestWithStatusAsync(
+                HttpMethod.Post, _sessionResumeUrl, null, true, cancelToken, notifySessionExpiry: false);
             if (!call.HasResponse || string.IsNullOrEmpty(call.Body)) {
                 Managers.ExecuteAtMainThread(() => Util.LogWarning("세션 유지 요청이 서버에 닿지 않았습니다."));
                 return ResumeResult.Unreachable;

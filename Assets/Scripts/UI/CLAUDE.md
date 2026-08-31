@@ -12,6 +12,7 @@ UI_Base (abstract)
 - 프리팹 경로: `Resources/Prefabs/UI/Scene/` 또는 `Resources/Prefabs/UI/Popup/`
 - 모든 UI는 `@UI_Root` 하위에 배치됨 (`DontDestroyOnLoad`)
 - **UI는 Destroy 금지 — SetActive 사용**. UIManager가 인스턴스를 캐시하므로 `DisableUI` / `EnableUI` 활용
+  - **인자는 UI 클래스 이름과 글자까지 같아야 한다** — 캐시 키가 타입 이름이라 **오타면 예외도 로그도 없이 아무 일도 하지 않는다.** 기준은 그것을 담은 필드 이름(`_matchProgressUI`)이 아니라 타입 이름(`UI_MatchProcess`)이다
 - 정렬 순서: SceneUI는 0부터 증가, PopupUI는 20부터 증가, 긴급 팝업은 +1000
 - `UI_Base.BindComponent<T>(path)`: 경로로 자식 컴포넌트를 찾아 반환 (없으면 예외 발생)
 - **로비 슬롯**: `ISlot` (일반) / `LSlot : ISlot` (로드아웃 전용, 타입 제약). 아이템 타입은 `ItemDBHelper`로 item_id 기반 판별. 로드아웃 인덱스는 `UI_Inventory.LOADOUT_START(=25)` 오프셋 사용. Weapon/Equipment는 `ISlot.CanMerge()`로 어느 슬롯에서도 수량 합산 불가

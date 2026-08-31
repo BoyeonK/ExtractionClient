@@ -32,6 +32,15 @@
   - `Unreachable`: 응답 없음 또는 그 외 오류. 세션이 아직 살아 있을 수 있어 재시도 여지가 있다. **자동 재시도는 하지 않는다** — 타임아웃 5초가 그대로 검은 화면이 되므로 호출자가 사용자에게 묻는다
 - `ShopItems`는 응답에 실리지 않는다(세션 중 불변이라 재전송하지 않는 스펙). 로그인 때 받은 캐시를 유지할 것
 - `ClearAuthStateLocal()`은 **서버 호출 없는 로컬 인증 리셋**이다. 세션이 서버에서 이미 사라진 경우 로그아웃 API를 부를 수 없어 분리했으며 로그아웃 성공 블록과 공유한다
+- **`ClearAuthStateLocal()`은 `IsMatching`도 지운다** — `TicketId`와 한 쌍이라(`StartMatchCall`이 함께 세우고 `CancelMatchCall`이 함께 지운다) 남겨두면 `PostLoginCall`의 첫 가드에 걸려 **재로그인이 통째로 막힌다**
+
+### 세션 만료 통보 (`OnSessionExpired`)
+
+`requireAuth` 요청이 **401**(또는 200으로 감싸 온 본문의 `code == 401`)을 받으면 `SendRequestWithStatusAsync`가 감지해 `OnSessionExpired`를 발화한다. 401은 어느 요청에서 왔든 결론이 '세션이 죽었으니 재로그인' 하나라 호출자가 분기할 여지가 없으므로, **호출부마다 반환 타입을 3상태로 늘리지 말고 이 경로를 쓸 것** — 새 인증 API를 추가해도 배선이 필요 없고, 빠뜨려서 조용히 옛 동작으로 돌아가는 일이 없다.
+
+- **`notifySessionExpiry: false`는 세션 수명을 스스로 다루는 둘뿐이다.** `PostResumeSessionCall`은 401을 `Expired`로 직접 돌려주고 호출자가 자기 폴백 UI를 돌리므로 통보까지 나가면 **팝업과 전이가 두 번씩 돈다.** `PostLogoutCall`의 401은 세션이 이미 없다는 뜻이라 **성공으로 처리한다**(스스로 로그아웃을 누른 사용자에게 "만료" 안내가 뜨는 꼴이 된다)
+- **통보는 세션당 1회다.** 래치 해제는 `AuthState`가 `None`을 벗어나는 setter 한 곳뿐 — 대입 지점마다 풀게 하면 새 인증 경로에서 반드시 하나가 빠진다
+- **`IsUnauthorized()`의 파싱 실패는 '만료 아님'으로 흘린다** — 여기서 예외가 새면 모든 인증 요청의 응답 처리가 함께 죽는다
 
 ## UDP (`UDPManager`)
 - 전용 백그라운드 워커 스레드(`UDP_Network_Thread`) — 수신 + 송신 큐 소진
