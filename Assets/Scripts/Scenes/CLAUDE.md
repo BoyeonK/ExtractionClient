@@ -48,6 +48,13 @@
 - 성공하면 `OnLoginComplete()`를 재사용한다 — 별도 진입 경로를 만들지 말 것
 - 실패 처리·폴백은 `Network/CLAUDE.md`의 '세션 유지' 참조
 
+### 서버 연결 실패 처리 (`LobbyScene.TryConnectToServer`)
+
+버전 확인(`GetVersionCall`)의 실패 갈래가 셋(점검·버전 불일치·그 외)이고 문구만 다르다.
+
+- **UI 복구(`OnConnectedFailed()`)는 갈래 분기보다 앞에서 한 번만 부른다** — 갈래마다 복제하면 새 사유가 추가될 때 하나가 빠지고, 그 순간 **스피너가 계속 돌며 시작 버튼이 영영 굳는다**(`_isRequestSending`을 푸는 곳이 `UI_TestStart.Reload()` 하나뿐이다)
+- **자동 재시도를 붙이지 말 것** — 팝업을 닫으면 시작 화면에 남으므로 사용자가 다시 누르면 된다(세션 유지의 `Unreachable`과 같은 판단)
+
 ### 세션 만료 처리 (`LobbyScene.OnSessionExpired`)
 
 `HTTPManager.OnSessionExpired` 구독. 로비의 인증 요청이 401을 받으면 로그인 정보를 비우고 `BeforeAuth`로 돌아간다(감지는 `Network/CLAUDE.md` 소관).

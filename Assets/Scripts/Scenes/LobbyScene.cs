@@ -140,12 +140,29 @@ public class LobbyScene : BaseScene {
     // -----------------------------------------------------
     public async void TryConnectToServer() {
         Util.Log("TryConnectToServer 실행");
-        bool isSuccess = await Managers.Network.httpManager.GetVersionCall(_cts.Token);
-        if (isSuccess == true) {
+        HTTPManager.VersionResult result = await Managers.Network.httpManager.GetVersionCall(_cts.Token);
+        if (result == HTTPManager.VersionResult.Success) {
             OnConnectedComplete();
-        } else {
-            OnConnectedFailed();
-            _lobbyReconfirmUI.ActiveOnlyConfirm("서버 버전 확인에 실패했습니다.");
+            return;
+        }
+
+        // UI 복구를 갈래보다 먼저, 한 번만 부른다 — 갈래마다 복제하면 새 사유가 추가될 때
+        // 하나가 빠지고, 그 순간 스피너가 계속 돌며 시작 버튼이 영영 굳는다
+        // (푸는 곳이 UI_TestStart.Reload() 하나뿐이다)
+        OnConnectedFailed();
+        switch (result) {
+            // 재시도는 사용자가 다시 누르는 것으로 한다 — 자동 재시도를 붙이지 말 것
+            case HTTPManager.VersionResult.Maintenance:
+                _lobbyReconfirmUI.ActiveOnlyConfirm("현재 서버가 점검중입니다.");
+                break;
+
+            case HTTPManager.VersionResult.VersionMismatch:
+                _lobbyReconfirmUI.ActiveOnlyConfirm("버전이 일치하지 않습니다.\n최신 버전을 받아주세요.");
+                break;
+
+            default:
+                _lobbyReconfirmUI.ActiveOnlyConfirm("서버 버전 확인에 실패했습니다.");
+                break;
         }
     }
 

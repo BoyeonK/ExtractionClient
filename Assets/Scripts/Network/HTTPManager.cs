@@ -45,7 +45,11 @@ public class HTTPManager {
     public int MapId { get; private set; } = 0;
     private string _token = null;
 
-    public string version = "alphaTest";
+    // 버전 검사의 클라 쪽 유일한 출처. 서버의 latestVersion과 손으로 맞추는 값이며
+    // 어긋나면 아무도 로그인 화면에 못 간다(표시가 틀어지는 정도가 아니라 접속이 막힌다)
+    // TEMP: 서버가 보내는 값은 "alpha-1"이다. 불일치 갈래를 실측하려고 일부러 틀리게 둔 값이며,
+    //       확인이 끝나면 "alpha-1"로 맞출 것. 그전까지 버전 검사는 항상 불일치로 떨어진다
+    public const string version = "alphaTest";
     private const string _versionUrl = "api/version";
     private const string _signupUrl = "api/signup";
     private const string _loginUrl = "api/login";
@@ -171,22 +175,55 @@ public class HTTPManager {
     // ---------- Version Call ----------
     private bool _isRequesting = false;
 
-    public async Task<bool> GetVersionCall(CancellationToken cancelToken = default) {
-        if (_isRequesting) return false;
-        if (IsMatching) return false;
+    // 버전 확인 결과. bool로 뭉뚱그리지 않는 이유는 안내가 셋으로 갈리기 때문이다 —
+    // 점검은 기다리는 것 외에 할 일이 없고, 버전 불일치는 클라를 새로 받아야 한다.
+    // Failed는 통신 실패·파싱 실패·서버의 success=false를 함께 덮는다(전부 '다시 누른다'가 답이다)
+    public enum VersionResult {
+        Success,
+        Maintenance,
+        VersionMismatch,
+        Failed,
+    }
+
+    public async Task<VersionResult> GetVersionCall(CancellationToken cancelToken = default) {
+        if (_isRequesting) return VersionResult.Failed;
+        if (IsMatching) return VersionResult.Failed;
         _isRequesting = true;
         try {
             string responseText = await SendRequestAsync(HttpMethod.Get, _versionUrl, null, false, cancelToken);
             if (string.IsNullOrEmpty(responseText)) {
-                return false; 
+                return VersionResult.Failed;
+            }
+
+            // JSON이 아닌 본문(프록시 에러 페이지 등)이 JsonUtility에 들어가면 예외가
+            // async void 호출부로 빠져나가 팝업 없이 시작 버튼이 굳는다
+            if (!responseText.Trim().StartsWith("{")) {
+                Managers.ExecuteAtMainThread(() => Util.LogError("서버 응답이 JSON 형식이 아닙니다."));
+                return VersionResult.Failed;
             }
 
             VersionResponse resData = JsonUtility.FromJson<VersionResponse>(responseText);
-            if (resData != null && resData.success && resData.data != null) {
-                // TODO: resData.data를 보고 분기처리, 결과에 따라선 true를 반환하지 못할 수도 있음
-                return true;
+            if (resData == null || !resData.success || resData.data == null) {
+                Managers.ExecuteAtMainThread(() => Util.LogError("서버에서 실패 응답을 보냈습니다."));
+                return VersionResult.Failed;
             }
-            return false;
+
+            // 점검을 버전보다 먼저 본다 — 둘 다 참일 수 있는데, 점검 중에는 최신 클라를 받아도
+            // 못 들어가므로 버전 안내를 먼저 하면 사용자를 헛수고시킨다
+            if (resData.data.isMaintenance) {
+                Managers.ExecuteAtMainThread(() => Util.LogWarning("서버가 점검 중입니다."));
+                return VersionResult.Maintenance;
+            }
+
+            // latestVersion이 비어 오면 불일치로 본다(확정) — 서버가 그렇게 보낼 일이 없다는 전제다.
+            // '비었으면 통과'로 완화하지 말 것: 검사를 켜 둔 의미가 사라진다
+            if (resData.data.latestVersion != version) {
+                Managers.ExecuteAtMainThread(() => Util.LogWarning(
+                    $"클라이언트 버전 불일치 (클라: {version} / 서버: {resData.data.latestVersion})"));
+                return VersionResult.VersionMismatch;
+            }
+
+            return VersionResult.Success;
         }
         finally {
             _isRequesting = false;
