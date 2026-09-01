@@ -375,6 +375,7 @@
 | `E` | `TryInteract()` |
 | `1` / `2` | 무기 전환 (0.5초 유예 뒤 전송) |
 | `R` | `RequestReload()` — 진입 문턱 통과 시 2초 유예 뒤 전송 |
+| `Q` | `PlayerController.ChangeCamAngle()` — 좌각/우각 토글. 등록·해제가 `IngameScene`이 아니라 **`PlayerController`**에 있다(`E`와 같은 자리) |
 
 - **`Esc`는 `IsInputLocked`에도 막지 않는다** — 설정은 서버로 나가는 요청이 없고 **게임 종료는 이탈 중에도 허용해야 하는 조작**이다. 반대로 `Tab`/`I`는 잠근다(인벤토리 조작이 서버 요청으로 이어진다)
 

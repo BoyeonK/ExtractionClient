@@ -14,6 +14,13 @@ public class PlayerController : GameObjectController, ICombatTarget {
     public Camera ViewCamera => _camera;
     Transform _aimTarget;
 
+    // 좌/우 어깨 시점 앵커. Pcam은 스스로 위치를 갖지 않고 매 프레임 이 중 하나를 따라가므로,
+    // 카메라 위치 조정은 프리팹의 Pcam이 아니라 이 두 앵커에서 한다
+    Transform _rightCamPoint;
+    Transform _leftCamPoint;
+    bool _isLeftAngleCam = false;
+    const float CAM_ANGLE_MOVE_SPEED = 15f;   // 좌↔우 전환 보간 속도. 반동(_recoilApplySpeed)과 같은 형태·같은 값
+
     // 조준점이 총구보다 뒤에 있거나 붙어 있으면 수렴이 성립하지 않는다
     const float MIN_CONVERGE_DIST = 0.5f;
 
@@ -139,6 +146,8 @@ public class PlayerController : GameObjectController, ICombatTarget {
         Managers.Input.AddKeyListener(Key.LeftShift, ShiftDown, InputManager.KeyState.Down);
         Managers.Input.AddKeyListener(Key.Space, TryJump, InputManager.KeyState.Down);
         Managers.Input.AddKeyListener(Key.E, TryInteract, InputManager.KeyState.Down);
+        // 키를 바꿀 때는 OnDestroy의 해제와 한 쌍으로 바꿀 것 — 한쪽만 고치면 해제가 빗나가 리스너가 남는다
+        Managers.Input.AddKeyListener(Key.Q, ChangeCamAngle, InputManager.KeyState.Down);
 
         Managers.Input.AddKeyListener(Key.W, WUp, InputManager.KeyState.Up);
         Managers.Input.AddKeyListener(Key.A, AUp, InputManager.KeyState.Up);
@@ -167,6 +176,13 @@ public class PlayerController : GameObjectController, ICombatTarget {
         // FOV는 여기서 1회만 읽는다. 매 프레임 읽는 마우스 감도와 갈리는데, 인게임 설정 창에
         // FOV 항목이 없어(매치 중 변경 금지) 진입 후 값이 바뀔 경로가 없기 때문이다
         if (_camera != null) _camera.fieldOfView = Managers.Setting.GetFov();
+
+        // 앵커는 PlayerObject 직속이 아니라 ViewPoint의 자식이다 — 루트에서 찾으면 null이 온다.
+        // 없으면 대체할 것이 없으므로 Pcam을 프리팹 저작 위치에 그대로 둔다(ShotPoint와 갈리는 지점)
+        _rightCamPoint = _viewPoint.transform.Find("RightCamPoint");
+        _leftCamPoint = _viewPoint.transform.Find("LeftCamPoint");
+        if (_rightCamPoint == null || _leftCamPoint == null)
+            Util.LogError("ViewPoint에 RightCamPoint/LeftCamPoint가 없어 카메라가 저작 위치에 고정된다 — PlayerObject 프리팹 확인 필요");
 
         string modelName = $"HB{characterType}Player";
         Managers.Resource.Instantiate($"GameObject/PlayerObject_ingredient/{modelName}", this.transform);
@@ -249,6 +265,9 @@ public class PlayerController : GameObjectController, ICombatTarget {
         ProcessMouseLook();
         ProcessRecoil();
         ApplyViewRotation();
+        // ProcessAim·ProcessFire가 카메라 위치에서 레이를 쏘므로 그보다 앞이어야 한다 —
+        // 뒤에 두면 시점을 바꾼 프레임의 조준이 직전 위치 기준으로 나간다
+        UpdateCameraAnchor();
         ProcessAnimation();
         // ProcessAim이 갱신하는 _aimTarget을 ProcessFire가 읽는다 — 순서가 뒤집히면
         // 발사가 직전 프레임의 조준점을 쓰게 되어 반동 중에 각도가 어긋난다
@@ -310,6 +329,27 @@ public class PlayerController : GameObjectController, ICombatTarget {
 
         // 요: 마우스 에임 + 반동 오프셋 합산
         transform.rotation = Quaternion.Euler(0f, _aimYaw + _recoilYaw, 0f);
+    }
+
+    // 좌각 ↔ 우각 토글. 중앙 상태는 두지 않는다(확정) — 기본값이 우각이고 두 상태만 오간다
+    public void ChangeCamAngle() {
+        if (_ingameScene.IsInputLocked) return;
+        if (_ingameScene.IsAnyUIOpen) return;
+
+        _isLeftAngleCam = !_isLeftAngleCam;
+    }
+
+    // 회전은 부모(ViewPoint)가, 위치는 여기가 쥔다 — 축이 갈려 있어 ApplyViewRotation과 순서를 다투지 않는다.
+    // 앵커 둘 다 회전이 identity이고 기울이기는 구현 예정이 없어 rotation은 따라가지 않는다.
+    // 보간은 반동과 같은 형태다(속도 × deltaTime) — 즉시 대입하면 스케일 2배에서 월드 0.8을 한 프레임에 건너뛴다
+    private void UpdateCameraAnchor() {
+        if (_camera == null) return;
+
+        Transform target = _isLeftAngleCam ? _leftCamPoint : _rightCamPoint;
+        if (target == null) return;
+
+        _camera.transform.localPosition = Vector3.Lerp(
+            _camera.transform.localPosition, target.localPosition, CAM_ANGLE_MOVE_SPEED * Time.deltaTime);
     }
 
     private void ProcessMovement() {
@@ -574,6 +614,7 @@ public class PlayerController : GameObjectController, ICombatTarget {
         Managers.Input.RemoveKeyListener(Key.LeftShift, ShiftDown, InputManager.KeyState.Down);
         Managers.Input.RemoveKeyListener(Key.Space, TryJump, InputManager.KeyState.Down);
         Managers.Input.RemoveKeyListener(Key.E, TryInteract, InputManager.KeyState.Down);
+        Managers.Input.RemoveKeyListener(Key.Q, ChangeCamAngle, InputManager.KeyState.Down);
 
         Managers.Input.RemoveKeyListener(Key.W, WUp, InputManager.KeyState.Up);
         Managers.Input.RemoveKeyListener(Key.A, AUp, InputManager.KeyState.Up);
