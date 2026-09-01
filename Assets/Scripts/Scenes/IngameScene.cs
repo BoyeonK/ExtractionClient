@@ -961,6 +961,14 @@ public class IngameScene : BaseScene {
         _ingameInventoryUI.SyncEquipment();
         _ingameInventoryUI.SyncContainer();
         _ingameInventoryUI.ActiveLootBox();
+
+        // 표시 갱신은 매번 하되 카운트 조작은 '닫힘 → 열림' 전이에서만 한다. 이 함수는 수신
+        // 핸들러가 직접 부르는데 수신 reliable에 중복 제거가 없고(재전송된 응답이 두 번 디스패치된다)
+        // 요청 쪽에도 in-flight 가드가 없어(응답 전 E를 다시 누르면 요청이 두 번 나간다) 두 번 도는
+        // 경로가 둘이다. +1이 두 번 되면 닫기는 _isContainerOpen 가드에 걸려 한 번뿐이라
+        // _uiOpenCount가 1로 굳어, 커서가 풀린 채 시점·발사·상호작용이 그 판 내내 막힌다
+        if (_isContainerOpen) return;
+
         _isContainerOpen = true;
         OnUIOpened();
 

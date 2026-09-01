@@ -436,6 +436,7 @@ public class LobbyScene : BaseScene {
         Managers.UI.ShowSceneUI<UI_Inventory>();
         Managers.UI.ShowSceneUI<UI_Warehouse>();
         Managers.UI.DisableUI("UI_Shop");
+        Managers.UI.DisableUI("UI_CharacterSelect");
         _inventoryUI.Refresh();
         _warehouseUI.Refresh();
     }
@@ -488,6 +489,7 @@ public class LobbyScene : BaseScene {
         _mapSelectUI.SetNormalState();
         Managers.UI.DisableUI("UI_MapSelect");
         Managers.UI.DisableUI("UI_Inventory");
+        Managers.UI.DisableUI("UI_CharacterSelect");
         Managers.UI.ShowSceneUI<UI_Warehouse>();
         Managers.UI.ShowSceneUI<UI_Shop>();
         _warehouseUI.Refresh();
@@ -654,6 +656,7 @@ public class LobbyScene : BaseScene {
         Managers.UI.DisableUI("UI_Inventory");
         Managers.UI.DisableUI("UI_Warehouse");
         Managers.UI.DisableUI("UI_Shop");
+        Managers.UI.DisableUI("UI_CharacterSelect");
         Managers.UI.ShowSceneUI<UI_MatchProcess>();
         Managers.Network.httpManager.StartMatchPolling(OnMatchingSuccess, _cts.Token);
     }
