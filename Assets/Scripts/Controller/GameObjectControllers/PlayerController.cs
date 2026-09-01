@@ -70,8 +70,8 @@ public class PlayerController : GameObjectController, ICombatTarget {
     bool _wasUIOpen = false;
 
     // Character Controller 설정값
-    float walkSpeed = 1f;
-    float runSpeed = 3.5f;
+    float walkSpeed = 1.5f;
+    float runSpeed = 7f;
     float jumpHeight = 0.6f;
     float gravity = -9.81f;
 

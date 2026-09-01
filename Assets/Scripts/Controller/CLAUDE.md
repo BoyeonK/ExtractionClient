@@ -240,7 +240,7 @@ public interface ICombatTarget { int GetObjectId(); }
 `MovementState`만 보고 낸다. 규칙과 간격은 공용이라 **내 발소리와 남의 발소리가 같은 리듬이다.**
 
 - **점프 중에도 소리가 난다 — 로컬(접지 요구)과 갈리는 의도된 비대칭이다.** 공중에서 끊으면 **점프를 연달아 뛰는 것만으로 소리 없이 이동할 수 있게 된다.** 접지 조건으로 맞추려 들지 말 것
-- **점프 중에는 `MovementState`가 `JUMP`로 덮여 걷기/달리기 구분이 사라지므로 그 구간만 수평 속도로 가른다**(`FOOTSTEP_MIN_SPEED` 0.5 / `FOOTSTEP_RUN_SPEED` 2 — `walkSpeed` 1과 `runSpeed` 3.5 사이). 제자리 점프는 수평 속도가 0에 가까워 자연히 걸러진다
+- **점프 중에는 `MovementState`가 `JUMP`로 덮여 걷기/달리기 구분이 사라지므로 그 구간만 수평 속도로 가른다**(`FOOTSTEP_MIN_SPEED` 0.5 / `FOOTSTEP_RUN_SPEED` 2 — `walkSpeed` 1.5와 `runSpeed` 7 사이여야 한다. **이동 속도를 조정하면 이 둘도 함께 볼 것**). 제자리 점프는 수평 속도가 0에 가까워 자연히 걸러진다
 - **`IsStepping`/`IsRunningStep`은 `ProcessAnimation`의 `isMoving`/`isRunning`과 이름을 갈라 뒀다** — 애니메이션은 점프 중을 이동으로 보지 않는다(공중에서는 idle 블렌드). **한쪽 값을 다른 쪽에 재사용하지 말 것**
 - **디스폰되면 재생 중인 소리가 끊긴다**(소스가 오브젝트에 붙어 있다) — 사망음처럼 "죽는 순간 나야 하는 소리"를 이 소스에 태우지 말 것
 

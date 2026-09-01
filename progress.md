@@ -10,10 +10,6 @@
 
 ### 네트워크/UI
 
-- [x] (2026-09-01 #0) **`/api/version`의 `TODO:`가 채워졌다 — 이름만 버전 확인이던 호출이 실제로 검사한다** — `data`를 읽지 않고 `data != null`만 보고 통과시켜 **점검 중이어도, 버전이 낡아도 그대로 들어가던** 상태였다. 반환을 `VersionResult` 4상태로 바꾸고 **점검을 버전 비교보다 먼저 보게** 했으며(둘 다 참일 수 있는데 점검 중에는 최신 클라를 받아도 못 들어가 버전 안내가 헛수고가 된다), 실패 갈래가 셋이 되면서 `OnConnectedFailed()`는 분기보다 앞에서 한 번만 부른다 — 갈래마다 복제하면 하나가 빠지는 순간 스피너가 계속 돌고 시작 버튼이 굳는다. 곁들여 비-JSON 본문 가드를 파싱 앞에 넣었고(예외가 `async void` 호출부로 새면 같은 증상이다), `HTTPManager.version`은 서버 `latestVersion`과 손으로 맞추는 값이 되어 **어긋나면 표시가 틀어지는 정도가 아니라 아무도 로그인 화면에 못 간다.**
-
-- [x] (2026-09-01 #1) **로비 진입 경로 실측 통과 — 우선순위 한 항목이 통째로 닫혔다** — 버전 검사 네 갈래(불일치·정상 통과·점검 중·통신 실패)와 401 세션 만료 4항목이 모두 정상 동작했다. 불일치 갈래를 밟아보려고 서버 값과 일부러 다르게 뒀던 `HTTPManager.version`을 `"alpha-1"`로 맞추면서 `TEMP:`도 함께 회수했다 — 값이 올바른 지금 마커를 남겨두면 다음 세션이 멀쩡한 상수를 임시값으로 오해한다. 서버 값과 손으로 맞추는 값이라는 항구적 근거만 주석과 `Network/CLAUDE.md`에 남겼다.
-
 - [x] (2026-09-01 #2) **응답 워치독 둘을 항구 방어 코드로 승격 — `TEMP:` 목록이 1건으로 줄었다** — 재장전 방어 경로 ①(`DENY_VERSION_MISMATCH` 1회 재요청) ②(낡은 스냅샷 폐기) 실측이 통과했고 `[Action] … 응답 미수신` 경고는 지금까지 한 번도 나오지 않았지만, `RECALL_TIMEOUT`·`ACTION_PENDING_TIMEOUT`을 **지우지 않았다.** 근거는 비대칭이다 — 결과를 추측하지 않고 로컬 잠금만 풀어 늦게 온 응답도 정상 처리되므로 **헛발동 비용이 없는 반면**, 없으면 응답 유실 시 그 판 내내 발사가 막히거나 탈출이 영영 불가능해진다. 마커만 걷어내고 주석·문서를 '검증되면 제거'에서 '제거 금지 + 근거'로 다시 썼다 — 마커를 남기면 "언젠가 지울 것"이 영구화돼 `TEMP:` 목록 자체가 무뎌진다.
 
 - [x] (2026-09-01 #3) **`IngameTimeoutUI` 배선 — (2026-08-31 #8)에서 잡아둔 마감이 드디어 화면에 나온다** — `UpdateTimeoutDisplay()`가 남은 시간을 밀고, 주석만 있고 대입이 없던 `SetCountdown`의 `mm:ss` 변환도 함께 구현했다. **누적 타이머가 아니라 초가 바뀔 때만 미는 방식을 썼다**(`_shownTimeoutSec`, 초기값 `-1` — `0`이 유효값이라) — 호출 횟수는 초당 1회로 같은데 틱 위상이 초 경계와 어긋나 표시가 낡는 문제가 없고, 귀환 카운트다운이 이미 같은 가드를 쓴다. **마감이 잡히기 전 구간의 게이트는 `_matchDeadlineMs`가 아니라 `_matchDeadlineBaseMs`이며**(전자로 잡으면 여유값 이하로 남은 채 스폰한 정상 케이스까지 함께 막힌다), 이 UI는 매치 내내 떠 있어 **`Init()`에서 스스로 끄지 않는 유일한 씬 내장 UI**다.
@@ -30,6 +26,10 @@
 
 - [x] (2026-09-01 #9) **로그인·회원가입 입력 검사 배선 — `TODO:` 넷을 회수했고 비밀번호 확인란이 장식이던 것이 닫혔다** — `UI_Register`가 `password2`를 읽고도 비교하지 않아 **다르게 친 비밀번호로 계정이 그대로 생성되던 상태**였고(서버는 `password` 하나만 받는다), 빈 칸으로 눌러도 조기 return이 소리보다 앞이라 아무 반응이 없었다. 형식 규칙과 문구를 `HTTPManager`의 `public static` 술어 + `ID_RULE_MESSAGE`/`PASSWORD_RULE_MESSAGE`로 모아 UI가 같은 것을 보게 했고(복제하면 "클라는 통과인데 서버가 거부"가 되며 어느 쪽이 낡았는지 알 수 없다), 안내는 `LobbyScene.ActiveReconfirmOnlyConfirm()` 래퍼로 기존 팝업을 쓴다. **로그인은 비밀번호 형식을 검사하지 않고**(규칙이 바뀌기 전에 만든 계정을 클라가 막아버린다) **실패해도 입력을 비우지 않는다** — `OnAuthRequestFinished()`를 부르면 고치라는 안내와 함께 고칠 대상이 사라진다.
 
+- [x] (2026-09-01 #10) **가칭 Winchester가 Tenerife로 확정되고 mapId → 맵 씬 라우팅이 배선됐다 — 어느 맵을 골라도 TestIngameScene으로 들어가던 것이 닫혔다** — `TryConnectCall`이 진입 씬을 하드코딩하고 있어 `CheckMatchStatusCall`이 응답에서 받아둔 `MapId`를 **아무도 읽지 않는** 상태였다. `Define.MapScenes`(mapId → 씬)를 `ObjectPaths`와 같은 형태로 두고 전환 지점 한 곳에서 조회하게 했으며, **미등재 mapId는 전환을 막지 않고 `LogError` + `TestIngameScene` 폴백이다** — UDP가 이미 붙은 뒤라 막으면 로비에 갇힌다. 곁들여 바인딩만 되고 대입이 없어 프리팹의 `MAP NAME` 플레이스홀더가 그대로 보이던 `UI_MapSelect._mapName`을 `Define.MapNames`로 채웠다(맵이 둘이 된 이상 화살표로 넘겨도 이름이 안 바뀌는 상태였고, 스프라이트와 같은 키를 쓰게 해 둘이 어긋나지 않게 했다).
+
+- [x] (2026-09-01 #11) **PlayerObject 스케일 2배(에디터)에 맞춰 이동 속도 조정 — 걷기 1.5배·달리기 2배** — 프리팹 쪽에서 스케일 1 → 2와 함께 far clip 100 → 500, `StepOffset` 0.1 → 0.3이 잡혔고, 코드 쪽은 `PlayerController`의 `walkSpeed` 1 → 1.5, `runSpeed` 3.5 → 7이며, 이 두 필드가 유일한 출처라 `MovementState`·애니메이션·발사 차단이 자동으로 따라온다(속도는 클라 로컬이고 서버는 RUN/WALK만 알아 동기화 영향이 없다). **오포의 점프 중 걷기/달리기 판별 문턱(`FOOTSTEP_RUN_SPEED` 2)은 여전히 1.5와 7 사이라 그대로 뒀지만 걷기 쪽 여유가 1.0 → 0.5로 좁아졌다** — 대각선 입력은 `ProcessMovement`가 정규화해 최대 수평 속도가 정확히 `walkSpeed`이므로 넘지는 않는다. `Controller/CLAUDE.md`에 근거로 박혀 있던 옛 값(1 / 3.5) 참조를 갱신하고, 이동 속도를 만질 때 이 문턱도 함께 보라는 문장을 붙였다.
+
 ---
 
 ## 진행 중 / 다음 할 것들
@@ -43,10 +43,12 @@
 2. **캐릭터 description 다듬기** — `Define.CharacterDescriptions` 3종(0 스크랩 / 1 G-EXPlorer-04 / 2 UHM) 문안 수정. 코드 구조 변경은 없다
 3. **외형 다듬기 3건 (자산·씬 작업, 코드 변경 거의 없음)**
     - **`LobbyScene` 에셋 배치** — 배경·소품 배치로 로비를 꾸민다
-    - **`MapSelectUI` 외형** — 맵 스프라이트(`Images/MapSprites/map_sprite_{mapId}`)는 이미 배선돼 있으므로 레이아웃과 스프라이트 품질 쪽이다
+    - **`MapSelectUI` 외형** — 스프라이트(`Images/MapSprites/map_sprite_{mapId}`)와 맵 이름(`Define.MapNames`) 둘 다 배선이 끝났으므로(2026-09-01 #10) 레이아웃과 **스프라이트 내용** 쪽이다 — `map_sprite_1`이 아직 Winchester 시안이면 Tenerife 것으로 갈아야 한다(파일명은 mapId 키라 그대로 둔다)
     - **`LoadingScene` 다듬기**
-4. **실제 맵 씬 디자인·에셋 배치 → IngameScene 상속 완성** — Test 맵이 아닌 실사용 맵 씬을 만들고(레벨 디자인 + 에셋 배치), `IngameScene`을 상속하는 맵별 씬 컴포넌트를 구현한다. **씬 내장 UI 12종(`IngameInventoryUI`·`IngameDragGhost`·`InteractUI`·`IngameHealthBarUI`·`IngameSettingUI`·`IngameKillLogUI`·`IngameWeaponUI`·`IngameStaminaBarUI`·`IngameEscapeCountdownUI`·`IngameTimeoutUI`·`IngameEscUI`·`IngameDamageIndicatorUI`)을 맵 씬마다 배치해야 한다**(크로스헤어만 코드가 세우므로 예외). **(2026-08-29 #8)에서 바인딩이 `BindSceneComponent<T>`로 통합돼 빠뜨린 UI가 조용히 죽지 않고 콘솔에 원인이 뜬다** — 배치 누락은 이제 로그로 잡히므로, 남은 것은 씬 작업과 맵별 컴포넌트뿐이다. **씬에는 활성 상태로 저장할 것**(`GameObject.Find`가 비활성을 못 찾는다)
+4. **`TenerifeScene` 레벨 디자인·에셋 배치 — 골격(씬·컴포넌트·라우팅)까지는 섰다** — 씬 컴포넌트와 mapId 라우팅은 (2026-09-01 #10)에서 닫혔고 **남은 것은 지형 레벨 디자인과 에셋 배치**다. 테스트 전 확인 둘: **Build Settings 등재**(누락되면 컴파일은 통과하고 매칭 성공 시점에 런타임으로 터진다)와 **씬 내장 UI 12종(`IngameInventoryUI`·`IngameDragGhost`·`InteractUI`·`IngameHealthBarUI`·`IngameSettingUI`·`IngameKillLogUI`·`IngameWeaponUI`·`IngameStaminaBarUI`·`IngameEscapeCountdownUI`·`IngameTimeoutUI`·`IngameEscUI`·`IngameDamageIndicatorUI`)의 이름·활성 상태**(크로스헤어만 코드가 세우므로 예외). 배치 누락은 `BindSceneComponent<T>`가 콘솔에 원인을 띄우므로 **콘솔부터 볼 것**이며, **씬에는 활성 상태로 저장한다**(`GameObject.Find`가 비활성을 못 찾는다).
+    - **씬을 `TestIngameScene.unity` 복제로 만들었다면 루트에 `TestIngameScene` 스크립트가 남아 있어도 증상 없이 정상 동작한다** — `SceneType`은 읽는 코드가 한 곳도 없고 인게임 배선이 전부 `is IngameScene`으로 걸려서, 맵별 분기를 `TenerifeScene`에 넣는 순간에야 "안 먹는다"로 드러난다. 착수 전에 붙어 있는 컴포넌트를 확인할 것
     - **맵이 서고 나서야 시작할 수 있는 후속 UI 둘** — 지형이 확정돼야 만들 수 있으므로 이 항목이 닫히기 전에는 착수하지 않는다. ① **`IngameMapUI`** — `M` 키로 열고 대략적인 지도와 현재 위치를 표시 ② **`IngameCompassBarUI`** — 화면 상단에 상주하며 바라보는 방향의 방위(0~360)를 표시. **둘 다 씬 내장 UI가 되므로 배치 대상이 12종에서 14종으로 늘어난다**
+5. **시야 좌·우각 변경 기능 (프리팹 앵커는 이미 섰고 코드가 없다)** — `PlayerObject`의 `CamPoint`가 **`RightCamPoint`로 리네임되고 `LeftCamPoint`(x=-0.2)가 새로 추가돼** 좌우 시점 앵커가 준비된 상태다(기존 `CamPoint`는 코드 참조가 없었으므로 리네임으로 깨지는 곳은 없다 — 코드가 찾는 것은 `ViewPoint`·`ShotPoint`다). 남은 것은 **키 배선과 앵커 간 전환·보간 코드**이며, 착수 전에 **어떤 키를 쓸지**를 정해야 한다 — 인게임 키가 이미 `E`(상호작용)·`1`·`2`·`R`·`Tab`/`I`·`Esc`·`Shift`로 차 있어 통상 린에 쓰는 Q·E 중 E가 점유 상태다. 파급 판단이 하나 더 있다: **남에게 보이는 자세로 만들면 proto에 필드가 없어 서버 계약 변경이 선행되고**, 로컬 전용으로 두면 히트박스는 그대로라 "화면에선 피했는데 맞는다"가 생긴다(카메라만 옮기는 구조라 후자가 기본값이 된다)
 
 ### 진행 고려사항
 
@@ -66,4 +68,5 @@
 - **resume 경로의 로비는 재화·인벤토리가 비어 보인다 (버그 아님)** — 서버 `/api/session/resume` 핸들러가 아직 뼈대라 `money: 0, inventory: []`를 반환한다. 서버 구현이 끝나기 전까지 정상이므로 클라 파싱 버그로 오해하지 말 것. **`http-api-spec.yaml`은 서버 사본과 동기화되어 있으므로 한쪽만 수정하지 말 것**
 - **`SoundPoint` 하나가 모든 월드 소리의 `MaxDistance`(30)를 공유한다 — 총성만 따로 조정할 수단이 없다** — `SoundManager.PlayOneShotAt`에 `OPTION:`으로 달려 있다. **30 자체는 2인 실측에서 거슬리지 않았지만(2026-08-31) 확정된 값이 아니다** — 총성의 가청 거리는 실측으로 조정될 값이고, 발소리와 한 소스를 공유하는 한 그 조정이 불가능한 것이 이 항목이 남는 이유다. **"거리가 충분하니 해소됐다"로 읽고 지우지 말 것.** **재생마다 거리 값을 갈아끼우는 해법은 쓰지 말 것**(소스 단위 속성이라 울리던 소리에 소급 적용되고, 걸으며 쏘는 상황이 상시라 실제로 겹친다) — 실제 해법은 프리팹에 근거리·원거리 소스를 나누는 것이라 **프리팹 작업이 선행된다.** 같은 이유로 **소리별 음량 밸런스는 `volumeScale` 인자로만** 잡고 프리팹 Volume은 건드리지 않는다(코드가 덮는다)
 - **`Resources/`는 참조 여부와 무관하게 전량 빌드에 포함된다** — 코드 참조가 없는 자산이 확인된 것만 여럿이다(`Prefabs/Scene/*` 4종, `System/@Managers`, `System/EventSystem`, `TestPlayer`, `TestLobbyScene/`, `LobbySettingUIBackup`). **`System/EventSystem`은 코드가 쓰는 `UI/EventSystem`과 같은 것 두 벌**이다. 알파 단계라 용량이 문제는 아니고 **삭제 판단은 사용자 몫이므로 사실만 남긴다** — 목록은 `Assets/Resources/CLAUDE.md`에 있다
-- **씬 이름 컨벤션 잔여 (판단 보류)** — `TestIngame2.unity`는 컨벤션대로면 `TestIngame2Scene.unity`이지만 `Define.Scene` enum에 없어 코드 영향이 없고, `WinchesterAlpha.unity`는 맵 에셋 성격이다. **enum에 올리는 순간 파일 이름을 맞춰야 한다**(`Scenes/CLAUDE.md`의 씬 이름 규칙)
+- **씬 이름 컨벤션 잔여 (판단 보류)** — `TestIngame2.unity`는 컨벤션대로면 `TestIngame2Scene.unity`이지만 `Define.Scene` enum에 없어 코드 영향이 없고, `WinchesterAlpha.unity`는 맵 에셋 성격이다. **enum에 올리는 순간 파일 이름을 맞춰야 한다**(`Scenes/CLAUDE.md`의 씬 이름 규칙). 맵 명칭이 Tenerife로 확정됐으므로 `WinchesterAlpha.unity`의 처분(리네임·삭제·존치)도 함께 볼 것 — **코드 참조는 없다**
+- **맵 리네임이 `http-api-spec.yaml`에도 반영됐다 (`1: MAP_TENERIFE`) — 서버 사본 전달은 사용자 몫이다** — 이 파일은 서버 사본과 동기화되므로 **클라에서만 고친 상태로 두면 두 사본이 갈라진다.** 다만 **계약은 mapId 값(1)이고 이름은 표기일 뿐이라 전달 전에도 통신에는 영향이 없다.** 같은 파일에 `latestVersion` 설명·예시(`"alpha-1"`) 동기화도 함께 들어 있다

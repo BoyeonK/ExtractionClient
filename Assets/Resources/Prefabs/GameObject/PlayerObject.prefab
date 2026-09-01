@@ -28,7 +28,7 @@ Transform:
   m_GameObject: {fileID: 584187337681603979}
   serializedVersion: 2
   m_LocalRotation: {x: -0, y: -0, z: -0, w: 1}
-  m_LocalPosition: {x: 0.05, y: 0.15, z: -0.4}
+  m_LocalPosition: {x: 0.2, y: 0.15, z: -0.4}
   m_LocalScale: {x: 1, y: 1, z: 1}
   m_ConstrainProportionsScale: 0
   m_Children: []
@@ -66,7 +66,7 @@ Camera:
     width: 1
     height: 1
   near clip plane: 0.08
-  far clip plane: 100
+  far clip plane: 500
   field of view: 80
   orthographic: 0
   orthographic size: 5
@@ -162,12 +162,13 @@ Transform:
   m_GameObject: {fileID: 640760197605593022}
   serializedVersion: 2
   m_LocalRotation: {x: 0, y: 0, z: 0, w: 1}
-  m_LocalPosition: {x: 0.15, y: 0.62, z: 0}
+  m_LocalPosition: {x: 0, y: 0.62, z: 0}
   m_LocalScale: {x: 1, y: 1, z: 1}
   m_ConstrainProportionsScale: 0
   m_Children:
   - {fileID: 3850260365826882603}
   - {fileID: 1531178554804152997}
+  - {fileID: 7049982881508917414}
   m_Father: {fileID: 3121279624469934710}
   m_LocalEulerAnglesHint: {x: 0, y: 0, z: 0}
 --- !u!1 &743315723910774588
@@ -197,8 +198,8 @@ Transform:
   m_GameObject: {fileID: 743315723910774588}
   serializedVersion: 2
   m_LocalRotation: {x: 0, y: 0, z: 0, w: 1}
-  m_LocalPosition: {x: -3.005, y: 0, z: 15.715}
-  m_LocalScale: {x: 1, y: 1, z: 1}
+  m_LocalPosition: {x: 0, y: 0, z: 0}
+  m_LocalScale: {x: 2, y: 2, z: 2}
   m_ConstrainProportionsScale: 0
   m_Children:
   - {fileID: 287443812770342931}
@@ -228,7 +229,7 @@ CharacterController:
   m_Height: 0.81
   m_Radius: 0.15
   m_SlopeLimit: 40
-  m_StepOffset: 0.1
+  m_StepOffset: 0.3
   m_SkinWidth: 0.015
   m_MinMoveDistance: 0.001
   m_Center: {x: 0, y: 0.42, z: 0}
@@ -383,7 +384,7 @@ GameObject:
   m_Component:
   - component: {fileID: 1531178554804152997}
   m_Layer: 0
-  m_Name: CamPoint
+  m_Name: RightCamPoint
   m_TagString: Untagged
   m_Icon: {fileID: 0}
   m_NavMeshLayer: 0
@@ -398,7 +399,38 @@ Transform:
   m_GameObject: {fileID: 2953243466189198914}
   serializedVersion: 2
   m_LocalRotation: {x: 0, y: 0, z: 0, w: 1}
-  m_LocalPosition: {x: 0.05, y: 0.15, z: -0.4}
+  m_LocalPosition: {x: 0.2, y: 0.15, z: -0.4}
+  m_LocalScale: {x: 1, y: 1, z: 1}
+  m_ConstrainProportionsScale: 0
+  m_Children: []
+  m_Father: {fileID: 5820799113336482650}
+  m_LocalEulerAnglesHint: {x: 0, y: 0, z: 0}
+--- !u!1 &3700655824864308874
+GameObject:
+  m_ObjectHideFlags: 0
+  m_CorrespondingSourceObject: {fileID: 0}
+  m_PrefabInstance: {fileID: 0}
+  m_PrefabAsset: {fileID: 0}
+  serializedVersion: 6
+  m_Component:
+  - component: {fileID: 7049982881508917414}
+  m_Layer: 0
+  m_Name: LeftCamPoint
+  m_TagString: Untagged
+  m_Icon: {fileID: 0}
+  m_NavMeshLayer: 0
+  m_StaticEditorFlags: 0
+  m_IsActive: 1
+--- !u!4 &7049982881508917414
+Transform:
+  m_ObjectHideFlags: 0
+  m_CorrespondingSourceObject: {fileID: 0}
+  m_PrefabInstance: {fileID: 0}
+  m_PrefabAsset: {fileID: 0}
+  m_GameObject: {fileID: 3700655824864308874}
+  serializedVersion: 2
+  m_LocalRotation: {x: 0, y: 0, z: 0, w: 1}
+  m_LocalPosition: {x: -0.2, y: 0.15, z: -0.4}
   m_LocalScale: {x: 1, y: 1, z: 1}
   m_ConstrainProportionsScale: 0
   m_Children: []
