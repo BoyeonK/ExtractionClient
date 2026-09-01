@@ -26,6 +26,15 @@
 
 씬 컴포넌트 클래스와 이름이 겹치지만 enum 멤버는 항상 `Define.Scene.X`로 한정 접근되므로 충돌하지 않는다. 깨지는 경우는 `using static Define.Scene;`뿐이니 쓰지 말 것.
 
+### 맵 씬 진입 (`Define.MapScenes`)
+
+매칭 성공 응답의 `mapId`(→ `HTTPManager.MapId`)로 진입할 맵 씬을 고른다. 전환 지점은 `HTTPManager.TryConnectCall` 하나뿐이다.
+
+- **새 맵을 추가하면 `Define.Scene`·Build Settings 등재와 함께 `Define.MapScenes`에도 채울 것** — 빠지면 폴백이 먹어 **엉뚱한 지형에 스폰되고 컴파일·통신은 정상이라** 원인을 짚기 어렵다
+- **미등재 mapId에서 전환 자체를 막지 말 것** — UDP는 이미 붙은 뒤라 로비에 갇힌다. `LogError` + `TestIngameScene` 폴백이 그 이유다
+- 표시명은 `Define.MapNames`이고 `UI_MapSelect`가 스프라이트(`map_sprite_{mapId}`)와 **같은 키로** 읽는다. 한쪽만 채우면 그림과 이름이 어긋난다
+- 맵 씬 클래스는 `SceneType` 대입 한 줄만 다르고 나머지는 `IngameScene`이 전부 한다 — **맵별 분기를 씬 클래스에 넣기 전에 서버 주도인지부터 볼 것**(정적 오브젝트는 블루프린트로 내려온다)
+
 ## 씬 전환 페이로드 (`GameSceneContext`)
 
 `SceneManagerEx`가 `NextSceneStaticContext`(정적)와 `SceneDynamicContext`(동적)를 보유한다. `PacketHandler`가 `AddObjectDatas()`로 누적, `IsComplete()`로 수신 완료를 판정하고 `IngameScene.Init()`이 소비한다.

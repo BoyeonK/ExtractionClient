@@ -790,8 +790,13 @@ public class HTTPManager {
                     Managers.ExecuteAtMainThread(() => {
                         Managers.Network.udpManager.SendChannelOpenPkt();
                         BaseScene scene = Managers.Scene.CurrentScene;
-                        if (scene is LobbyScene lobbyScene) {
-                            Managers.Scene.LoadSceneWithLoadingScene(Define.Scene.TestIngameScene, Define.Scene.LoadingScene);
+                        if (scene is LobbyScene) {
+                            // 등재되지 않은 mapId에서 전환 자체를 막으면 UDP는 붙은 채 로비에 갇힌다
+                            if (!Define.MapScenes.TryGetValue(MapId, out Define.Scene mapScene)) {
+                                Util.LogError($"등재되지 않은 mapId({MapId})입니다. TestIngameScene으로 진입합니다.");
+                                mapScene = Define.Scene.TestIngameScene;
+                            }
+                            Managers.Scene.LoadSceneWithLoadingScene(mapScene, Define.Scene.LoadingScene);
                         }
                     });
 

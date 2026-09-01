@@ -10,6 +10,7 @@ public static class Define {
         LobbyScene,
         LoadingScene,
         TestIngameScene,
+        TenerifeScene,
         GameResultScene,
         MaxCount,
     }
@@ -88,9 +89,22 @@ public static class Define {
 
     public enum Map {
         TestMap,
-        Winchester,
+        Tenerife,
         MaxCount
     }
+
+    // mapId(서버가 확정해 내려주는 값) → 진입할 씬.
+    // 새 맵을 추가하면 Scene enum · Build Settings 등재와 함께 여기도 반드시 채울 것
+    public static readonly Dictionary<int, Scene> MapScenes = new Dictionary<int, Scene>() {
+        { (int)Map.TestMap,  Scene.TestIngameScene },
+        { (int)Map.Tenerife, Scene.TenerifeScene },
+    };
+
+    // 맵 선택 화면의 표시명. enum 이름을 그대로 쓰지 않는 것은 표시명에 공백·한글이 들어갈 수 있어서다
+    public static readonly Dictionary<int, string> MapNames = new Dictionary<int, string>() {
+        { (int)Map.TestMap,  "TEST MAP" },
+        { (int)Map.Tenerife, "TENERIFE" },
+    };
 
     public static readonly Dictionary<int, string> CharacterDescriptions = new Dictionary<int, string>() {
         { 0, "정식 명칭 Multi-Purpose Worker-7\r\nH사의 구형 모델로서, 실내 위험 작업용으로 개발되었으나 무식한 내구성 덕분에 야외 활동까지 섭렵하게 된 다목적 작업기입니다. \r\n\r\n본래 실내 작업을 상정하고 개발된 모델이다 보니, 방청 처리 미비로 온몸에 심각한 녹이 슬어버리는 단점이 있지만 성능에는 전혀 지장이 없습니다.\r\n \r\n온갖 진흙탕을 뒹굴며 기체 전체에 녹이 슬어버렸지만, 그 훈장 같은 부식 자국들은 '스크랩'이 얼마나 많은 위기를 넘겨왔는지 보여줍니다." },

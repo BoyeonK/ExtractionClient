@@ -111,6 +111,9 @@ public class UI_MapSelect : UI_Scene {
     }
 
     private void RefreshMapSelectWindow() {
+        _mapName.text = Define.MapNames.TryGetValue(_selectedMapId, out string mapName)
+            ? mapName : $"MAP {_selectedMapId}";
+
         string path = $"Images/MapSprites/map_sprite_{_selectedMapId}";
         Sprite mapSp = Resources.Load<Sprite>(path);
         if (mapSp != null) {
