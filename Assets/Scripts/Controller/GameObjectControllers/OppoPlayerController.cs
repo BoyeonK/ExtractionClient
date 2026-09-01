@@ -71,10 +71,11 @@ public class OppoPlayerController : GameObjectController, ICombatTarget {
     private const uint MOVEMENT_RUN = 2;
     private const uint MOVEMENT_JUMP = 4;
 
-    // 점프 중 걷기/달리기를 가르는 속도 문턱. PlayerController의 walkSpeed 1.5 / runSpeed 7 사이여야
-    // 하므로 이동 속도를 조정하면 이 둘도 함께 볼 것 — 벗어나면 남의 발소리만 조용히 어긋난다
+    // 점프 중 걷기/달리기를 가르는 속도 문턱. PlayerController의 walkSpeed 2 / runSpeed 7 사이여야
+    // 하므로 이동 속도를 조정하면 이 둘도 함께 볼 것 — 벗어나면 남의 발소리만 조용히 어긋난다.
+    // 값이 네트워크로 온 속도라 오차가 섞이므로 한쪽에 붙이지 않고 두 속도의 중간에 둔다
     private const float FOOTSTEP_MIN_SPEED = 0.5f;
-    private const float FOOTSTEP_RUN_SPEED = 2f;
+    private const float FOOTSTEP_RUN_SPEED = 4.5f;
 
     float yOffset = 0.58f;
 

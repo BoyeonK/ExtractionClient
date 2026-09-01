@@ -10,10 +10,11 @@ GameObjectController (MonoBehaviour)
       ├── ContainerController
       │     ├── TestItemBoxController
       │     ├── PlayerLootController              (전리품 컨테이너 — 사망 시 서버가 스폰)
-      │     ├── GreenBoxContainerController
-      │     ├── YellowBoxContainerController
-      │     ├── SmallYellowBoxContainerController
-      │     └── SmallWhiteBoxContainerController
+      │     ├── TenerifeBlueCarController
+      │     ├── TenerifeYellowCarController
+      │     ├── TenerifeBrownCarController
+      │     ├── TenerifeRedCarController
+      │     └── TenerifeBusController
       └── RecallSpotController
 ```
 
@@ -27,6 +28,8 @@ GameObjectController (MonoBehaviour)
 ### 컨테이너 파생 클래스
 
 `Define.ObjectType` 항목당 하나씩이며 하는 일은 `Init()`에서 `base.Init()`을 부른 뒤 `_objectType`을 대입하는 것뿐이다.
+
+**추가할 때 손댈 곳이 셋이고 하나라도 빠지면 증상이 다르다** — ① `Define.ObjectType`에 항목(**`MaxCount` 바로 앞에 append**, 근거는 `Define.cs` 주석) ② `Define.ObjectPaths`에 경로(빠지면 `IngameScene`이 `LogError` 후 스폰을 건너뛴다) ③ 파생 클래스 파일. 프리팹은 **`Prefabs/GameObject/{ObjectType 이름}`**이고 컨트롤러 컴포넌트가 부착돼 있어야 한다.
 
 - **`base.Init()`을 빠뜨리면 상호작용이 통째로 죽는다** — `_onInteract += RequestOpenContainer` 구독이 `ContainerController.Init()`에 있어서 **E키를 눌러도 아무 일이 없고 에러도 남지 않는다.** 이 계층에서 유일하게 밟기 쉬운 자리다
 - **`_objectType`은 읽는 코드가 없지만 지우지 말 것** — 컨테이너 종류별 분기가 생길 때의 자리다
@@ -75,7 +78,7 @@ GameObjectController (MonoBehaviour)
 가슴팍 3D 소스 둘이고 **다른 것은 가청 거리뿐**이다. 총성만 `GunSoundPoint`(120m)이고 발소리·재장전음은 `SoundPoint`(30m)다. 거리·Rolloff가 전부 프리팹에 있어 **조정이 에디터에서 끝나고 코드에는 값이 없다.**
 
 - **Rolloff는 Custom이고 `Max Distance`에서 0에 닿는다 — Logarithmic 프리셋으로 되돌리지 말 것.** 그 프리셋에서 `Max Distance`는 컷오프가 아니라 감쇠가 멈추는 지점이라, 그 너머로 `Min/Max` 비율의 볼륨이 고정된 채 거리와 무관하게 계속 들린다. 지금 값에서는 발소리 바닥값(2/30)이 총성 바닥값(5/120)보다 커져 **맵 반대편 발소리가 총성보다 크게 들리는 역전**이 난다
-- **`SoundPoint`의 `Min Distance`(2)는 로컬 리스너~가슴팍 거리(스케일 2에서 약 1m대)보다 커야 한다** — 아래로 내리면 내 소리가 감쇠 구간에 들어가 **내 발소리만 조용해진다**
+- **`SoundPoint` 커브의 첫 키프레임(2m)은 로컬 리스너~가슴팍 거리(스케일 2에서 약 1m대)보다 뒤여야 한다** — 첫 키 이전은 그 값으로 평평해 내 소리가 항상 최대 음량인데, 앞으로 당기면 **내 발소리만 감쇠 구간에 들어가 조용해진다.** Custom Rolloff에서 볼륨을 정하는 것은 `Min Distance`가 아니라 커브다(값·근거는 `Resources/CLAUDE.md`)
 - **재장전음을 원거리 소스로 올리지 말 것** — 통보(44/45)가 unreliable이라 단계가 통째로 빠지는 것이 정상 계약이어서, 멀리서 듣는 단편적 재장전음은 없는 정보를 만든다
 - **거리 인자를 받는 재생 함수를 만들지 말 것** — 근거는 `SoundManager.PlayOneShotAt` 주석에 있다(소스 단위 속성이라 울리던 소리에 소급 적용된다)
 - **오포 총성이 들리려면 발사자가 스폰돼 있어야 한다** — `IngameScene.HandleWeaponFireBroadcast`가 미스폰 발사자에서 return하고 스폰은 상태 스트림이 채운다. 서버가 상태를 거리로 컬링하면 **프리팹 값을 올려도 그 반경 밖 총성은 오지 않으므로**, 실측에서 특정 거리부터 안 들리면 프리팹이 아니라 서버부터 볼 것
@@ -187,7 +190,7 @@ public interface ICombatTarget { int GetObjectId(); }
 5. 스프레드 증가
 
 - **발사음은 탄약이 있을 때만 난다.** 빈 탄창은 `EmptyAmmoFire()`의 딸깍(2D)이고 이쪽은 월드 소리다 — 다른 경로이며 합치지 말 것
-- **로컬 발사음만 `SoundPoint`(근거리)에서 난다 — 오포와 갈리는 의도된 비대칭이다.** `AudioListener`가 자기 가슴팍 바로 위라 두 소스 모두 `Min Distance` 안쪽이고, 감쇠 구간에 들어가질 않아 원거리 소스를 따로 둬도 결과가 완전히 같다. **PlayerObject 프리팹에 `GunSoundPoint`를 만들지 말 것** — 쓰이지 않는 채 남아 배선을 부른다
+- **로컬 발사음만 `SoundPoint`(근거리)에서 난다 — 오포와 갈리는 의도된 비대칭이다.** `AudioListener`가 자기 가슴팍 바로 위(약 1m대)라 두 커브 모두 **첫 키 이전 구간**이고, 감쇠가 시작되기 전이라 원거리 소스를 따로 둬도 결과가 완전히 같다. **PlayerObject 프리팹에 `GunSoundPoint`를 만들지 말 것** — 쓰이지 않는 채 남아 배선을 부른다
 
 #### 발사선 (`CalculateFireRay`)
 
@@ -264,7 +267,7 @@ public interface ICombatTarget { int GetObjectId(); }
 `MovementState`만 보고 낸다. 규칙과 간격은 공용이라 **내 발소리와 남의 발소리가 같은 리듬이다.**
 
 - **점프 중에도 소리가 난다 — 로컬(접지 요구)과 갈리는 의도된 비대칭이다.** 공중에서 끊으면 **점프를 연달아 뛰는 것만으로 소리 없이 이동할 수 있게 된다.** 접지 조건으로 맞추려 들지 말 것
-- **점프 중에는 `MovementState`가 `JUMP`로 덮여 걷기/달리기 구분이 사라지므로 그 구간만 수평 속도로 가른다**(`FOOTSTEP_MIN_SPEED` 0.5 / `FOOTSTEP_RUN_SPEED` 2 — `walkSpeed` 1.5와 `runSpeed` 7 사이여야 한다. **이동 속도를 조정하면 이 둘도 함께 볼 것**). 제자리 점프는 수평 속도가 0에 가까워 자연히 걸러진다
+- **점프 중에는 `MovementState`가 `JUMP`로 덮여 걷기/달리기 구분이 사라지므로 그 구간만 수평 속도로 가른다**(`FOOTSTEP_MIN_SPEED` 0.5 / `FOOTSTEP_RUN_SPEED` 4.5 — `walkSpeed` 2와 `runSpeed` 7 사이여야 한다. **이동 속도를 조정하면 이 둘도 함께 볼 것.** 속도가 네트워크로 오므로 오차가 섞인다 — 한쪽 값에 붙이지 말고 중간에 둘 것). 제자리 점프는 수평 속도가 0에 가까워 자연히 걸러진다
 - **`IsStepping`/`IsRunningStep`은 `ProcessAnimation`의 `isMoving`/`isRunning`과 이름을 갈라 뒀다** — 애니메이션은 점프 중을 이동으로 보지 않는다(공중에서는 idle 블렌드). **한쪽 값을 다른 쪽에 재사용하지 말 것**
 - **디스폰되면 재생 중인 소리가 끊긴다**(소스가 오브젝트에 붙어 있다) — 사망음처럼 "죽는 순간 나야 하는 소리"를 이 소스에 태우지 말 것
 

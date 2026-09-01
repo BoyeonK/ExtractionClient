@@ -52,7 +52,7 @@ Assets/Resources/
 | `Prefabs/Weapons/Weapon_{weaponId}_{name}` | 이름에서 id를 파싱 | `IngameScene`의 `LoadAll("Prefabs/Weapons")` |
 | `Prefabs/GameObject/{ObjectType 이름}` | 타입 ↔ 경로 대응 | `Define.ObjectPaths` |
 | `Prefabs/GameObject/PlayerObject_ingredient/HB{0\|1\|2}{Player\|OppoPlayer\|Selected}` | 캐릭터 타입 × 용도 | `PlayerController`·`OppoPlayerController`·`SelectedCharacter` |
-| `PlayerObject`·`OppoPlayerObject`의 직계 자식 `SoundPoint` | 이름 고정 + `AudioSource` 부착 | 양쪽 `Setup()`의 `transform.Find` (아래) |
+| `PlayerObject`·`OppoPlayerObject`의 직계 자식 `SoundPoint`, `OppoPlayerObject`의 `GunSoundPoint` | 이름 고정 + `AudioSource` 부착 | 양쪽 `Setup()`의 `transform.Find` (아래) |
 | `Images/Items/icon_item_{item_id}` | item_id | 슬롯 4종(`ISlot`·`IngameISlot`·`SSlot`·`LootContainerSlot`) |
 | `Images/MapSprites/map_sprite_{mapId}` | mapId | `UI_MapSelect` |
 | `Images/WeaponSprites/weapon_sprite_{무기 item_id}` | item_id | `IngameWeaponUI` |
@@ -166,25 +166,35 @@ LootContainerSlot                       ← Prefabs/UI/GameResultSceneUI/ (런�
 - `IngameWeaponUI`의 `WeaponImage`는 **스프라이트를 물려두지 않는다** — 코드가 `weapon_sprite_{item_id}`를 넣는다. **`Preserve Aspect`는 꺼둔 것이 의도다**(스프라이트 √2:1, 슬롯 비율이 그에 가까워 찌그러짐을 감수했다). 스프라이트가 순백 실루엣이라 **`Color`가 곧 표시색이고 코드는 색을 건드리지 않는다**
 - `IngameWeaponUI`는 **그래픽 7개 모두 `raycastTarget`을 꺼둔다.** HUD가 클릭을 가로채면 인벤토리를 열어 커서가 풀린 상태에서 겹치는 영역의 드래그를 먹는다. 요소를 추가할 때도 함께 끌 것
 
-## `SoundPoint` — 월드 소리를 내보내는 3D 소스
+## `SoundPoint` / `GunSoundPoint` — 월드 소리를 내보내는 3D 소스 둘
 
-`PlayerObject`·`OppoPlayerObject` **양쪽의 직계 자식**(`ViewPoint`·`ShotPoint`·`Aim`과 같은 층)이며 `AudioSource` 하나를 갖는다. **두 프리팹의 이름·설정을 같이 유지할 것** — 코드가 같은 이름으로 찾고 같은 헬퍼로 재생한다. 위치는 발이 아니라 **가슴 부근**(local y=0.5)이다 — 스테레오 패닝은 방위각만 주고 고도는 HRTF 없이 실리지 않으므로 원거리 청자에게 가슴↔발 1m는 들리지 않고, 대신 **리스너(머리 카메라)와 가까워져 자기 발소리가 발밑에서 작게 나는 문제가 없어진다.**
+`PlayerObject`·`OppoPlayerObject`의 **직계 자식**(`ViewPoint`·`ShotPoint`·`Aim`과 같은 층)이며 각각 `AudioSource` 하나를 갖는다. 위치는 발이 아니라 **가슴 부근**(local y=0.5)이다 — 스테레오 패닝은 방위각만 주고 고도는 HRTF 없이 실리지 않으므로 원거리 청자에게 가슴↔발 1m는 들리지 않고, 대신 **리스너(머리 카메라)와 가까워져 자기 발소리가 발밑에서 작게 나는 문제가 없어진다.**
 
-| 설정 | 값 | 어기면 |
-|---|---|---|
-| Play On Awake | off | 스폰마다 빈 재생이 돈다 |
-| Spatial Blend | **1.0 (3D)** | 0이면 위치가 무의미해진다 |
-| Min Distance | **2 이상** | 내 소리가 머리↔가슴 거리만큼 감쇠한다 |
-| Max Distance | 30 | **발사음을 붙일 때 반드시 다시 볼 값**(아래) |
-| Volume / Pitch | 손대지 않음 | `PlayOneShotAt`이 매 재생마다 `volume`을 덮는다. 밸런스는 코드의 `volumeScale`로 잡을 것 |
-| AudioClip / Output | 비움 | 클립은 `PlayOneShot`이 넘긴다 |
+- **`GunSoundPoint`는 `OppoPlayerObject`에만 있다 — 의도된 비대칭이다.** 로컬은 리스너가 자기 가슴팍 바로 위(약 1m대)라 두 커브 모두 **첫 키 이전 구간**이고, 감쇠가 시작되기 전이라 원거리 소스를 둬도 결과가 완전히 같다. **`PlayerObject`에 만들지 말 것** — 코드가 읽지 않아 쓰이지 않는 채 남는다
+- `SoundPoint`는 **두 프리팹의 이름·설정을 같이 유지할 것** — 코드가 같은 이름으로 찾고 같은 헬퍼로 재생한다
+
+| 설정 | `SoundPoint` | `GunSoundPoint` | 어기면 |
+|---|---|---|---|
+| Play On Awake | off | off | 스폰마다 빈 재생이 돈다 |
+| Spatial Blend | **1.0 (3D)** | **1.0 (3D)** | 0이면 위치가 무의미해진다 |
+| Volume Rolloff | **Custom** | **Custom** | 아래 |
+| Min Distance | **2** | 5 | 커브 저작의 출발점 — **볼륨을 정하는 것은 커브다**(아래) |
+| Max Distance | 30 | 120 | 아래 |
+| Volume / Pitch | 손대지 않음 | 손대지 않음 | `PlayOneShotAt`이 매 재생마다 `volume`을 덮는다. 밸런스는 코드의 `volumeScale`로 잡을 것 |
+| AudioClip / Output | 비움 | 비움 | 클립은 `PlayOneShot`이 넘긴다 |
+
+- **Rolloff가 Custom이고 커브가 `Max Distance`에서 0에 닿는다 — Logarithmic 프리셋으로 되돌리지 말 것.** 그 프리셋에서 `Max Distance`는 컷오프가 아니라 **감쇠가 멈추는 지점**이라, 그 너머로 `Min/Max` 비율의 볼륨이 고정된 채 거리와 무관하게 계속 들린다. 지금 값에서는 발소리 바닥값(2/30)이 총성 바닥값(5/120)보다 커져 **맵 반대편 발소리가 총성보다 크게 들리는 역전**이 난다
+- **`SoundPoint` 커브의 첫 키프레임(2m, 볼륨 1.0)을 로컬 리스너~가슴팍 거리(스케일 2에서 약 1m대)보다 앞으로 당기지 말 것** — 첫 키 이전 구간은 그 값으로 평평해서 지금은 내 소리가 항상 최대 음량인데, 당기면 **내 발소리만 감쇠 구간에 들어가 조용해진다**
+- **상대 음량을 정하는 것은 두 커브이지 `Min Distance` 비율이 아니다.** Custom Rolloff에서 커브의 x축은 **각자의 `Max Distance`로 정규화**되므로(30 vs 120), 같은 모양의 커브라도 절대 거리로는 4배 다르게 동작한다. `Min Distance` 2·5는 커브를 저작할 때 첫 키가 놓인 자리일 뿐이다
+- **지금 두 커브는 같은 모양이고 거리 축만 늘어나 있다 — 같은 볼륨에 도달하는 거리가 총성 쪽이 약 2.6배 멀다**(발소리 2·4·8.6·15.7m = 1.0·0.50·0.21·0.074 ↔ 총성 5·10.3·23.2·43.8m = 1.0·0.50·0.22·0.094). **같은 거리에서의 음량비는 고정이 아니다** — 4m에서 2배, 16m 부근에서 4배, 30m 너머는 발소리가 0이라 비율이 성립하지 않는다
+- 이 균형을 `volumeScale`로 다시 잡으려 들지 말 것 — 거리 감쇠가 아니라 전체 음량을 균일하게 낮춘다
 
 - **경계선: 월드에서 난 소리는 `SoundPoint`, UI 피드백(`ui_submit`·`inventory_change`)은 2D `Managers.Sound.Play`.** 안 그으면 클릭음이 가슴에서 3D로 나는 쪽으로 흘러간다. `empty_gun_shot`은 남에게 들릴 소리가 아닌 1인칭 피드백이라 의도적으로 2D에 남아 있다
 - **소스 하나에 여러 소리를 태운다.** `PlayOneShot`은 재생 중인 것을 끊지 않고 섞으므로 발소리·발사음이 서로 잘라먹지 않는다. 대신 `volume`·`pitch`·`min/maxDistance`는 **소스 단위 속성이라 재생 중인 원샷에까지 소급 적용된다** — pitch 랜덤화를 붙이면 그 직후 나가는 발사음까지 같이 흔들린다
-- **하나로 합치는 것이 부딪히는 지점은 상하가 아니라 가청 거리다.** 감쇠 곡선과 `maxDistance`가 소스당 하나뿐인데 발소리는 30m에서 끊겨야 하고 발사음은 그보다 멀리 가야 한다. `volumeScale`은 곡선을 균일하게 낮출 뿐 모양을 바꾸지 않는다. **거리 값을 재생할 때마다 갈아끼우는 방식은 쓰지 말 것**(걸으며 쏘는 상황이 상시라 울리던 소리의 거리감이 중간에 튄다) — 필요해지면 `SoundPoint`를 근거리용·원거리용 둘로 쪼갠다
-  - **이미 부딪힌 상태다** — 오포 총성이 30m에서 끊긴다. `SoundManager.PlayOneShotAt`에 `OPTION:`으로 달려 있으며, 해소하려면 **프리팹에 소스를 하나 더 만드는 작업이 선행된다**
-- **오브젝트가 파괴되면 재생 중인 소리도 끊긴다.** 발소리는 티가 안 나지만 "죽는 순간 나야 하는 소리"를 여기 태우면 안 된다
-- **오포에는 여러 인스턴스가 동시에 존재한다.** 소스가 오브젝트마다 하나씩이라 서로 간섭하지 않지만, 이 소스로 재생하는 모든 소리가 `Max Distance` 30을 공유한다는 점은 발사음을 붙일 때 그대로 걸린다(위)
+- **소스를 가르는 축은 가청 거리다.** 감쇠 곡선과 `maxDistance`가 소스당 하나뿐이라, 30m에서 끊겨야 하는 발소리와 그보다 멀리 가야 하는 총성이 한 소스에 같이 탈 수 없어 둘로 쪼갠 것이다(`volumeScale`은 곡선을 균일하게 낮출 뿐 모양을 바꾸지 않는다). **거리 값을 재생할 때마다 갈아끼우는 방식은 쓰지 말 것** — 걸으며 쏘는 상황이 상시라 울리던 소리의 거리감이 중간에 튄다
+- **재장전음은 `SoundPoint`(근거리)에 남는다** — 통보 패킷이 unreliable이라 단계가 통째로 빠지는 것이 정상 계약이어서, 멀리서 듣는 단편적 재장전음은 없는 정보를 만든다
+- **오브젝트가 파괴되면 재생 중인 소리도 끊긴다.** 발소리는 티가 안 나지만 "죽는 순간 나야 하는 소리"를 여기 태우면 안 된다 — 총성은 사거리가 길어 **먼 거리에서 쏘고 바로 죽은 오포의 마지막 총성이 잘린다**(감수)
+- **오포에는 여러 인스턴스가 동시에 존재한다.** 소스가 오브젝트마다 하나씩이라 서로 간섭하지 않는다
 
 ## 로드 실패는 반드시 드러난다
 

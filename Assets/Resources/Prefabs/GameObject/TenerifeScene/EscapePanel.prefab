@@ -1,6 +1,6 @@
 %YAML 1.1
 %TAG !u! tag:unity3d.com,2011:
---- !u!1 &3560417324610470947
+--- !u!1 &8419789104286153486
 GameObject:
   m_ObjectHideFlags: 0
   m_CorrespondingSourceObject: {fileID: 0}
@@ -8,48 +8,48 @@ GameObject:
   m_PrefabAsset: {fileID: 0}
   serializedVersion: 6
   m_Component:
-  - component: {fileID: 5856766219598254525}
-  - component: {fileID: 6601614966934130265}
-  - component: {fileID: 171544878259175008}
-  - component: {fileID: 6712982265181712439}
-  - component: {fileID: 6764863419930760668}
+  - component: {fileID: 8156320347208707740}
+  - component: {fileID: 8467835494599817329}
+  - component: {fileID: 7586727424407971166}
+  - component: {fileID: 1745460690589433670}
+  - component: {fileID: 6061407953315654400}
   m_Layer: 0
-  m_Name: SmallWhiteBoxContainer
+  m_Name: EscapePanel
   m_TagString: Untagged
   m_Icon: {fileID: 0}
   m_NavMeshLayer: 0
   m_StaticEditorFlags: 0
   m_IsActive: 1
---- !u!4 &5856766219598254525
+--- !u!4 &8156320347208707740
 Transform:
   m_ObjectHideFlags: 0
   m_CorrespondingSourceObject: {fileID: 0}
   m_PrefabInstance: {fileID: 0}
   m_PrefabAsset: {fileID: 0}
-  m_GameObject: {fileID: 3560417324610470947}
+  m_GameObject: {fileID: 8419789104286153486}
   serializedVersion: 2
   m_LocalRotation: {x: 0, y: 0, z: 0, w: 1}
-  m_LocalPosition: {x: -0.91744256, y: -0.046454072, z: -0.3777628}
+  m_LocalPosition: {x: 12.646984, y: 0, z: -0.59000003}
   m_LocalScale: {x: 1, y: 1, z: 1}
   m_ConstrainProportionsScale: 0
   m_Children: []
   m_Father: {fileID: 0}
   m_LocalEulerAnglesHint: {x: 0, y: 0, z: 0}
---- !u!33 &6601614966934130265
+--- !u!33 &8467835494599817329
 MeshFilter:
   m_ObjectHideFlags: 0
   m_CorrespondingSourceObject: {fileID: 0}
   m_PrefabInstance: {fileID: 0}
   m_PrefabAsset: {fileID: 0}
-  m_GameObject: {fileID: 3560417324610470947}
-  m_Mesh: {fileID: 4300000, guid: 0f9613e682f2d6844a57520922e1ecd9, type: 3}
---- !u!23 &171544878259175008
+  m_GameObject: {fileID: 8419789104286153486}
+  m_Mesh: {fileID: -5464162318215684256, guid: 74ad2475c2446ad4ba2a70550504d6a2, type: 3}
+--- !u!23 &7586727424407971166
 MeshRenderer:
   m_ObjectHideFlags: 0
   m_CorrespondingSourceObject: {fileID: 0}
   m_PrefabInstance: {fileID: 0}
   m_PrefabAsset: {fileID: 0}
-  m_GameObject: {fileID: 3560417324610470947}
+  m_GameObject: {fileID: 8419789104286153486}
   m_Enabled: 1
   m_CastShadows: 1
   m_ReceiveShadows: 1
@@ -65,10 +65,10 @@ MeshRenderer:
   m_SmallMeshCulling: 1
   m_ForceMeshLod: -1
   m_MeshLodSelectionBias: 0
-  m_RenderingLayerMask: 1
+  m_RenderingLayerMask: 257
   m_RendererPriority: 0
   m_Materials:
-  - {fileID: 2100000, guid: 28af8aa4e6bad69439ee2d4d6d11939a, type: 2}
+  - {fileID: 2100000, guid: 3ae452dd36d8718458beccf02ab5112c, type: 2}
   m_StaticBatchInfo:
     firstSubMesh: 0
     subMeshCount: 0
@@ -80,7 +80,7 @@ MeshRenderer:
   m_PreserveUVs: 0
   m_IgnoreNormalsForChartDetection: 0
   m_ImportantGI: 0
-  m_StitchLightmapSeams: 0
+  m_StitchLightmapSeams: 1
   m_SelectedEditorRenderState: 3
   m_MinimumChartSize: 4
   m_AutoUVMaxDistance: 0.5
@@ -92,13 +92,13 @@ MeshRenderer:
   m_SortingOrder: 0
   m_MaskInteraction: 0
   m_AdditionalVertexStreams: {fileID: 0}
---- !u!64 &6712982265181712439
+--- !u!64 &1745460690589433670
 MeshCollider:
   m_ObjectHideFlags: 0
   m_CorrespondingSourceObject: {fileID: 0}
   m_PrefabInstance: {fileID: 0}
   m_PrefabAsset: {fileID: 0}
-  m_GameObject: {fileID: 3560417324610470947}
+  m_GameObject: {fileID: 8419789104286153486}
   m_Material: {fileID: 0}
   m_IncludeLayers:
     serializedVersion: 2
@@ -113,16 +113,17 @@ MeshCollider:
   serializedVersion: 5
   m_Convex: 0
   m_CookingOptions: 30
-  m_Mesh: {fileID: 4300000, guid: 0f9613e682f2d6844a57520922e1ecd9, type: 3}
---- !u!114 &6764863419930760668
+  m_Mesh: {fileID: -5464162318215684256, guid: 74ad2475c2446ad4ba2a70550504d6a2, type: 3}
+--- !u!114 &6061407953315654400
 MonoBehaviour:
   m_ObjectHideFlags: 0
   m_CorrespondingSourceObject: {fileID: 0}
   m_PrefabInstance: {fileID: 0}
   m_PrefabAsset: {fileID: 0}
-  m_GameObject: {fileID: 3560417324610470947}
+  m_GameObject: {fileID: 8419789104286153486}
   m_Enabled: 1
   m_EditorHideFlags: 0
-  m_Script: {fileID: 11500000, guid: e39f773623d9b324db332360f2b4ae46, type: 3}
+  m_Script: {fileID: 11500000, guid: 816536c34aeb4604f8f75ef471377fae, type: 3}
   m_Name: 
-  m_EditorClassIdentifier: Assembly-CSharp::SmallWhiteBoxContainerController
+  m_EditorClassIdentifier: Assembly-CSharp::RecallSpotController
+  _recallSpotIndex: 0

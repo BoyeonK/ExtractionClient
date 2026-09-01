@@ -31,15 +31,19 @@ public static class Define {
         Click,
     }
 
+    // 번호가 곧 서버 계약이다 — proto의 object_type이 int32라 enum이 없고, 컴파일러가 지켜주지 않는다.
+    // **새 항목은 MaxCount 바로 앞에 append할 것.** 중간에 끼우면 뒤의 번호가 전부 밀려
+    // 서버가 보낸 id가 다른 프리팹을 만든다(매핑이 있으므로 에러 없이 엉뚱한 것이 뜬다)
     public enum ObjectType {
         Undefined = 0,
         Player,
         TestItemBox,
         PlayerLoot, // 사망 지점에 스폰되는 전리품 컨테이너
-        GreenBoxContainer,
-        YellowBoxContainer,
-        SmallYellowBoxContainer,
-        SmallWhiteBoxContainer,
+        TenerifeBlueCar,
+        TenerifeYellowCar,
+        TenerifeBrownCar,
+        TenerifeRedCar,
+        TenerifeBus,
         MaxCount,
     }
 
@@ -53,10 +57,11 @@ public static class Define {
         { (int)ObjectType.Player, "GameObject/OppoPlayerObject" },
         { (int)ObjectType.TestItemBox, "GameObject/TestItemBox" },
         { (int)ObjectType.PlayerLoot, "GameObject/PlayerLoot" },
-        { (int)ObjectType.GreenBoxContainer, "GameObject/GreenBoxContainer" },
-        { (int)ObjectType.YellowBoxContainer, "GameObject/YellowBoxContainer" },
-        { (int)ObjectType.SmallYellowBoxContainer, "GameObject/SmallYellowBoxContainer" },
-        { (int)ObjectType.SmallWhiteBoxContainer, "GameObject/SmallWhiteBoxContainer" },
+        { (int)ObjectType.TenerifeBlueCar, "GameObject/TenerifeBlueCar" },
+        { (int)ObjectType.TenerifeYellowCar, "GameObject/TenerifeYellowCar" },
+        { (int)ObjectType.TenerifeBrownCar, "GameObject/TenerifeBrownCar" },
+        { (int)ObjectType.TenerifeRedCar, "GameObject/TenerifeRedCar" },
+        { (int)ObjectType.TenerifeBus, "GameObject/TenerifeBus" },
     };
 
     public enum Resolution {
