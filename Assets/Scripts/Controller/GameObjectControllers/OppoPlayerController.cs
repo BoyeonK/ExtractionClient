@@ -54,8 +54,11 @@ public class OppoPlayerController : GameObjectController, ICombatTarget {
     Transform _muzzlePointTr;
     public Transform MuzzlePoint => _muzzlePointTr;
 
-    // 월드 소리를 내보내는 3D 소스(가슴팍). 발사음을 붙일 때도 이 소스를 쓴다
+    // 월드 소리를 내보내는 3D 소스 둘. 둘 다 가슴팍이고 가청 거리만 다르다(근거리 30m / 총성 120m).
+    // 로컬 PlayerController에는 GunSoundPoint가 없다 — 리스너가 자기 가슴팍 바로 위라
+    // 두 소스 모두 Min Distance 안쪽이고, 감쇠 구간에 들어가질 않아 결과가 같다
     AudioSource _soundAudio;
+    AudioSource _gunSoundAudio;
 
     Vector3 _velocity;
     float _yaw;
@@ -68,7 +71,8 @@ public class OppoPlayerController : GameObjectController, ICombatTarget {
     private const uint MOVEMENT_RUN = 2;
     private const uint MOVEMENT_JUMP = 4;
 
-    // 점프 중 걷기/달리기를 가르는 속도 문턱. PlayerController의 walkSpeed 1 / runSpeed 3.5 사이다
+    // 점프 중 걷기/달리기를 가르는 속도 문턱. PlayerController의 walkSpeed 1.5 / runSpeed 7 사이여야
+    // 하므로 이동 속도를 조정하면 이 둘도 함께 볼 것 — 벗어나면 남의 발소리만 조용히 어긋난다
     private const float FOOTSTEP_MIN_SPEED = 0.5f;
     private const float FOOTSTEP_RUN_SPEED = 2f;
 
@@ -101,6 +105,15 @@ public class OppoPlayerController : GameObjectController, ICombatTarget {
         Transform soundTransform = transform.Find("SoundPoint");
         if (soundTransform != null) _soundAudio = soundTransform.GetComponent<AudioSource>();
         if (_soundAudio == null) Util.LogError($"SoundPoint의 AudioSource가 없어 이 적의 소리가 나지 않는다 (objectId={_objectId}) — OppoPlayerObject 프리팹에 SoundPoint + AudioSource 필요");
+
+        // 총성 전용 원거리 소스. 없으면 근거리 소스로 떨어뜨린다 — 30m에서 잘리더라도
+        // 총성이 통째로 무음인 것보다 낫고, 로그가 원인을 남긴다
+        Transform gunSoundTransform = transform.Find("GunSoundPoint");
+        if (gunSoundTransform != null) _gunSoundAudio = gunSoundTransform.GetComponent<AudioSource>();
+        if (_gunSoundAudio == null) {
+            _gunSoundAudio = _soundAudio;
+            Util.LogError($"GunSoundPoint의 AudioSource가 없어 총성이 발소리와 같은 거리에서 끊긴다 (objectId={_objectId}) — OppoPlayerObject 프리팹에 GunSoundPoint + AudioSource 필요");
+        }
 
         string modelName = $"HB{characterType}OppoPlayer";
         Managers.Resource.Instantiate($"GameObject/PlayerObject_ingredient/{modelName}", this.transform);
@@ -224,7 +237,7 @@ public class OppoPlayerController : GameObjectController, ICombatTarget {
     // 무기 id의 출처는 D2CSpawnPlayerObject.weapon_id + D2CNotifyWeaponChanged로 추적한
     // _equippedWeaponId다. 발사 브로드캐스트에는 무기가 실려 오지 않는다
     public void PlayFireSound() {
-        Managers.Sound.PlayOneShotAt(GetGunShotSound(_equippedWeaponId), _soundAudio);
+        Managers.Sound.PlayOneShotAt(GetGunShotSound(_equippedWeaponId), _gunSoundAudio);
     }
 
     // 재장전 연출 단계음. D2CNotifyReloadSequence를 받을 때마다 그 단계만 재생한다 —

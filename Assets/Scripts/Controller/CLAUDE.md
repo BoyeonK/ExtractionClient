@@ -36,7 +36,7 @@ GameObjectController (MonoBehaviour)
 
 ## 공용 헬퍼 (`GameObjectController`)
 
-로컬과 오포가 **같은 값·같은 규칙**을 쓰게 하는 자리다. 상태(`_soundAudio`·`_equippedWeaponId`)와 재생 메서드는 각 컨트롤러가 갖고, **여기 있는 것은 값·규칙을 정하는 헬퍼뿐이다** — 대부분의 `GameObjectController`가 쓰지 않는 것을 공용 인터페이스로 올리지 않는다.
+로컬과 오포가 **같은 값·같은 규칙**을 쓰게 하는 자리다. 상태(`_soundAudio`·`_gunSoundAudio`·`_equippedWeaponId`)와 재생 메서드는 각 컨트롤러가 갖고, **여기 있는 것은 값·규칙을 정하는 헬퍼뿐이다** — 대부분의 `GameObjectController`가 쓰지 않는 것을 공용 인터페이스로 올리지 않는다.
 
 ### `DisableWeaponColliders()` / `FindMuzzlePoint()`
 
@@ -69,6 +69,16 @@ GameObjectController (MonoBehaviour)
 - **모르는 `sequenceNum`은 `null`이다** — 이 값은 네트워크에서 오므로 서버가 단계를 늘리면 실제로 들어온다. 그래서 `SoundManager.PlayOneShotAt`에 `path` null 가드가 함께 있다(없으면 NRE)
 - **클립 이름이 계약이다**(`m4_reload_start`/`m4_reload_sequence1`/`m4_reload_complete`, `gun_shot_1`). 한 글자만 어긋나도 **그 소리만 영구히 무음이고 로그가 남지 않는다**
 - 단계 번호와 흐름은 `Scenes/CLAUDE.md`의 '재장전 연출 단계'에 있다
+
+### 월드 소리 소스 둘 — 가청 거리는 프리팹이 정한다
+
+가슴팍 3D 소스 둘이고 **다른 것은 가청 거리뿐**이다. 총성만 `GunSoundPoint`(120m)이고 발소리·재장전음은 `SoundPoint`(30m)다. 거리·Rolloff가 전부 프리팹에 있어 **조정이 에디터에서 끝나고 코드에는 값이 없다.**
+
+- **Rolloff는 Custom이고 `Max Distance`에서 0에 닿는다 — Logarithmic 프리셋으로 되돌리지 말 것.** 그 프리셋에서 `Max Distance`는 컷오프가 아니라 감쇠가 멈추는 지점이라, 그 너머로 `Min/Max` 비율의 볼륨이 고정된 채 거리와 무관하게 계속 들린다. 지금 값에서는 발소리 바닥값(2/30)이 총성 바닥값(5/120)보다 커져 **맵 반대편 발소리가 총성보다 크게 들리는 역전**이 난다
+- **`SoundPoint`의 `Min Distance`(2)는 로컬 리스너~가슴팍 거리(스케일 2에서 약 1m대)보다 커야 한다** — 아래로 내리면 내 소리가 감쇠 구간에 들어가 **내 발소리만 조용해진다**
+- **재장전음을 원거리 소스로 올리지 말 것** — 통보(44/45)가 unreliable이라 단계가 통째로 빠지는 것이 정상 계약이어서, 멀리서 듣는 단편적 재장전음은 없는 정보를 만든다
+- **거리 인자를 받는 재생 함수를 만들지 말 것** — 근거는 `SoundManager.PlayOneShotAt` 주석에 있다(소스 단위 속성이라 울리던 소리에 소급 적용된다)
+- **오포 총성이 들리려면 발사자가 스폰돼 있어야 한다** — `IngameScene.HandleWeaponFireBroadcast`가 미스폰 발사자에서 return하고 스폰은 상태 스트림이 채운다. 서버가 상태를 거리로 컬링하면 **프리팹 값을 올려도 그 반경 밖 총성은 오지 않으므로**, 실측에서 특정 거리부터 안 들리면 프리팹이 아니라 서버부터 볼 것
 
 ## DeathCameraController (독립 MonoBehaviour)
 
@@ -177,7 +187,7 @@ public interface ICombatTarget { int GetObjectId(); }
 5. 스프레드 증가
 
 - **발사음은 탄약이 있을 때만 난다.** 빈 탄창은 `EmptyAmmoFire()`의 딸깍(2D)이고 이쪽은 월드 소리다 — 다른 경로이며 합치지 말 것
-- **`Max Distance`(30)를 발소리와 공유한다 — 총성만 따로 조정할 수단이 없다.** 30 자체는 실측에서 거슬리지 않았지만(2026-08-31) 확정된 값이 아니므로 **"거리가 충분하니 해소됐다"로 읽지 말 것.** 카테고리별 분리는 `SoundManager.PlayOneShotAt`의 `OPTION:`에 있다(거리 값을 재생마다 갈아끼우는 방식이 왜 답이 아닌지도 거기 있다)
+- **로컬 발사음만 `SoundPoint`(근거리)에서 난다 — 오포와 갈리는 의도된 비대칭이다.** `AudioListener`가 자기 가슴팍 바로 위라 두 소스 모두 `Min Distance` 안쪽이고, 감쇠 구간에 들어가질 않아 원거리 소스를 따로 둬도 결과가 완전히 같다. **PlayerObject 프리팹에 `GunSoundPoint`를 만들지 말 것** — 쓰이지 않는 채 남아 배선을 부른다
 
 #### 발사선 (`CalculateFireRay`)
 
