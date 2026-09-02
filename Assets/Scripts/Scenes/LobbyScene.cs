@@ -702,6 +702,17 @@ public class LobbyScene : BaseScene {
         return list.ToArray();
     }
 
+    // FREE는 서버가 slot 80 이상이 비어 있을 것을 요구한다 — 창고(0~79)는 대상이 아니다
+    private bool IsLoadoutAreaEmpty() {
+        for (int i = 0; i < INVENTORY_SLOT_COUNT; i++) {
+            if (_inventorySlots[i] != null) return false;
+        }
+        for (int i = 0; i < LOADOUT_SLOT_COUNT; i++) {
+            if (_loadoutSlots[i] != null) return false;
+        }
+        return true;
+    }
+
     public int SelectedCharacterType => _selectedCharacterType;
 
     public void SetCharacterType(int characterType) {
@@ -718,12 +729,43 @@ public class LobbyScene : BaseScene {
             return;
         }
 
-        InventoryItem[] snapshot = loadoutType == "CUSTOM" ? BuildInventorySnapshot() : null;
-        bool isSuccess = await Managers.Network.httpManager.StartMatchCall(
+        if (loadoutType == "FREE" && !IsLoadoutAreaEmpty()) {
+            _lobbyReconfirmUI.ActiveOnlyConfirm("프리 로드아웃을 사용할 경우\n장비칸과 인벤토리를 비워주세요");
+            return;
+        }
+
+        InventoryItem[] snapshot = BuildInventorySnapshot();
+        HTTPManager.MatchStartResult result = await Managers.Network.httpManager.StartMatchCall(
             mapId, _selectedCharacterType, loadoutType, snapshot, _cts.Token);
-        if (isSuccess) {
-            _lobbyState = LobbyState.Matching;
-            EnterMatchingState();
+
+        switch (result) {
+            case HTTPManager.MatchStartResult.Success:
+                _lobbyState = LobbyState.Matching;
+                EnterMatchingState();
+                break;
+
+            // 재조회를 끝낸 뒤에 안내한다 — 먼저 띄우면 갱신되었다는 안내가 갱신 전에 뜬다
+            case HTTPManager.MatchStartResult.OutOfSync:
+                await ResyncInventory();
+                _lobbyReconfirmUI.ActiveOnlyConfirm("인벤토리 정보가 갱신되었습니다.\n다시 시도해주세요.");
+                break;
+
+            // 서버에만 큐가 있고 클라에 TicketId가 없어 재조회해도 달라지는 것이 없다
+            case HTTPManager.MatchStartResult.AlreadyInMatch:
+                _lobbyReconfirmUI.ActiveOnlyConfirm("이미 진행중인 매치가 있습니다");
+                break;
+
+            case HTTPManager.MatchStartResult.Rejected:
+                await ResyncInventory();
+                _lobbyReconfirmUI.ActiveOnlyConfirm("매칭 시작에 실패했습니다.");
+                break;
+
+            // 서버에 닿지도 못한 것이라 재조회해도 같은 이유로 실패한다
+            case HTTPManager.MatchStartResult.Unreachable:
+                _lobbyReconfirmUI.ActiveOnlyConfirm("서버와 통신할 수 없습니다.");
+                break;
+
+            // Busy는 요청이 나가지도 않은 것이라 알리지 않는다
         }
     }
 

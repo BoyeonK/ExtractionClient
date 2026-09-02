@@ -89,6 +89,24 @@
 - **`item_id`·`quantity`는 판매 지시가 아니라 서버가 스냅샷의 해당 슬롯과 대조하는 검사값이다.** `quantity`는 판매 수량이 아니라 **그 슬롯 스택 전체 수량에 대한 주장**이라 정확히 일치해야 하고, 어긋나면 `ERR_ITEM_MISMATCH`다 — **수량 선택 UI를 만들면 안 된다**(부분 판매는 클라가 스택을 먼저 나눈 스냅샷으로 표현한다)
 - **호출자는 스냅샷을 만든 뒤 그것이 확정한 값을 넘길 것** — 따로 읽으면 어긋난다
 
+### 매치 시작 실패 구분 (`MatchStartResult`)
+
+`StartMatchCall`의 반환은 6상태다. **409를 하나로 묶지 말 것** — `ERR_ALREADY_IN_MATCH`는 서버에만 큐가 있고 클라에 `TicketId`가 없어 폴링도 취소도 못 하는 상태라(`CheckMatchStatusCall`·`CancelMatchCall`이 둘 다 `TicketId`를 요구한다) 재조회가 아무것도 바꾸지 않는다.
+
+| 상태 | 출처 | 호출자 |
+|---|---|---|
+| `OutOfSync` | 409/`ERR_SNAPSHOT_MISMATCH`, code 없는 409 | 재조회 후 안내 |
+| `AlreadyInMatch` | 409/`ERR_ALREADY_IN_MATCH` | 안내만 — **재조회하지 않는다** |
+| `Rejected` | 400 전체, 그 외 | 재조회 후 안내 + `LogError` |
+| `Unreachable` | 응답 없음 | 안내만 |
+| `Busy` | `_isRequesting`·`IsMatching`·미로그인·스냅샷 없음 | **무통보** |
+
+판정 순서와 200으로 감싼 실패 처리는 위 `PurchaseResult`와 같다.
+
+- **400 여섯 종을 상태로 늘리지 말 것** — `ERR_LOADOUT_NOT_EMPTY`·`ERR_NO_WEAPON_EQUIPPED`는 `LobbyScene`이 선제로 막으므로 도달하면 그 검사가 새는 클라 버그이고, 나머지도 사용자가 할 수 있는 일이 같다
+- **code 없는 409는 `OutOfSync`로 흘린다**(`PurchaseResult`가 `Rejected`로 흘리는 것과 갈리는 지점) — 헛도는 재조회는 해가 없지만, 반대로 흘리면 다시 시도하면 되는 경우를 막다른 길로 안내한다
+- **`inventory`는 FREE·CUSTOM 모두 필수다.** 빈 배열은 '가진 것이 없다'는 유효한 스냅샷이라 길이 검사는 CUSTOM에만 건다 — 모드 무관으로 올리면 게스트와 창고까지 빈 계정이 매치를 시작하지 못한다
+
 ## UDP (`UDPManager`)
 - 전용 백그라운드 워커 스레드(`UDP_Network_Thread`) — 수신 + 송신 큐 소진
 - `Poll(1ms)` 기반 루프, 수신 데이터는 모두 `Managers.ExecuteAtMainThread`로 메인 스레드 전달

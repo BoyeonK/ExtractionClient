@@ -725,24 +725,43 @@ public class HTTPManager {
 
     // ---------- Match Calls (Start Match, Check Status, Cancel Match, Connect) ----------
 
-    public async Task<bool> StartMatchCall(int mapId, int characterType, string loadoutType, InventoryItem[] inventory, CancellationToken cancelToken = default) {
-        if (_isRequesting) return false;
-        if (IsMatching) return false;
+    // 매치 시작 결과. 구매·판매와 같은 원칙으로 '사용자가 할 수 있는 일'을 기준으로 가른다 —
+    // OutOfSync는 재조회하면 다시 시도할 수 있지만, AlreadyInMatch는 서버에만 큐가 있고
+    // 클라에 TicketId가 없어 폴링도 취소도 못 하는 상태라 재조회가 아무것도 바꾸지 않는다
+    public enum MatchStartResult {
+        Success,
+        OutOfSync,
+        AlreadyInMatch,
+        Rejected,
+        Unreachable,
+        Busy,
+    }
+
+    private const string ERR_ALREADY_IN_MATCH = "ERR_ALREADY_IN_MATCH";
+
+    public async Task<MatchStartResult> StartMatchCall(int mapId, int characterType, string loadoutType, InventoryItem[] inventory, CancellationToken cancelToken = default) {
+        if (_isRequesting) return MatchStartResult.Busy;
+        if (IsMatching) return MatchStartResult.Busy;
         if (AuthState == LoginState.None) {
             Managers.ExecuteAtMainThread(() => Util.LogWarning("로그인이 필요한 기능입니다."));
-            return false;
+            return MatchStartResult.Busy;
         }
 
-        if (loadoutType == "CUSTOM" && (inventory == null || inventory.Length == 0)) {
+        // 스냅샷은 두 모드 모두 필수다. 빈 배열은 '가진 것이 없다'는 유효한 스냅샷이라
+        // 길이 검사는 무기가 반드시 실리는 CUSTOM에만 건다
+        if (inventory == null) {
+            Managers.ExecuteAtMainThread(() => Util.LogWarning("인벤토리 스냅샷이 필요합니다."));
+            return MatchStartResult.Busy;
+        }
+        if (loadoutType == "CUSTOM" && inventory.Length == 0) {
             Managers.ExecuteAtMainThread(() => Util.LogWarning("CUSTOM 모드에서는 인벤토리 스냅샷이 필수입니다."));
-            return false;
+            return MatchStartResult.Busy;
         }
 
         _isRequesting = true;
         try {
             Managers.ExecuteAtMainThread(() => Util.Log("매치메이킹 큐 진입을 요청합니다..."));
 
-            // JSON으로 보낼 데이터 조립
             MatchStartRequest reqData = new MatchStartRequest {
                 mapId = mapId,
                 characterType = characterType,
@@ -751,43 +770,58 @@ public class HTTPManager {
             };
             string jsonString = JsonUtility.ToJson(reqData);
 
-            // requireAuth 플래그를 true로 주어 헤더에 x-session-id를 자동으로 포함시킵니다!
-            string responseText = await SendRequestAsync(HttpMethod.Post, _matchStartUrl, jsonString, true, cancelToken);
-            if (responseText == null) return false;
+            HttpCallResult call = await SendRequestWithStatusAsync(
+                HttpMethod.Post, _matchStartUrl, jsonString, true, cancelToken);
+            if (!call.HasResponse) return MatchStartResult.Unreachable;
 
-            Managers.ExecuteAtMainThread(() => Util.Log($"[매칭 시작 응답 원본] {responseText}"));
-            if (!responseText.Trim().StartsWith("{")) {
-                Managers.ExecuteAtMainThread(() => Util.LogError("서버 응답이 JSON 형식이 아닙니다."));
-                return false;
+            // 구매와 같은 이유로 상태 코드 판정이 본문 파싱보다 앞이다
+            if (call.StatusCode == HTTP_CONFLICT) return ClassifyMatchStartConflict(call.Body);
+            if (call.StatusCode == HTTP_BAD_REQUEST) return ClassifyMatchStartBadRequest(call.Body);
+            if (string.IsNullOrEmpty(call.Body) || !call.Body.Trim().StartsWith("{")) {
+                Managers.ExecuteAtMainThread(() => Util.LogError("[매칭] 서버 응답이 JSON 형식이 아닙니다."));
+                return MatchStartResult.Rejected;
             }
 
-            // 응답 데이터 파싱
-            MatchStartResponse resData = JsonUtility.FromJson<MatchStartResponse>(responseText);
+            MatchStartResponse resData = JsonUtility.FromJson<MatchStartResponse>(call.Body);
+            if (resData != null && resData.success) {
+                TicketId = resData.data.ticketId;
+                IsMatching = true;
+                Managers.ExecuteAtMainThread(() => Util.Log($"매칭 큐 진입 성공! [Ticket ID: {TicketId}]"));
+                return MatchStartResult.Success;
+            }
 
+            // 실패를 200으로 감싸 보내는 응답도 있으므로 본문의 code로 한 번 더 가려낸다 (로그인과 같은 이유)
             if (resData != null) {
-                if (resData.success) {
-                    TicketId = resData.data.ticketId;
-                    IsMatching = true;
-                    Managers.ExecuteAtMainThread(() => {
-                        Util.Log($"매칭 큐 진입 성공! [Ticket ID: {TicketId}]");
-                    });
-                    return true;
-                }
-                else {
-                    IsMatching = false;
-                    string errorCode = resData.error?.code ?? "";
-                    Managers.ExecuteAtMainThread(() => {
-                        Util.LogError($"매칭 큐 진입 실패: {errorCode}");
-                    });
-                    return false;
-                }
+                if (resData.code == HTTP_CONFLICT) return ClassifyMatchStartConflict(call.Body);
+                if (resData.code == HTTP_BAD_REQUEST) return ClassifyMatchStartBadRequest(call.Body);
             }
-            IsMatching = false;
-            return false;
+
+            string errorCode = resData?.error?.code;
+            Managers.ExecuteAtMainThread(() => Util.LogError($"[매칭] 서버가 실패 응답을 보냈습니다. code={errorCode}"));
+            return MatchStartResult.Rejected;
         }
         finally {
             _isRequesting = false;
         }
+    }
+
+    // 409의 두 사유는 후속 처리가 갈린다. code가 실려 오지 않으면 OutOfSync로 흘린다 —
+    // 재조회는 헛돌아도 해가 없지만, 반대로 흘리면 살릴 수 있는 경로를 막다른 길로 안내하게 된다
+    private MatchStartResult ClassifyMatchStartConflict(string body) {
+        string code = ReadErrorCode(body);
+        if (code == ERR_ALREADY_IN_MATCH) {
+            Managers.ExecuteAtMainThread(() => Util.LogWarning("[매칭] 이미 진행 중인 매치가 있습니다."));
+            return MatchStartResult.AlreadyInMatch;
+        }
+        return MatchStartResult.OutOfSync;
+    }
+
+    // 400 하위 여섯은 전부 클라 버그라 갈래를 나누지 않는다 — 로드아웃 비움·무기 장착은
+    // LobbyScene이 선제로 막고, 나머지도 사용자가 할 수 있는 일이 같다
+    private MatchStartResult ClassifyMatchStartBadRequest(string body) {
+        string code = ReadErrorCode(body);
+        Managers.ExecuteAtMainThread(() => Util.LogError($"[매칭] 요청이 거부되었습니다. code={code}"));
+        return MatchStartResult.Rejected;
     }
 
     public async Task<bool> CancelMatchCall(CancellationToken cancelToken = default) {
