@@ -81,6 +81,10 @@
 - **`UI_Warehouse`는 `Inventory`와 `Shop`이 공유한다** — '한 상태에 한 패널'을 전제로 정리하지 말 것
 - **`ShowLobby()`는 본문이 비어 있고 호출부가 없다** — `BackToLobbyMain()`이 Main 진입을 맡는다. 이름만 보고 부르면 아무 일도 일어나지 않는다
 
+### 구매 대상 슬롯 (`FindEmptyPurchaseSlotIndex`)
+
+- **구매가 들어갈 자리는 창고(0~79)뿐이다 — 인벤토리에 빈 칸이 있어도 후보가 아니다.** 서버가 그 밖의 인덱스를 `ERR_INVALID_SLOT`으로 거부하므로, 인벤토리 폴백을 되살리면 창고 만재 시 구매가 400으로 조용히 실패한다(스냅샷은 그대로 0~107 전체를 싣는다 — 제한은 대상 슬롯에만 걸린다)
+
 ## IngameScene 스폰 흐름
 
 1. `RequestSpawnMe()` → `C2DRequestSpawnMe`

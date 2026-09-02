@@ -548,16 +548,34 @@ public class HTTPManager {
         }
     }
 
-    public async Task<bool> PostPurchaseCall(
+    // 구매 결과. 실패를 넷으로 나누는 이유는 후속 처리가 다르기 때문이다 —
+    // NotEnoughMoney만 사용자가 할 수 있는 일이 있고(수량을 줄이거나 돈을 번다),
+    // OutOfSync·Rejected는 로컬 인벤토리가 낡았을 수 있어 재조회가 답이며,
+    // Unreachable은 서버에 닿지도 못한 것이라 재조회해도 같은 이유로 실패한다.
+    // Busy는 요청이 나가지도 않은 것이라 호출자가 아무것도 알리지 않는다
+    public enum PurchaseResult {
+        Success,
+        NotEnoughMoney,
+        OutOfSync,
+        Rejected,
+        Unreachable,
+        Busy,
+    }
+
+    private const int HTTP_BAD_REQUEST = 400;
+    private const int HTTP_PAYMENT_REQUIRED = 402;
+    private const string ERR_SLOT_OCCUPIED = "ERR_SLOT_OCCUPIED";
+
+    public async Task<PurchaseResult> PostPurchaseCall(
         int itemId, int slotIndex, int quantity,
         InventoryItem[] inventorySnapshot,
         CancellationToken cancelToken = default)
     {
-        if (_isRequesting) return false;
-        if (IsMatching) return false;
+        if (_isRequesting) return PurchaseResult.Busy;
+        if (IsMatching) return PurchaseResult.Busy;
         if (AuthState == LoginState.None) {
             Managers.ExecuteAtMainThread(() => Util.LogWarning("로그인이 필요한 기능입니다."));
-            return false;
+            return PurchaseResult.Busy;
         }
 
         _isRequesting = true;
@@ -569,21 +587,56 @@ public class HTTPManager {
                 inventory  = inventorySnapshot,
             };
             string jsonString = JsonUtility.ToJson(reqData);
-            string responseText = await SendRequestAsync(
+            HttpCallResult call = await SendRequestWithStatusAsync(
                 HttpMethod.Post, _purchaseUrl, jsonString, true, cancelToken);
-            if (responseText == null) return false;
+            if (!call.HasResponse) return PurchaseResult.Unreachable;
 
-            PurchaseResponse resData = JsonUtility.FromJson<PurchaseResponse>(responseText);
+            // 본문을 파싱하기 전에 상태 코드로 가른다 — 실패 응답의 본문 형식이 명세에 없어
+            // 비어 오거나 JSON이 아닐 수 있다 (로그인 409와 같은 이유)
+            if (call.StatusCode == HTTP_PAYMENT_REQUIRED) return PurchaseResult.NotEnoughMoney;
+            if (call.StatusCode == HTTP_CONFLICT) return PurchaseResult.OutOfSync;
+            if (call.StatusCode == HTTP_BAD_REQUEST) return ClassifyPurchaseBadRequest(call.Body);
+            if (string.IsNullOrEmpty(call.Body) || !call.Body.Trim().StartsWith("{")) {
+                Managers.ExecuteAtMainThread(() => Util.LogError("[구매] 서버 응답이 JSON 형식이 아닙니다."));
+                return PurchaseResult.Rejected;
+            }
+
+            PurchaseResponse resData = JsonUtility.FromJson<PurchaseResponse>(call.Body);
             if (resData != null && resData.success) {
                 Money     = resData.data.money;
                 Inventory = resData.data.inventory;
-                return true;
+                return PurchaseResult.Success;
             }
-            return false;
+
+            // 실패를 200으로 감싸 보내는 응답도 있으므로 본문의 code로 한 번 더 가려낸다 (로그인과 같은 이유)
+            if (resData != null) {
+                if (resData.code == HTTP_PAYMENT_REQUIRED) return PurchaseResult.NotEnoughMoney;
+                if (resData.code == HTTP_CONFLICT) return PurchaseResult.OutOfSync;
+                if (resData.code == HTTP_BAD_REQUEST) return ClassifyPurchaseBadRequest(call.Body);
+            }
+
+            string errorCode = resData?.error?.code;
+            Managers.ExecuteAtMainThread(() => Util.LogError($"[구매] 서버가 실패 응답을 보냈습니다. code={errorCode}"));
+            return PurchaseResult.Rejected;
         }
         finally {
             _isRequesting = false;
         }
+    }
+
+    // 400 하위 사유 중 ERR_SLOT_OCCUPIED만 갈라낸다 — 로컬 창고 상태가 서버와 어긋났다는 뜻이라
+    // 재조회가 답이고, 나머지 넷은 전부 클라 버그라 사용자가 할 수 있는 일이 같다.
+    // error.code가 실려 오지 않으면 Rejected로 흘린다(로그에 code=이 비어 드러난다)
+    private PurchaseResult ClassifyPurchaseBadRequest(string body) {
+        string code = null;
+        if (!string.IsNullOrEmpty(body) && body.Trim().StartsWith("{")) {
+            BaseResponse res = JsonUtility.FromJson<BaseResponse>(body);
+            code = res?.error?.code;
+        }
+        if (code == ERR_SLOT_OCCUPIED) return PurchaseResult.OutOfSync;
+
+        Managers.ExecuteAtMainThread(() => Util.LogError($"[구매] 요청이 거부되었습니다. code={code}"));
+        return PurchaseResult.Rejected;
     }
 
     // ---------- Match Calls (Start Match, Check Status, Cancel Match, Connect) ----------

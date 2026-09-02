@@ -171,10 +171,11 @@ public class UI_Shop : UI_Scene {
     }
 
     // 수량 ± 버튼에는 소리를 넣지 않는다(확정) — 연타 대상이라 클릭음이 그대로 소음이 된다.
-    // 아래 버튼들은 전부 조기 return 가드 뒤에서 낸다 — 앞에 두면 아무 일도 안 하는 클릭이 소리만 낸다
+    // 탭 버튼들은 조기 return 가드 뒤에서 낸다 — 앞에 두면 아무 일도 안 하는 클릭이 소리만 낸다.
+    // 구매 버튼은 어느 갈래로 가도 팝업이 뜨므로(공간 부족 안내 / 구매 재확인) 아예 내지 않는다 —
+    // 내면 팝업의 확인음과 겹쳐 두 번 울린다
     private void OnBuyBtnClick() {
         if (_selectedItemId == -1) return;
-        Managers.Sound.PlayUISubmit();
         _scene.TryPurchase(_selectedItemId, _quantity);
     }
 

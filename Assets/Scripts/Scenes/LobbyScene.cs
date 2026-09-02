@@ -1,6 +1,7 @@
 using System;
 using System.Collections.Generic;
 using System.Threading;
+using System.Threading.Tasks;
 using UnityEngine;
 using UnityEngine.Diagnostics;
 using UnityEngine.InputSystem;
@@ -256,27 +257,7 @@ public class LobbyScene : BaseScene {
         _headerUI.ApplyHeaderState(hState);
         Managers.UI.ShowSceneUI<UI_MapSelect>();
 
-        Array.Clear(_inventorySlots, 0, _inventorySlots.Length);
-        Array.Clear(_warehouseSlots, 0, _warehouseSlots.Length);
-        InventoryItem[] items = Managers.Network.httpManager.Inventory;
-        if (items != null) {
-            foreach (var item in items) {
-                if (item.slot_index < 0) continue;
-
-                if (item.slot_index < WAREHOUSE_SLOT_COUNT) {
-                    _warehouseSlots[item.slot_index] = item;
-                } else {
-                    int invIndex = item.slot_index - WAREHOUSE_SLOT_COUNT;
-                    if (invIndex < INVENTORY_SLOT_COUNT) {
-                        _inventorySlots[invIndex] = item;
-                    } else {
-                        int loadoutIndex = invIndex - INVENTORY_SLOT_COUNT;
-                        if (loadoutIndex < LOADOUT_SLOT_COUNT)
-                            _loadoutSlots[loadoutIndex] = item;
-                    }
-                }
-            }
-        }
+        RebuildSlotsFromInventory();
 
         _shopUI.Refresh();
     }
@@ -510,55 +491,116 @@ public class LobbyScene : BaseScene {
         _characterSelectUI.Refresh();
     }
 
-    public async void TryPurchase(int itemId, int quantity) {
+    // 공간 검사가 확인 팝업보다 앞이어야 한다 — 확인 콜백이 도는 동안에는 isActive가 아직 true라
+    // 거기서 띄우는 팝업은 조용히 무시된다
+    public void TryPurchase(int itemId, int quantity) {
+        if (FindEmptyPurchaseSlotIndex() < 0) {
+            _lobbyReconfirmUI.ActiveOnlyConfirm("창고에 여유 공간이 없습니다.");
+            return;
+        }
+
+        _lobbyReconfirmUI.ActiveConfirmOrCancel(
+            $"{ItemDBHelper.GetName(itemId)} {quantity}개를\n구매하시겠습니까?",
+            () => ExecutePurchase(itemId, quantity));
+    }
+
+    // 슬롯과 스냅샷은 팝업이 닫힌 이 시점에 다시 만든다 — 사이에 사용자 대기 구간이 있어
+    // 진입점에서 잡은 값은 낡을 수 있다
+    private async void ExecutePurchase(int itemId, int quantity) {
         int slotIndex = FindEmptyPurchaseSlotIndex();
         if (slotIndex < 0) {
-            Util.LogWarning("창고와 인벤토리가 모두 가득 찼습니다.");
+            Util.LogWarning("창고에 여유 공간이 없습니다.");
             return;
         }
         InventoryItem[] snapshot = BuildInventorySnapshot();
-        bool isSuccess = await Managers.Network.httpManager.PostPurchaseCall(
+        HTTPManager.PurchaseResult result = await Managers.Network.httpManager.PostPurchaseCall(
             itemId, slotIndex, quantity, snapshot, _cts.Token);
-        if (isSuccess)
-            OnPurchaseComplete();
+
+        switch (result) {
+            case HTTPManager.PurchaseResult.Success:
+                OnPurchaseComplete();
+                break;
+
+            // 서버가 아무것도 바꾸지 않았고 내 스냅샷도 여전히 유효하므로 재조회하지 않는다
+            case HTTPManager.PurchaseResult.NotEnoughMoney:
+                _lobbyReconfirmUI.ActiveOnlyConfirm("잔액이 부족합니다.");
+                break;
+
+            // 재조회를 끝낸 뒤에 안내한다 — 먼저 띄우면 갱신되었다는 안내가 갱신 전에 뜬다
+            case HTTPManager.PurchaseResult.OutOfSync:
+                await ResyncInventory();
+                _lobbyReconfirmUI.ActiveOnlyConfirm("인벤토리 정보가 갱신되었습니다.\n다시 시도해주세요.");
+                break;
+
+            case HTTPManager.PurchaseResult.Rejected:
+                await ResyncInventory();
+                _lobbyReconfirmUI.ActiveOnlyConfirm("구매에 실패했습니다.");
+                break;
+
+            // 서버에 닿지도 못한 것이라 재조회해도 같은 이유로 실패한다
+            case HTTPManager.PurchaseResult.Unreachable:
+                _lobbyReconfirmUI.ActiveOnlyConfirm("서버와 통신할 수 없습니다.");
+                break;
+
+            // Busy는 요청이 나가지도 않은 것이라 알리지 않는다
+        }
+    }
+
+    // 재조회가 실패해도 호출자의 안내는 예정대로 나간다 — 구매가 실패했다는 사실은 달라지지 않는다
+    private async Task ResyncInventory() {
+        bool isSuccess = await Managers.Network.httpManager.GetInventoryCall(_cts.Token);
+        if (isSuccess == false) {
+            Util.LogWarning("인벤토리 재조회에 실패했습니다.");
+            return;
+        }
+
+        RebuildSlotsFromInventory();
+        _warehouseUI.Refresh();
+        _inventoryUI.Refresh();
     }
 
     private void OnPurchaseComplete() {
-        Array.Clear(_inventorySlots, 0, _inventorySlots.Length);
-        Array.Clear(_warehouseSlots, 0, _warehouseSlots.Length);
-        Array.Clear(_loadoutSlots,   0, _loadoutSlots.Length);
-        InventoryItem[] items = Managers.Network.httpManager.Inventory;
-        if (items != null) {
-            foreach (var item in items) {
-                if (item.slot_index < 0) continue;
-                if (item.slot_index < WAREHOUSE_SLOT_COUNT)
-                    _warehouseSlots[item.slot_index] = item;
-                else {
-                    int invIndex = item.slot_index - WAREHOUSE_SLOT_COUNT;
-                    if (invIndex < INVENTORY_SLOT_COUNT)
-                        _inventorySlots[invIndex] = item;
-                    else {
-                        int loadoutIndex = invIndex - INVENTORY_SLOT_COUNT;
-                        if (loadoutIndex < LOADOUT_SLOT_COUNT)
-                            _loadoutSlots[loadoutIndex] = item;
-                    }
-                }
-            }
-        }
+        RebuildSlotsFromInventory();
 
         _shopUI.Refresh();
         _warehouseUI.Refresh();
         _inventoryUI.Refresh();
     }
 
+    // HTTPManager.Inventory(0~107 평면 목록)를 창고·인벤토리·로드아웃 세 배열로 되돌린다.
+    // 소비자가 셋(로그인 완료·구매 완료·재조회)이라 한 곳에 둔다 — 흩으면 슬롯 경계 계산이 갈린다
+    private void RebuildSlotsFromInventory() {
+        Array.Clear(_inventorySlots, 0, _inventorySlots.Length);
+        Array.Clear(_warehouseSlots, 0, _warehouseSlots.Length);
+        Array.Clear(_loadoutSlots,   0, _loadoutSlots.Length);
+
+        InventoryItem[] items = Managers.Network.httpManager.Inventory;
+        if (items == null) return;
+
+        foreach (var item in items) {
+            if (item.slot_index < 0) continue;
+
+            if (item.slot_index < WAREHOUSE_SLOT_COUNT) {
+                _warehouseSlots[item.slot_index] = item;
+            } else {
+                int invIndex = item.slot_index - WAREHOUSE_SLOT_COUNT;
+                if (invIndex < INVENTORY_SLOT_COUNT) {
+                    _inventorySlots[invIndex] = item;
+                } else {
+                    int loadoutIndex = invIndex - INVENTORY_SLOT_COUNT;
+                    if (loadoutIndex < LOADOUT_SLOT_COUNT)
+                        _loadoutSlots[loadoutIndex] = item;
+                }
+            }
+        }
+    }
+
+    // 구매 대상 슬롯은 창고(0~79)뿐이다 — 서버가 그 밖의 인덱스를 ERR_INVALID_SLOT으로 거부하므로
+    // 인벤토리에 빈 칸이 있어도 후보가 아니다
     private int FindEmptyPurchaseSlotIndex() {
         for (int i = 0; i < WAREHOUSE_SLOT_COUNT; i++) {
             if (_warehouseSlots[i] == null)
                 return i;
-        }
-        for (int i = 0; i < INVENTORY_SLOT_COUNT; i++) {
-            if (_inventorySlots[i] == null)
-                return WAREHOUSE_SLOT_COUNT + i;
         }
         return -1;
     }

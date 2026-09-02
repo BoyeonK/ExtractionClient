@@ -23,6 +23,7 @@ GameObjectController (MonoBehaviour)
   - **표시 거리 2m는 서버 허용 거리 3m와 짝이다**(`PlayerController.CheckInteractable`). 서버가 조작 시점 좌표로 매번 검사하므로 **2m보다 넓히려면 서버에 먼저 알릴 것** — 서버 쪽이 좁으면 열 수 있다고 보여준 컨테이너가 `DENY_OUT_OF_RANGE`로 거부된다
 - **`RecallSpotController`**: `_onInteract`에 `RequestRecall` 구독. 서버 스폰 대상이 아니라 **맵 씬에 직접 배치**하고 `[SerializeField] _recallSpotIndex`로 귀환 영역 테이블 인덱스를 준다. `_objectId`는 쓰지 않는다
   - 상호작용 판정이 `hit.collider.transform.position` 기준 2m 고정이라(`PlayerController.CheckInteractable`) 스팟은 **작은 프롭**이어야 한다. 넓은 트리거 존은 조준·거리 판정이 성립하지 않는다
+  - **`_recallSpotIndex`는 서버의 귀환 영역 테이블과 손으로 맞추는 값이다.** 어긋나면 상호작용도 승인도 되는데 서버가 `OUT_OF_ZONE`으로 취소해 **카운트다운이 떴다가 안내 없이 사라진다** — 이 증상이 나오면 지형이나 스팟 위치가 아니라 인덱스부터 볼 것
   - 중복 요청 차단은 스팟이 아니라 `IngameScene._recallRequested`가 한다 — 스팟별로 두면 다른 스팟에서 재요청된다
 
 ### 컨테이너 파생 클래스
