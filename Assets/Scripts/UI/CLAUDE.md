@@ -27,7 +27,9 @@ UI_Base (abstract)
   - **네 프리팹이 같은 값을 써야 한다** — 갈리면 전리품 아이콘만 인벤토리와 다른 밝기로 보인다
   - **스프라이트를 못 찾아도 `sprite`에 대입한다** — 안 그러면 **직전 아이템의 아이콘이 새 아이템의 수량과 함께 남는다.** 스프라이트 없는 `Image`는 흰 사각형으로 그려지므로 그때는 `enabled`를 꺼서 누락을 드러낸다(`IngameWeaponUI`와 같은 규칙)
 - **인벤토리 데이터 소유**: `LobbyScene`이 `_inventorySlots`, `_loadoutSlots`, `_warehouseSlots` 배열 소유. UI는 뷰 역할만 — `SetItemAtSlot()`이 scene setter + Refresh 담당. `SyncSlot` 없음
-- **Shift+클릭 분할**: `LobbyScene.OnSlotClick()` — 수량을 절반으로 나눠 `FirstEmptySlot`에 배치. 인벤토리/창고 각각 독립 처리
+- **`LobbyScene.OnSlotClick(slot, button)`은 Shift 조합 둘을 가른다** — **좌**클릭은 수량 절반 분할(`FirstEmptySlot`에 배치, 인벤토리/창고 각각 독립), **우**클릭은 판매다. **버튼을 보지 않으면 우클릭이 분할로 처리된다**(`IPointerClickHandler`가 우클릭에도 발화한다)
+  - **`LSlot` 제외는 좌·우 공통이고 이유가 다르다** — 분할은 무기·방어구가 스택되지 않아서(`CanMerge`), 판매는 매치 시작 요청과 로드아웃을 두고 경합해 서버 트랜잭션이 필요해지기 때문이다. 한쪽 이유가 사라져도 다른 쪽이 남으므로 가드를 갈래 안으로 내리지 말 것
+  - **판매 슬롯 인덱스 변환은 `BuildInventorySnapshot()`과 같은 식이어야 한다**(창고 `i`, 인벤토리 `80+i`) — 갈리면 서버가 다른 슬롯을 지운다
 
 ## 인증 입력 검사 (`UI_Login` / `UI_Register`)
 
@@ -49,14 +51,16 @@ UI_Base (abstract)
 - **`Hide()`처럼 코드가 부르는 경로가 있는 함수 안에 넣지 말 것** — `IngameSettingUI.Hide()`는 `BeginMatchExit()`도 부르므로 죽거나 귀환할 때마다 UI음이 난다. 버튼 등록 지점에서 낸다. `ChangeTab()`도 같은 이유로 `Init()`에서 불린다
 - **씬을 바꾸는 `ui_submit`은 소리가 잘린다** — `Managers.Clear()`가 `SoundManager.Clear()`로 모든 소스를 `Stop()`한다. 매치 시작·로비 복귀·로그아웃이 해당하며 코드로 막을 방법이 마땅치 않다
 
-**`inventory_change`는 자리가 둘로 갈린다 — 판정 주체가 다르기 때문이다.**
+**`inventory_change`는 자리가 갈린다 — 기준은 화면이 아니라 판정 주체다.**
 
 | | 판정 | 소리를 내는 곳 |
 |---|---|---|
-| 로비 (`ISlot.OnDrop`, `LobbyScene.OnSlotClick`) | 로컬 | 조작 지점 그대로 |
+| 로비 슬롯 조작 (`ISlot.OnDrop`, `OnSlotClick`의 **좌**클릭 분할) | 로컬 | 조작 지점 그대로 |
+| 로비 매매 (구매, `OnSlotClick`의 **우**클릭 판매) | **서버** | `OnTradeComplete()` |
 | 인게임 (`IngameISlot.OnDrop`) | **서버** | `ApplyInteractContainerObject` / `ApplyEquipItem` |
 
-- **인게임은 요청 지점에서 내지 말 것** — 거부된 조작이 성공한 것처럼 들린다
+- **같은 함수 안에서 좌·우가 다른 자리를 쓰는 것은 의도다** — 분할은 서버를 거치지 않고 매매는 거친다. "로비니까 조작 지점"으로 묶지 말 것
+- **인게임과 매매는 요청 지점에서 내지 말 것** — 거부된 조작이 성공한 것처럼 들린다
 - **`ApplyFullSync`에는 붙이지 말 것** — 조작이 아니라 동기화라 재장전 응답·재동기화마다 소리가 난다
 
 ## 씬 내장 UI (`IngameSceneUI/`)

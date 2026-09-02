@@ -130,3 +130,14 @@ public class PurchaseData {
 public class PurchaseResponse : BaseResponse {
     public PurchaseData data;
 }
+
+[Serializable]
+public class SellData {
+    public int money;
+    public InventoryItem[] inventory;
+}
+
+[Serializable]
+public class SellResponse : BaseResponse {
+    public SellData data;
+}

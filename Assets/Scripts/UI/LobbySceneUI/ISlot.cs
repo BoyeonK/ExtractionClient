@@ -81,8 +81,10 @@ public class ISlot : MonoBehaviour {
         _scene.EndDrag();
     }
 
+    // 버튼을 그대로 넘긴다 — IPointerClickHandler는 우클릭에도 발화하므로, 씬이 버튼을 보지 않으면
+    // Shift+우클릭(판매)이 Shift+좌클릭(분할)과 같은 조작으로 처리된다
     private void OnClick(PointerEventData eventData) {
-        _scene.OnSlotClick(this);
+        _scene.OnSlotClick(this, eventData.button);
     }
 
     public virtual bool CanAcceptItem(InventoryItem item) => true;

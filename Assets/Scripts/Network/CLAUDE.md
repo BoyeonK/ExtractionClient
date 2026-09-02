@@ -75,6 +75,20 @@
 - **재조회 후에 안내한다** — 순서를 뒤집으면 "갱신되었습니다"가 갱신 전에 뜬다. 재조회가 실패해도 안내는 예정대로 낸다(구매가 실패했다는 사실은 달라지지 않는다)
 - `error.code`가 실려 오지 않으면 `Rejected`로 흘린다. **가정하고 분기를 늘리지 말 것** — 본문 스키마가 아직 서버에 확인되지 않았다
 
+### 판매 실패 구분 (`SellResult`)
+
+`PostSellCall`의 반환은 5상태다. **`PurchaseResult`를 재사용하지 말 것** — 대금을 받는 쪽이라 402가 없어 도달 불가능한 `NotEnoughMoney`가 남고, 판매 전용 사유가 생길 때 구매 쪽이 오염된다.
+
+| 상태 | 출처 |
+|---|---|
+| `OutOfSync` | 409, 400/`ERR_SLOT_EMPTY`, 400/`ERR_ITEM_MISMATCH` |
+| `Rejected` | 400/`ERR_BAD_REQUEST`, 400/`ERR_DUPLICATE_SLOT`, 그 외 |
+
+호출자 처리·판정 순서·`error.code` 없을 때의 처리는 전부 위 `PurchaseResult`와 같다.
+
+- **`item_id`·`quantity`는 판매 지시가 아니라 서버가 스냅샷의 해당 슬롯과 대조하는 검사값이다.** `quantity`는 판매 수량이 아니라 **그 슬롯 스택 전체 수량에 대한 주장**이라 정확히 일치해야 하고, 어긋나면 `ERR_ITEM_MISMATCH`다 — **수량 선택 UI를 만들면 안 된다**(부분 판매는 클라가 스택을 먼저 나눈 스냅샷으로 표현한다)
+- **호출자는 스냅샷을 만든 뒤 그것이 확정한 값을 넘길 것** — 따로 읽으면 어긋난다
+
 ## UDP (`UDPManager`)
 - 전용 백그라운드 워커 스레드(`UDP_Network_Thread`) — 수신 + 송신 큐 소진
 - `Poll(1ms)` 기반 루프, 수신 데이터는 모두 `Managers.ExecuteAtMainThread`로 메인 스레드 전달

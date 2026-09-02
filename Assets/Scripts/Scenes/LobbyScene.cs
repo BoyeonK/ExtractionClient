@@ -4,6 +4,7 @@ using System.Threading;
 using System.Threading.Tasks;
 using UnityEngine;
 using UnityEngine.Diagnostics;
+using UnityEngine.EventSystems;
 using UnityEngine.InputSystem;
 using UnityEngine.UI;
 
@@ -518,7 +519,7 @@ public class LobbyScene : BaseScene {
 
         switch (result) {
             case HTTPManager.PurchaseResult.Success:
-                OnPurchaseComplete();
+                OnTradeComplete();
                 break;
 
             // 서버가 아무것도 바꾸지 않았고 내 스냅샷도 여전히 유효하므로 재조회하지 않는다
@@ -559,12 +560,85 @@ public class LobbyScene : BaseScene {
         _inventoryUI.Refresh();
     }
 
-    private void OnPurchaseComplete() {
+    // LSlot은 OnSlotClick에서 이미 걸러지므로 대상은 창고·인벤토리 슬롯뿐이다.
+    // 팝업이 뜬 뒤 슬롯 내용이 바뀔 수 있어 item_id를 함께 넘겨 전송 직전에 대조한다 —
+    // 안 하면 팝업이 말한 것과 다른 물건이 팔린다
+    private void TrySell(ISlot slot) {
+        if (_lobbyState != LobbyState.Lobby) return;
+
+        InventoryItem item = slot.GetItem();
+        if (item == null) return;
+
+        int slotIndex = ToServerSlotIndex(slot);
+        if (slotIndex < 0) return;
+
+        int itemId = item.item_id;
+        _lobbyReconfirmUI.ActiveConfirmOrCancel(
+            $"{ItemDBHelper.GetName(itemId)} {item.quantity}개를\n판매하시겠습니까?",
+            () => ExecuteSell(slotIndex, itemId));
+    }
+
+    // 변환식은 BuildInventorySnapshot()과 같아야 한다 — 갈리면 서버가 다른 슬롯을 지운다
+    private int ToServerSlotIndex(ISlot slot) {
+        UI_Scene ui = slot.GetComponentInParent<UI_Scene>();
+        if (ui is UI_Warehouse) return slot.SlotIndex;
+        if (ui is UI_Inventory) return WAREHOUSE_SLOT_COUNT + slot.SlotIndex;
+        return -1;
+    }
+
+    // item_id·quantity는 판매 지시가 아니라 서버가 스냅샷과 대조하는 검사값이라,
+    // 스냅샷을 만든 뒤 그것이 확정한 값에서 읽는다 — 따로 읽으면 어긋나 ERR_ITEM_MISMATCH가 된다
+    private async void ExecuteSell(int slotIndex, int expectedItemId) {
+        InventoryItem[] snapshot = BuildInventorySnapshot();
+
+        InventoryItem target = null;
+        foreach (var item in snapshot) {
+            if (item.slot_index != slotIndex) continue;
+            target = item;
+            break;
+        }
+        if (target == null || target.item_id != expectedItemId) {
+            Util.LogWarning("판매하려던 아이템이 슬롯에 없습니다.");
+            return;
+        }
+
+        HTTPManager.SellResult result = await Managers.Network.httpManager.PostSellCall(
+            target.item_id, slotIndex, target.quantity, snapshot, _cts.Token);
+
+        switch (result) {
+            case HTTPManager.SellResult.Success:
+                OnTradeComplete();
+                break;
+
+            // 재조회를 끝낸 뒤에 안내한다 — 먼저 띄우면 갱신되었다는 안내가 갱신 전에 뜬다
+            case HTTPManager.SellResult.OutOfSync:
+                await ResyncInventory();
+                _lobbyReconfirmUI.ActiveOnlyConfirm("인벤토리 정보가 갱신되었습니다.\n다시 시도해주세요.");
+                break;
+
+            case HTTPManager.SellResult.Rejected:
+                await ResyncInventory();
+                _lobbyReconfirmUI.ActiveOnlyConfirm("판매에 실패했습니다.");
+                break;
+
+            // 서버에 닿지도 못한 것이라 재조회해도 같은 이유로 실패한다
+            case HTTPManager.SellResult.Unreachable:
+                _lobbyReconfirmUI.ActiveOnlyConfirm("서버와 통신할 수 없습니다.");
+                break;
+
+            // Busy는 요청이 나가지도 않은 것이라 알리지 않는다
+        }
+    }
+
+    // 매매는 서버가 판정하므로 소리도 요청 지점이 아니라 여기서 낸다(인게임 조작과 같은 규칙) —
+    // 로컬 판정인 슬롯 드래그·분할이 조작 지점에서 내는 것과 갈리는 자리다
+    private void OnTradeComplete() {
         RebuildSlotsFromInventory();
 
         _shopUI.Refresh();
         _warehouseUI.Refresh();
         _inventoryUI.Refresh();
+        Managers.Sound.PlayInventoryChange();
     }
 
     // HTTPManager.Inventory(0~107 평면 목록)를 창고·인벤토리·로드아웃 세 배열로 되돌린다.
@@ -806,9 +880,17 @@ public class LobbyScene : BaseScene {
         }
     }
 
-    public void OnSlotClick(ISlot slot) {
+    // LSlot 제외는 좌·우 공통이다 — 분할은 무기·방어구가 스택되지 않아서고(CanMerge),
+    // 판매는 매치 시작 요청과 로드아웃을 두고 경합해 서버 트랜잭션이 필요해지기 때문이다
+    public void OnSlotClick(ISlot slot, PointerEventData.InputButton button) {
         if (!IsShiftPressed) return;
         if (slot is LSlot) return;
+
+        if (button == PointerEventData.InputButton.Right) {
+            TrySell(slot);
+            return;
+        }
+        if (button != PointerEventData.InputButton.Left) return;
 
         InventoryItem item = slot.GetItem();
         if (item == null || item.quantity < 2) return;

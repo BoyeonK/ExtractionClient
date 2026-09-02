@@ -55,6 +55,7 @@ public class HTTPManager {
     private const string _sessionResumeUrl = "api/session/resume";
     private const string _inventoryUrl = "api/items/inventory";
     private const string _purchaseUrl = "api/items/purchase";
+    private const string _sellUrl = "api/items/sell";
 
     private const string _matchStartUrl = "api/game/match/start";
     private const string _matchStatusUrl = "api/game/match/status";
@@ -628,15 +629,98 @@ public class HTTPManager {
     // 재조회가 답이고, 나머지 넷은 전부 클라 버그라 사용자가 할 수 있는 일이 같다.
     // error.code가 실려 오지 않으면 Rejected로 흘린다(로그에 code=이 비어 드러난다)
     private PurchaseResult ClassifyPurchaseBadRequest(string body) {
-        string code = null;
-        if (!string.IsNullOrEmpty(body) && body.Trim().StartsWith("{")) {
-            BaseResponse res = JsonUtility.FromJson<BaseResponse>(body);
-            code = res?.error?.code;
-        }
+        string code = ReadErrorCode(body);
         if (code == ERR_SLOT_OCCUPIED) return PurchaseResult.OutOfSync;
 
         Managers.ExecuteAtMainThread(() => Util.LogError($"[구매] 요청이 거부되었습니다. code={code}"));
         return PurchaseResult.Rejected;
+    }
+
+    // 판매 결과. 구매와 갈래가 같지 않아 PurchaseResult를 재사용하지 않는다 —
+    // 대금을 받는 쪽이라 402가 없고, 그대로 쓰면 도달 불가능한 NotEnoughMoney가 남는다
+    public enum SellResult {
+        Success,
+        OutOfSync,
+        Rejected,
+        Unreachable,
+        Busy,
+    }
+
+    private const string ERR_SLOT_EMPTY = "ERR_SLOT_EMPTY";
+    private const string ERR_ITEM_MISMATCH = "ERR_ITEM_MISMATCH";
+
+    // itemId·quantity는 판매 지시가 아니라 서버가 스냅샷의 해당 슬롯과 대조하는 검사값이다.
+    // 호출자는 스냅샷을 만든 뒤 그 스냅샷이 확정한 값을 넘겨야 한다 — 따로 읽으면 ERR_ITEM_MISMATCH가 된다
+    public async Task<SellResult> PostSellCall(
+        int itemId, int slotIndex, int quantity,
+        InventoryItem[] inventorySnapshot,
+        CancellationToken cancelToken = default)
+    {
+        if (_isRequesting) return SellResult.Busy;
+        if (IsMatching) return SellResult.Busy;
+        if (AuthState == LoginState.None) {
+            Managers.ExecuteAtMainThread(() => Util.LogWarning("로그인이 필요한 기능입니다."));
+            return SellResult.Busy;
+        }
+
+        _isRequesting = true;
+        try {
+            SellRequest reqData = new SellRequest {
+                item_id    = itemId,
+                slot_index = slotIndex,
+                quantity   = quantity,
+                inventory  = inventorySnapshot,
+            };
+            string jsonString = JsonUtility.ToJson(reqData);
+            HttpCallResult call = await SendRequestWithStatusAsync(
+                HttpMethod.Post, _sellUrl, jsonString, true, cancelToken);
+            if (!call.HasResponse) return SellResult.Unreachable;
+
+            // 구매와 같은 이유로 상태 코드 판정이 본문 파싱보다 앞이다
+            if (call.StatusCode == HTTP_CONFLICT) return SellResult.OutOfSync;
+            if (call.StatusCode == HTTP_BAD_REQUEST) return ClassifySellBadRequest(call.Body);
+            if (string.IsNullOrEmpty(call.Body) || !call.Body.Trim().StartsWith("{")) {
+                Managers.ExecuteAtMainThread(() => Util.LogError("[판매] 서버 응답이 JSON 형식이 아닙니다."));
+                return SellResult.Rejected;
+            }
+
+            SellResponse resData = JsonUtility.FromJson<SellResponse>(call.Body);
+            if (resData != null && resData.success) {
+                Money     = resData.data.money;
+                Inventory = resData.data.inventory;
+                return SellResult.Success;
+            }
+
+            if (resData != null) {
+                if (resData.code == HTTP_CONFLICT) return SellResult.OutOfSync;
+                if (resData.code == HTTP_BAD_REQUEST) return ClassifySellBadRequest(call.Body);
+            }
+
+            string errorCode = resData?.error?.code;
+            Managers.ExecuteAtMainThread(() => Util.LogError($"[판매] 서버가 실패 응답을 보냈습니다. code={errorCode}"));
+            return SellResult.Rejected;
+        }
+        finally {
+            _isRequesting = false;
+        }
+    }
+
+    // 판매는 구매와 달리 400 하위에서 두 종을 갈라낸다 — 둘 다 '내 스냅샷이 서버와 다르다'는 뜻이라
+    // 재조회가 답이고, 나머지 둘(형식 오류·슬롯 중복)은 클라 버그다
+    private SellResult ClassifySellBadRequest(string body) {
+        string code = ReadErrorCode(body);
+        if (code == ERR_SLOT_EMPTY || code == ERR_ITEM_MISMATCH) return SellResult.OutOfSync;
+
+        Managers.ExecuteAtMainThread(() => Util.LogError($"[판매] 요청이 거부되었습니다. code={code}"));
+        return SellResult.Rejected;
+    }
+
+    // 실패 응답의 본문 스키마가 명세에 없어 비어 오거나 JSON이 아닐 수 있다 — 없으면 null을 돌려주고
+    // 호출자가 '가르지 못함'으로 처리한다. 여기서 예외가 새면 응답 처리 전체가 함께 죽는다
+    private string ReadErrorCode(string body) {
+        if (string.IsNullOrEmpty(body) || !body.Trim().StartsWith("{")) return null;
+        BaseResponse res = JsonUtility.FromJson<BaseResponse>(body);
+        return res?.error?.code;
     }
 
     // ---------- Match Calls (Start Match, Check Status, Cancel Match, Connect) ----------
