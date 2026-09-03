@@ -211,6 +211,7 @@ LootContainerSlot                       ← Prefabs/UI/GameResultSceneUI/ (런�
 - `Prefabs/Scene/*`(4종), `Prefabs/TestLobbyScene/`, `Prefabs/TestPlayer`, `Prefabs/UI/LobbySceneUI/LobbySettingUIBackup`
 - `Prefabs/GameObject/BoundaryCollider`, `Prefabs/Scene/{TenerifeSceneContent, LobbySceneContent}/` — **씬에 직접 배치하는 프리팹이라 코드가 경로로 읽지 않는다**(`Define.ObjectPaths`에 없고 서버 스폰 대상도 아니다). 배치용 프리팹은 `Resources/` 밖에 둬도 동작에 차이가 없다
 - `Prefabs/GameObject/MapTopView.renderTexture` — 지도의 탑뷰 카메라가 그리고 `IngameMapViewUI` 프리팹의 `RawImage`가 **guid로 직접 참조**한다. 경로 로드가 아니므로 폴더를 옮겨도 깨지지 않는다(이 폴더는 원래 `Define.ObjectPaths`가 가리키는 월드 오브젝트 자리다)
+- `PlayerObject`의 `MapPoint/BluePoint` — 지도에만 보이는 위치 마커다. **`SoundPoint`·`ShotPoint`와 달리 코드가 이름으로 찾지 않는 순수 렌더 오브젝트**이고, 레이어(`ShownOnlyOnMap`)·콜라이더 없음·`Cast Shadows` 끔이 규격이다(근거는 `Scripts/UI/CLAUDE.md`). **`OppoPlayerObject`에는 두지 말 것** — 적 위치가 지도에 그대로 보인다
 - **`Sounds/`는 12종 전부 호출부가 있다** — 월드 3D(`SoundPoint`)는 `foot_step1~3`·`run_foot_step`·`gun_shot_1`·`m4_reload_{start,sequence1,complete}`, 2D는 `empty_gun_shot`·`ui_submit`·`ui_return`·`inventory_change`다
   - **클립 이름은 코드 한 곳에만 둔다** — 월드 쪽은 `GameObjectController.GetGunShotSound`/`GetReloadSound`, UI 쪽은 `SoundManager.PlayUISubmit`/`PlayUIReturn`/`PlayInventoryChange`다. **호출부에서 문자열을 조립하지 말 것**(UI음은 호출부가 40곳이 넘는다)
   - **클립을 못 찾아도 아무 소리 없이 넘어간다** — `SoundManager.Play()`가 null이면 그대로 return하고 `GetOrAddAudioClip()`은 **그 null을 딕셔너리에 캐시까지 한다.** 즉 파일명을 한 글자 틀리면 그 소리만 영구히 무음이고 로그도 남지 않는다. 위 '이름이 곧 계약인 자리'가 사운드에도 그대로 걸리며, 로드 실패가 `LogError`로 드러나는 프리팹 쪽과 여기가 다르다
