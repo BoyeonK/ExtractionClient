@@ -157,6 +157,7 @@ public class IngameScene : BaseScene {
     IngameEscapeCountdownUI _ingameEscapeCountdownUI;
     IngameTimeoutUI _ingameTimeoutUI;
     IngameEscUI _ingameEscUI;
+    IngameMapViewUI _ingameMapViewUI;
     IngameDamageIndicatorUI _ingameDamageIndicatorUI;
 
     protected override void Init() {
@@ -205,6 +206,9 @@ public class IngameScene : BaseScene {
         _ingameEscUI = BindSceneComponent<IngameEscUI>("IngameEscUI");
         if (_ingameEscUI != null) _ingameEscUI.Init(this);
 
+        _ingameMapViewUI = BindSceneComponent<IngameMapViewUI>("IngameMapViewUI");
+        if (_ingameMapViewUI != null) _ingameMapViewUI.Init(this);
+
         // 자식이 없으면 아무것도 그리지 않으므로 끄지 않는다(IngameTimeoutUI와 같다)
         _ingameDamageIndicatorUI = BindSceneComponent<IngameDamageIndicatorUI>("IngameDamageIndicatorUI");
         if (_ingameDamageIndicatorUI != null) _ingameDamageIndicatorUI.Init();
@@ -219,6 +223,7 @@ public class IngameScene : BaseScene {
         Managers.Input.AddKeyListener(Key.Digit1, SwitchToPrimaryWeapon, InputManager.KeyState.Down);
         Managers.Input.AddKeyListener(Key.Digit2, SwitchToSecondaryWeapon, InputManager.KeyState.Down);
         Managers.Input.AddKeyListener(Key.R, RequestReload, InputManager.KeyState.Down);
+        Managers.Input.AddKeyListener(Key.M, ToggleMapView, InputManager.KeyState.Down);
     }
 
     // Managers.Clear() → Scene.Clear() → 여기. 씬 전환 시 자동으로 불린다.
@@ -236,6 +241,7 @@ public class IngameScene : BaseScene {
         Managers.Input.RemoveKeyListener(Key.Digit1, SwitchToPrimaryWeapon, InputManager.KeyState.Down);
         Managers.Input.RemoveKeyListener(Key.Digit2, SwitchToSecondaryWeapon, InputManager.KeyState.Down);
         Managers.Input.RemoveKeyListener(Key.R, RequestReload, InputManager.KeyState.Down);
+        Managers.Input.RemoveKeyListener(Key.M, ToggleMapView, InputManager.KeyState.Down);
     }
 
     private void SwitchToPrimaryWeapon() => RequestSwitchWeapon(0);
@@ -816,12 +822,28 @@ public class IngameScene : BaseScene {
             CloseContainer();
             return;
         }
-        // 설정·ESC 창 위에 겹쳐 열지 않는다. ESC로 그것을 닫은 뒤가 순서다
+        // 설정·ESC 창·지도 위에 겹쳐 열지 않는다. ESC로 그것을 닫은 뒤가 순서다
         if (_ingameSettingUI != null && _ingameSettingUI.IsOpen) return;
         if (_ingameEscUI != null && _ingameEscUI.IsOpen) return;
+        if (_ingameMapViewUI != null && _ingameMapViewUI.IsOpen) return;
 
         if (_isInventoryOpen) CloseMyInventory();
         else ShowMyInventory();
+    }
+
+    // M 전용. 지도가 화면 대부분을 덮으므로 다른 창 위에 겹쳐 열지 않는다 —
+    // 자기 자신의 열림은 위에서 걸러지므로 IsAnyUIOpen이 남의 창만 보게 된다
+    public void ToggleMapView() {
+        if (IsInputLocked) return;
+        if (_ingameMapViewUI == null) return;
+
+        if (_ingameMapViewUI.IsOpen) {
+            _ingameMapViewUI.Hide();
+            return;
+        }
+        if (IsAnyUIOpen) return;
+
+        _ingameMapViewUI.Show();
     }
 
     // ESC는 항상 '가장 위에 있는 것'을 닫고, 닫을 것이 없을 때만 ESC 창을 연다.
@@ -835,6 +857,11 @@ public class IngameScene : BaseScene {
         }
         if (_ingameEscUI != null && _ingameEscUI.IsOpen) {
             _ingameEscUI.CancelByEscape();
+            return;
+        }
+        // 지도는 다른 창과 겹치지 않으므로(ToggleMapView가 막는다) 층 순서는 결과를 바꾸지 않는다
+        if (_ingameMapViewUI != null && _ingameMapViewUI.IsOpen) {
+            _ingameMapViewUI.Hide();
             return;
         }
         if (IsContainerOpen) {
@@ -1524,6 +1551,8 @@ public class IngameScene : BaseScene {
             _ingameSettingUI.Hide();
         if (_ingameEscUI != null)
             _ingameEscUI.Hide();
+        if (_ingameMapViewUI != null)
+            _ingameMapViewUI.Hide();
         // 이탈의 캐치올이다 — 귀환 성공·사망·연결 끊김이 모두 여기를 지나므로,
         // 카운트다운 중 사망처럼 통보 순서가 뒤집히는 경우에도 UI가 연출 위에 남지 않는다
         SetEscapeSequence(false);

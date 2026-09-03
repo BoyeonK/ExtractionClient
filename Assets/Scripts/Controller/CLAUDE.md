@@ -32,6 +32,7 @@ GameObjectController (MonoBehaviour)
 
 **추가할 때 손댈 곳이 셋이고 하나라도 빠지면 증상이 다르다** — ① `Define.ObjectType`에 항목(**`MaxCount` 바로 앞에 append**, 근거는 `Define.cs` 주석) ② `Define.ObjectPaths`에 경로(빠지면 `IngameScene`이 `LogError` 후 스폰을 건너뛴다) ③ 파생 클래스 파일. 프리팹은 **`Prefabs/GameObject/{ObjectType 이름}`**이고 컨트롤러 컴포넌트가 부착돼 있어야 한다.
 
+- **서버 스폰이라 같은 프리팹을 씬에 배경으로도 놓으면 두 벌이 된다** — 블루프린트가 같은 자리에 하나 더 세운다. 배경 겸용이 필요하면 컨트롤러 없는 프리팹으로 갈라둘 것
 - **`base.Init()`을 빠뜨리면 상호작용이 통째로 죽는다** — `_onInteract += RequestOpenContainer` 구독이 `ContainerController.Init()`에 있어서 **E키를 눌러도 아무 일이 없고 에러도 남지 않는다.** 이 계층에서 유일하게 밟기 쉬운 자리다
 - **`_objectType`은 읽는 코드가 없지만 지우지 말 것** — 컨테이너 종류별 분기가 생길 때의 자리다
 - **`PlayerLoot`(`object_type` 3)는 사망 지점에 스폰되는 전리품 컨테이너다.** 사망자의 인벤토리·장착·탄창이 전부 여기로 옮겨지고 스폰은 `D2CNotifySpawnObject`로 통보된다(서버 계약)

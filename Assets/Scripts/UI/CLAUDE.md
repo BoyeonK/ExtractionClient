@@ -30,6 +30,7 @@ UI_Base (abstract)
 - **`LobbyScene.OnSlotClick(slot, button)`은 Shift 조합 둘을 가른다** — **좌**클릭은 수량 절반 분할(`FirstEmptySlot`에 배치, 인벤토리/창고 각각 독립), **우**클릭은 판매다. **버튼을 보지 않으면 우클릭이 분할로 처리된다**(`IPointerClickHandler`가 우클릭에도 발화한다)
   - **`LSlot` 제외는 좌·우 공통이고 이유가 다르다** — 분할은 무기·방어구가 스택되지 않아서(`CanMerge`), 판매는 매치 시작 요청과 로드아웃을 두고 경합해 서버 트랜잭션이 필요해지기 때문이다. 한쪽 이유가 사라져도 다른 쪽이 남으므로 가드를 갈래 안으로 내리지 말 것
   - **판매 슬롯 인덱스 변환은 `BuildInventorySnapshot()`과 같은 식이어야 한다**(창고 `i`, 인벤토리 `80+i`) — 갈리면 서버가 다른 슬롯을 지운다
+- **`Define.CharacterDescriptions` 문안을 늘리면 프리팹도 함께 봐야 한다** — `UI_CharacterSelect`의 `Description`은 오토사이즈도 스크롤도 없는 Overflow라 **길이가 넘치면 잘리지도 않고 `DescriptionPanel` 밖으로 그대로 삐져나간다.** 코드만 고칠 수 있는 자리가 아니므로 분량을 크게 바꿀 때는 패널 크기 조정을 사용자에게 알릴 것
 
 ## 인증 입력 검사 (`UI_Login` / `UI_Register`)
 
@@ -83,6 +84,7 @@ UIManager가 아닌 씬 자체에 존재하는 MonoBehaviour UI 오브젝트. `I
 | `IngameWeaponUI` | `Init()` | 손에 든 무기 이름 + 탄창 잔량 + 예비탄. 아래 절 참조 |
 | `IngameEscapeCountdownUI` | `Init()` | 귀환 승인 후 5초 카운트다운. **값을 스스로 구하지 않고 `IngameScene`이 민다** — 켜고 끄는 것도 씬의 `SetEscapeSequence()` 한 곳이다(`Scenes/CLAUDE.md`의 '귀환 카운트다운'). `FixedText`는 코드가 건드리지 않는 고정 문안이라 **에디터에서 채워둘 것** |
 | `IngameDamageIndicatorUI` | `Init()` | 피격 방향 표시. **자신은 컨테이너일 뿐이고 `ShowIndicator(degree)`가 호출마다 `IngameDamageIndicatorContent`를 찍어낸다** — 개수 상한이 없고 각 인스턴스가 0.3초 뒤 **스스로** 파괴된다(`SingleKillLog`가 부모를 거치는 것과 갈린다: 여기는 부모가 목록을 들지 않는다). 자식이 없으면 아무것도 그리지 않으므로 `Init()`이 끄지 않는다 |
+| `IngameMapViewUI` | `Init(IngameScene)` | `M`으로 여는 전면 지도. 그림은 **탑뷰 카메라가 `RenderTexture`에 그린 것**이고 이 클래스는 여닫기와 촬영만 한다. 아래 절 참조 |
 | `IngameEscUI` | `Init(IngameScene)` | ESC로 여는 옵션 / 게임 종료 2지 선택. 한 오브젝트가 **선택 패널과 종료 확인 패널 둘을 갈아 끼운다**(`ActiveOptionOrExitUI`/`ActiveExitConfirmOrCancelUI`). 열림 카운트·종료 실행 규칙은 `Scenes/CLAUDE.md`의 'ESC 창과 게임 종료' |
 | `IngameTimeoutUI` | `Init()` | 매치 잔여 시간을 `mm:ss`로 표시. **값을 스스로 구하지 않고 `IngameScene.UpdateTimeoutDisplay()`가 민다**(규칙은 `Scenes/CLAUDE.md`의 '매치 마감 시각'). **이 표에서 유일하게 `Init()`이 스스로 끄지 않는 항목** — 매치 내내 떠 있으므로 비활성화 호출을 넣지 말 것 |
 | `IngameStaminaBarUI` | `Init()` | 달리기 스태미나 게이지. `SetStamina(current, max)` + `SetVisible(bool)`로 씬이 민다. **평소에는 숨어 있고 달리는 중이거나 스태미나가 문턱 이하일 때만 보인다** — 조건 판단은 씬에 있다(아래). **`StaminaBarFill`의 Image Type이 `Filled`여야 한다**(체력바와 같은 함정) |
@@ -138,6 +140,17 @@ IngameWeaponUI                  ← GameObject.Find로 잡으므로 이름 고�
 - `WeaponImage`에는 `Images/WeaponSprites/weapon_sprite_{무기 item_id}`를 코드가 넣는다. **`Preserve Aspect`는 꺼둔 것이 의도다** — 스프라이트가 √2:1이고 슬롯 비율이 그에 가까워 약간의 찌그러짐을 감수하기로 했다(빠뜨린 설정으로 보고 켜지 말 것)
 - **스프라이트가 없으면 `Image.enabled`를 끈다** — 스프라이트 없는 `Image`는 흰 사각형으로 그려지므로 맨손·파일 누락이 그대로 노출된다. **창을 숨기지 말라는 위 규칙과 다른 이야기다**(창은 그대로 두고 이미지만 끈다)
 - 그래픽 7개 모두 `raycastTarget`이 꺼져 있다. HUD가 클릭을 가로채지 않아야 하기 때문이며, **새 요소를 추가할 때도 꺼둘 것**(인벤토리를 열어 커서가 풀린 상태에서 겹치는 영역의 드래그를 먹는다)
+
+### `IngameMapViewUI` — 지도 (촬영은 여는 순간 한 프레임뿐)
+
+**표시되는 것은 UI가 그린 그림이 아니라 탑뷰 카메라가 `MapTopView.renderTexture`에 그린 화면이다.** 카메라는 평소 꺼져 있고 `Show()`가 한 프레임만 켠다 — `RenderTexture`는 카메라를 꺼도 마지막 내용이 남으므로 그것이 곧 정지 이미지가 된다.
+
+- **플레이어 위치는 UI 좌표 환산이 아니라 월드 마커로 표현한다** — `PlayerObject` 자식의 마커 오브젝트가 카메라 컬링 마스크에 걸려 **이미지 안에 함께 찍힌다.** 그래서 UI 쪽에는 위치 계산이 없고, **`OppoPlayerObject`에 같은 마커를 붙이면 적 위치가 그대로 보인다**
+- **연 채로 움직이면 마커가 열었던 자리에 멈춘다 — 결함이 아니다.** 촬영이 한 프레임뿐이라 그렇고, 지도를 보며 이동하는 것이 의도가 아니라서 감수한 동작이다. 실시간으로 만들려면 여는 동안 카메라를 켜 두면 되지만 **그만큼 매 프레임 씬을 한 번 더 그린다**
+- **`Camera.Render()`를 직접 부르지 말 것** — URP(SRP)에서 지원되지 않는다. 한 프레임만 켜두는 지금 방식이 SRP 전용 API 없이 같은 결과를 낸다
+- **`Hide()`에서 카메라를 명시적으로 끈다** — 촬영 코루틴이 끝나기 전에 오브젝트가 비활성화되면 코루틴이 죽어 **카메라가 켜진 채 남는다**(`BeginMatchExit()`이 여는 프레임에 닫는 경로가 그것이다)
+- 카메라는 `[SerializeField]`로 물린다. 못 물리면 `Init()`이 `LogError`를 남기고 **지도는 뜨되 그림만 갱신되지 않는다**
+- **탑뷰 카메라가 Orthographic이 아니라 Perspective인 것은 확정된 선택이다**(입체감, 실측 완료) — 빠뜨린 설정으로 보고 바꾸지 말 것. **대신 높이가 있는 물체는 화면 중심에서 바깥으로 밀려 그려지므로 마커를 높이 띄우면 실제 위치보다 바깥에 찍힌다** — 지붕에 가리는 것을 피하려고 올리지 말 것
 
 ### `IngameCrosshair` — 규칙의 유일한 예외 (유지 확정)
 
