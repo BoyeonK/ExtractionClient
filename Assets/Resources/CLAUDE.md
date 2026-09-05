@@ -161,6 +161,7 @@ LootContainerSlot                       ← Prefabs/UI/GameResultSceneUI/ (런�
 - **`LostItemsText`의 문안은 고정이라 에디터에서 채워둔다** — 코드는 켜고 끄기만 하고 텍스트를 넣지 않는다(`SubLabel`과 같다)
 - `LootContainerSlot`의 **`Fill`에 스프라이트를 물려두지 않는다** — 코드가 넣고, 파일이 없으면 `Image.enabled`를 꺼서 흰 사각형을 막는다
 - 볼륨 슬라이더는 Min 0 / Max 100(로비와 동일), **감도 슬라이더는 Min 0.1 / Max 5.0 / Value 1.0** — `SettingManager.MIN/MAX_MOUSE_SENSITIVITY` 및 **로비 프리팹의 같은 슬라이더와 손으로 맞추는 값**이다(맞출 곳이 셋)
+- **로비 전용인 `FovSlider`도 같은 짝이다 — Min 60 / Max 80이 `SettingManager.SetFov`의 `Mathf.Clamp` 범위와 일치해야 한다.** 슬라이더만 넓히면 조작이 저장 시점에 잘리고, 클램프만 넓히면 슬라이더로 못 넣는 값이 저장 파일 편집으로 들어온다
 - `IngameHealthBarUI`의 Fill 이미지는 **Type이 `Filled`여야 한다** — `Simple`이면 `fillAmount` 대입이 조용히 무시된다. **`IngameStaminaBarUI`(`StaminaBarBg/StaminaBarFill`)도 같은 규칙**이며 이쪽은 이미 `Filled`로 맞춰져 있다
 - **슬롯 프리팹 4종(`ISlot`·`SSlot`·`IngameISlot`·`LootContainerSlot`)의 `Fill` 색이 곧 아이템 아이콘의 틴트다** — 코드는 색을 건드리지 않고 `Image.enabled`만 토글한다. 어두운 회색(`0.235`)은 **심미 판단으로 확정된 값**이며, **네 프리팹이 같아야** 전리품 아이콘만 다른 밝기로 보이지 않는다(근거는 `UI/CLAUDE.md`의 슬롯 항목)
 - `IngameWeaponUI`의 `WeaponImage`는 **스프라이트를 물려두지 않는다** — 코드가 `weapon_sprite_{item_id}`를 넣는다. **`Preserve Aspect`는 꺼둔 것이 의도다**(스프라이트 √2:1, 슬롯 비율이 그에 가까워 찌그러짐을 감수했다). 스프라이트가 순백 실루엣이라 **`Color`가 곧 표시색이고 코드는 색을 건드리지 않는다**

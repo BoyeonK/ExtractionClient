@@ -201,7 +201,7 @@ public class SettingManager {
     }
 
     public void SetFov(int fov) {
-        _fov = Mathf.Clamp(fov, 60, 90);
+        _fov = Mathf.Clamp(fov, 60, 80);
         PlayerPrefs.SetInt(KEY_FOV, _fov);
     }
 

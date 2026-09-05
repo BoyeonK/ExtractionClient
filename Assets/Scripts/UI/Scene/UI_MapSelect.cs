@@ -9,7 +9,7 @@ public class UI_MapSelect : UI_Scene {
     GameObject _overlay;
     GameObject _loadoutSelectWindow;
 
-    int _selectedMapId = 0;
+    int _selectedMapId = (int)Define.Map.Tenerife;
     Image _mapSprite;
     TextMeshProUGUI _mapName;
     Button _leftBtn;
