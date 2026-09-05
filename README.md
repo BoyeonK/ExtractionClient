@@ -21,6 +21,9 @@
 
 클라이언트와 서버를 모두 직접 설계·구현했으며, 이 저장소는 Unity 클라이언트입니다.
 
+> 실제 배포 환경에서 플레이 가능한 클라이언트 빌드를 제공합니다.  
+> [게임 클라이언트 다운로드 - Google Drive](https://drive.google.com/file/d/1jEZZuNcX1D1u2ui_NkjkqWleFZ8hI3tX/view?usp=sharing)
+
 서버에서의 상세 구현, 배포에 대한 내용은 [ExtractionServer](https://github.com/BoyeonK/ExtractionServer) 저장소에서 확인하실 수 있습니다.
 
 클라이언트와 서버의 통신 계약은 다음 두 파일을 기준으로 관리합니다.
@@ -39,7 +42,7 @@
 
 ## 2. 데모
 
-<!-- TODO: 플레이 영상 링크 -->
+[YouTube에서 플레이 영상 보기](https://www.youtube.com/watch?v=wjMVhZvyEE0)
 
 | 상점 | 옵션 창 | 캐릭터선택 |
 |---|---|---|
@@ -222,7 +225,7 @@ Character Asset은 다음 과정을 통해 제작했습니다.
 | ![로비](docs/readme_images/glint_mixamo.png) | ![옵션 창](docs/readme_images/prometheus_mixamo.png) |
 | ![로비](docs/readme_images/lobby_character_glint.png) | ![옵션 창](docs/readme_images/lobby_character.png) |
 
-이렇게 만들어진 Character Asset은 Skeleton Bone 정보를 포함하기 때문에 아래의 Runtime Hitbox Generation에 활용할 수 있습니다.
+이렇게 만들어진 Character Asset은 Skeleton Bone 정보를 포함하기 때문에 리깅을 적용하여 기울이기, 하늘 바라보기 등의 적절한 애니메이션 효과를 추가할 수 있고, 아래의 Runtime Hitbox Generation에도 활용할 수 있습니다.
 
 ### Runtime Hitbox Generation
 
@@ -425,7 +428,7 @@ AI를 사용한 과정 역시 프로젝트의 일부라고 판단하여, 실제 
 | `1` `2` | 주무기 / 보조무기 전환 |
 | `Q` | 좌우 Camera Anchor 전환 |
 | `E` | 상호작용 |
-| `Tab` | 인벤토리 |
+| `Tab / I` | 인벤토리 |
 | `M` | 지도 |
 | `ESC` | 설정 / 종료 |
 
