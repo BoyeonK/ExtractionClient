@@ -402,7 +402,19 @@ Response Body 형식과 관계없이 Status Code만으로 처리할 수 있는 �
 
 ---
 
-## 8. Controls
+## 8. AI-assisted Development
+
+개발 과정에서 Claude Code를 코드 분석, 구현 검토, 문제 원인 탐색 및 설계 검토를 위한 보조 도구로 활용했습니다.
+
+AI를 사용한 과정 역시 프로젝트의 일부라고 판단하여, 실제 개발 중 Claude Code에 사용한 프롬프트를 [`docs/Claude_Code_프롬프트/`](docs/Claude_Code_프롬프트/)에 공개했습니다.
+
+이를 통해 단순히 AI 도구를 사용했다는 사실뿐 아니라, 문제 상황과 기존 코드의 제약을 어떤 방식으로 전달하고 결과를 검토·선별하며 개발에 활용했는지도 확인할 수 있도록 했습니다.
+
+최종적인 구현 방향과 코드 반영 여부는 실제 동작, 기존 설계 및 프로젝트 요구사항을 기준으로 직접 판단했습니다.
+
+---
+
+## 9. Controls
 
 | 키 | 동작 |
 |---|---|
@@ -419,7 +431,7 @@ Response Body 형식과 관계없이 Status Code만으로 처리할 수 있는 �
 
 ---
 
-## 9. Repository
+## 10. Repository
 
 - Client: [ExtractionClient](https://github.com/BoyeonK/ExtractionClient)
 - Server: [ExtractionServer](https://github.com/BoyeonK/ExtractionServer)
