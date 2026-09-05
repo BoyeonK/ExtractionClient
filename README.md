@@ -83,11 +83,7 @@
 | **엔진** | Unity 6000.4.0f1 |
 | **렌더링** | Universal Render Pipeline 17.4.0 |
 | **언어** | C# |
-| **입력** | Unity Input System 1.19.0 |
 | **직렬화** | Google.Protobuf (UDP) / `JsonUtility` (HTTP) |
-| **해싱** | K4os.Hash.xxHash |
-| **내비게이션** | Unity AI Navigation 2.0.11 |
-| **UI** | uGUI 2.0.0 + TextMeshPro |
 | **API 스펙** | OpenAPI 3.0 |
 
 ---
