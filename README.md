@@ -43,11 +43,11 @@
 
 | 상점 | 옵션 창 | 캐릭터선택 |
 |---|---|---|
-| ![로비](docs/images/lobby_shop.png) | ![옵션 창](docs/images/lobby_option.png) | ![캐릭터선택](docs/images/lobby_character.png) |
+| ![로비](docs/readme_images/lobby_shop.png) | ![옵션 창](docs/readme_images/lobby_option.png) | ![캐릭터선택](docs/readme_images/lobby_character.png) |
 
 | 인게임 HUD | 인게임 파밍중 | 정산 화면 |
 |---|---|---|
-| ![인게임](docs/images/ingame.png) | ![황금고블린](docs/images/ingame_farming.png) | ![결과](docs/images/result.png) |
+| ![인게임](docs/readme_images/ingame.png) | ![황금고블린](docs/readme_images/ingame_farming.png) | ![결과](docs/readme_images/result.png) |
 
 ### 게임 루프
 
@@ -221,10 +221,10 @@ Character Asset은 다음 과정을 통해 제작했습니다.
 
 | Glint | Prometheus |
 |---|---|
-| ![로비](docs/images/glint_concept.png) | ![옵션 창](docs/images/prometheus_concept.png) |
-| ![로비](docs/images/glint_3d_model.png) | ![옵션 창](docs/images/prometheus_3d_model.png) |
-| ![로비](docs/images/glint_mixamo.png) | ![옵션 창](docs/images/prometheus_mixamo.png) |
-| ![로비](docs/images/lobby_character_glint.png) | ![옵션 창](docs/images/lobby_character.png) |
+| ![로비](docs/readme_images/glint_concept.png) | ![옵션 창](docs/readme_images/prometheus_concept.png) |
+| ![로비](docs/readme_images/glint_3d_model.png) | ![옵션 창](docs/readme_images/prometheus_3d_model.png) |
+| ![로비](docs/readme_images/glint_mixamo.png) | ![옵션 창](docs/readme_images/prometheus_mixamo.png) |
+| ![로비](docs/readme_images/lobby_character_glint.png) | ![옵션 창](docs/readme_images/lobby_character.png) |
 
 이렇게 만들어진 Character Asset은 Skeleton Bone 정보를 포함하기 때문에 아래의 Runtime Hitbox Generation에 활용할 수 있습니다.
 
