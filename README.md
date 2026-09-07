@@ -26,72 +26,71 @@
 
 서버에서의 상세 구현, 배포에 대한 내용은 [ExtractionServer](https://github.com/BoyeonK/ExtractionServer) 저장소에서 확인하실 수 있습니다.
 
-클라이언트와 서버의 통신 계약은 다음 두 파일을 기준으로 관리합니다.
-
-- `Assets/Scripts/Network/http-api-spec.yaml` — OpenAPI 3.0 스펙
-- `Assets/Scripts/Network/External_Protocol.proto` — Protobuf 메시지 + 패킷 ID
-
-### 핵심 특징
-
-- **이중 통신 구조** — 로비/인증은 HTTP REST, 인게임은 Custom UDP/RUDP
-- **직접 구현한 신뢰성 계층** — Reliable / Unreliable 채널, ACK Bitfield, RTT 기반 재전송
-- **서버 중심 상태 관리** — Inventory, Match Result 등 영속성과 일관성이 필요한 상태는 서버에서 최종 결정
-- **Unity Main Thread 경계 분리** — Network Worker에서 수신한 이벤트를 Main Thread Job Queue를 통해 Scene에 반영
-
 ---
 
 ## 2. 데모
 
 [YouTube에서 플레이 영상 보기](https://www.youtube.com/watch?v=wjMVhZvyEE0)
 
-| 상점 | 옵션 창 | 캐릭터선택 |
+| 상점 | 옵션 창 | 캐릭터 선택 |
 |---|---|---|
-| ![로비](docs/readme_images/lobby_shop.png) | ![옵션 창](docs/readme_images/lobby_option.png) | ![캐릭터선택](docs/readme_images/lobby_character.png) |
+| ![로비](docs/readme_images/lobby_shop.png) | ![옵션 창](docs/readme_images/lobby_option.png) | ![캐릭터 선택](docs/readme_images/lobby_character.png) |
 
-| 인게임 HUD | 인게임 파밍중 | 정산 화면 |
+| 인게임 HUD | 인게임 파밍 중 | 정산 화면 |
 |---|---|---|
 | ![인게임](docs/readme_images/ingame.png) | ![황금고블린](docs/readme_images/ingame_farming.png) | ![결과](docs/readme_images/result.png) |
 
-### 게임 루프
-
-```text
-로그인
-  ↓
-로비
-  ├── 인벤토리
-  ├── 상점
-  └── 로드아웃 구성
-  ↓
-맵 선택 / 매칭
-  ↓
-로딩
-  ↓
-인게임
-  ├── 전투
-  ├── 파밍
-  ├── 귀환 성공
-  └── 사망
-  ↓
-정산
-  ↓
-로비 복귀
-```
-
 ---
 
-## 3. 기술 스택
+## 3. 개발 환경 및 주요 기술
 
 | 분류 | 사용 기술 |
 |---|---|
-| **엔진** | Unity 6000.4.0f1 |
-| **렌더링** | Universal Render Pipeline 17.4.0 |
-| **언어** | C# |
+| **Engine / Language** | Unity 6000.4.0f1 · C# |
+| **Networking** | HTTP REST · UDP · Custom RUDP |
 | **직렬화** | Google.Protobuf (UDP) / `JsonUtility` (HTTP) |
-| **API 스펙** | OpenAPI 3.0 |
+| **Threading** | Dedicated UDP Worker Thread · Thread-safe Send Queue · Main Thread Job Queue |
+| **API Contract** | OpenAPI 3.0 · Protocol Buffers |
+
+클라이언트와 서버의 통신 계약은 다음 두 파일을 기준으로 관리합니다.
+
+- `Assets/Scripts/Network/http-api-spec.yaml` — OpenAPI 3.0 스펙
+- `Assets/Scripts/Network/External_Protocol.proto` — Protobuf 메시지 + 패킷 ID
 
 ---
 
 ## 4. Client Architecture
+
+### Main Thread / UDP Worker Separation
+
+Unity Main Thread와 UDP Network Worker Thread를 분리하여 서로 독립적으로 실행하도록 구성했습니다.
+
+![ThreadDiagram](docs/readme_images/ExtractionClientThreadFinal.drawio.png)
+
+UDP Worker Thread는 Socket 수신과 실제 Packet 송신을 담당하고, Unity Main Thread는 Scene Update와 Unity API 호출을 담당합니다. 이를 통해 Network I/O와 Unity Game Loop가 서로의 처리 완료를 기다리지 않고 독립적으로 진행될 수 있도록 했습니다.
+
+Main Thread에서 Packet 전송을 요청할 때는 Socket에 직접 접근하지 않고 송신 Queue에 데이터를 삽입한 뒤 즉시 반환합니다.
+
+```csharp
+public void SendPacket(byte[] data, int length) {
+    if (_socket == null) return;
+    _sendQueue.Enqueue((data, length));
+}
+```
+
+반대로 UDP Worker에서 수신한 Network Event 중 Unity API 호출이나 Scene 상태 변경이 필요한 작업은 `ExecuteAtMainThread()`를 통해 Main Thread Job Queue에 전달합니다.
+
+```csharp
+Managers.ExecuteAtMainThread(() => {
+    // Unity API 호출 또는 Scene 상태 변경
+});
+```
+
+`Managers.Update()`는 매 Frame Main Thread Job Queue를 소진합니다. 실행할 작업은 Lock 내부에서 별도 목록으로 옮긴 뒤 Lock 밖에서 수행하여 Queue 접근에 필요한 동기화 구간을 짧게 유지합니다.
+
+이 구조를 통해 Main Thread는 Network I/O를 직접 기다리지 않고 게임과 Scene 처리를 계속 수행하며, UDP Worker 역시 Unity Frame Update와 독립적으로 Network 처리 Loop를 수행합니다.
+
+즉, 두 Thread가 서로의 실행 흐름을 직접 동기화하거나 대기하지 않고, **Queue를 경계로 작업을 전달하여 Network I/O와 Unity Game Loop를 분리**했습니다.
 
 ### Manager Hub
 
@@ -99,13 +98,13 @@
 
 ```text
 Managers
-  ├── Input
-  ├── Network
-  ├── Resource
-  ├── UI
-  ├── Scene
-  ├── Sound
-  └── Setting
+  ├── Input : 키 / 마우스 입력 처리 및 Callback 등록
+  ├── Network : HTTP / UDP 통신 및 Network 기능 관리
+  ├── Resource : Prefab 및 GameObject Resource / Lifecycle 관리
+  ├── UI : UI 생성 및 관리
+  ├── Scene : Scene 전환, 비동기 로딩 및 Scene 간 Context 관리
+  ├── Sound : Sound 재생 및 관리
+  └── Setting : VSync, 해상도, Frame Rate 등 사용자 설정 관리
 ```
 
 `@Managers` GameObject는 `DontDestroyOnLoad`로 유지되며, Scene 전환 시 필요한 상태만 정리합니다.
@@ -114,32 +113,9 @@ Managers
 
 ### Scene Flow
 
-```text
-BaseScene
-  ├── LobbyScene
-  ├── LoadingScene
-  ├── IngameScene
-  │   ├── TenerifeScene
-  │   └── TestIngameScene (개발용 테스트 씬)
-  └── GameResultScene
-```
+![SceneFlow](docs/readme_images/SceneFlow.png)
 
-### Main Thread Dispatch
 
-UDP 수신은 전용 Worker Thread에서 처리하지만 Unity API는 Main Thread에서만 호출할 수 있습니다.
-
-따라서 Network 수신 결과를 즉시 Scene에 적용하지 않고 Main Thread Job Queue로 전달합니다.
-
-```csharp
-Managers.ExecuteAtMainThread(() => {
-    // Unity API 호출이 필요할 경우 사용.
-    // Worker Thread에서 Unity API호출의 동작을 보장할 수 없음.
-});
-```
-
-`Managers.Update()`가 매 Frame Queue를 소진하며, 실행 대상은 Lock 내부에서 별도 목록으로 옮긴 뒤 Lock 밖에서 실행합니다.
-
-이를 통해 Network Thread와 Unity Scene Update의 실행 경계를 분리했습니다.
 
 ---
 
@@ -207,6 +183,11 @@ Custom RUDP의 상세 설계는 Server Repository의 Networking 문서에서 설
 ---
 
 ## 6. Engineering Highlights
+
+- **이중 통신 구조** — 로비/인증은 HTTP REST, 인게임은 Custom UDP/RUDP
+- **직접 구현한 신뢰성 계층** — Reliable / Unreliable 채널, ACK Bitfield, RTT 기반 재전송
+- **서버 중심 상태 관리** — Inventory, Match Result 등 영속성과 일관성이 필요한 상태는 서버에서 최종 결정
+- **Main Thread / UDP Worker 분리** — 두 Thread를 병렬로 실행하고 Send Queue / Main Thread Job Queue를 통해 필요한 작업만 전달
 
 ### AI-assisted Asset Production
 
@@ -418,6 +399,16 @@ AI를 사용한 과정 역시 프로젝트의 일부라고 판단하여, 실제 
 ---
 
 ## 9. Controls
+
+### Lobby에서의 Control
+
+| 키 | 동작 |
+|---|---|
+| `드래그` | 아이템 슬롯 변경, 스왑 |
+| `Shift + 좌클릭` | 슬롯 나누기 (해당 슬롯의 아이템 수량을 반으로 나누어, 빈 슬롯에 옮김) |
+| `Shift + 우클릭` | 판매 |
+
+### Ingame에서의 Control
 
 | 키 | 동작 |
 |---|---|
