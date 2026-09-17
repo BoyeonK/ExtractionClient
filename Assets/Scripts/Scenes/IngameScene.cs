@@ -159,6 +159,7 @@ public class IngameScene : BaseScene {
     IngameEscUI _ingameEscUI;
     IngameMapViewUI _ingameMapViewUI;
     IngameDamageIndicatorUI _ingameDamageIndicatorUI;
+    IngameCompassUI _ingameCompassUI;
 
     protected override void Init() {
         base.Init();
@@ -212,6 +213,10 @@ public class IngameScene : BaseScene {
         // 자식이 없으면 아무것도 그리지 않으므로 끄지 않는다(IngameTimeoutUI와 같다)
         _ingameDamageIndicatorUI = BindSceneComponent<IngameDamageIndicatorUI>("IngameDamageIndicatorUI");
         if (_ingameDamageIndicatorUI != null) _ingameDamageIndicatorUI.Init();
+
+        // 매치 내내 떠 있으므로 끄지 않는다(IngameTimeoutUI와 같다)
+        _ingameCompassUI = BindSceneComponent<IngameCompassUI>("IngameCompassUI");
+        if (_ingameCompassUI != null) _ingameCompassUI.Init();
 
         // OPTION: 씬 오브젝트 없이 코드로 세운 크로스헤어. 정식 IngameSceneUI 자산으로
         //         다시 만들게 되면 이 줄을 지운다 (IngameCrosshair.cs 상단 참조)
@@ -1631,6 +1636,14 @@ public class IngameScene : BaseScene {
     // 회복 잠금을 '중단 사유'마다 걸지 않고 여기서 true→false 엣지 한 번으로 세우는 것이 요점이다 —
     // 중단 경로가 넷(Shift 해제 · 이동 정지 · 스태미나 0 · 이탈로 입력 차단)이라 사유를 열거하면
     // 반드시 하나가 빠진다. 어떤 이유로 멈췄든 이 함수의 엣지를 지나간다
+    // 방위의 출처는 플레이어 루트 요(PlayerController.Yaw) 하나다 — ViewPoint는 피치만
+    // 들고 있어 수평 방위가 아니다(피격 방향 표시가 루트 forward를 쓰는 것과 같은 근거)
+    private void UpdateCompass() {
+        if (_ingameCompassUI == null || _playerController == null) return;
+
+        _ingameCompassUI.SetHeading(_playerController.Yaw);
+    }
+
     private void UpdateStamina() {
         bool isRunning = IsPlayerRunning;
 
@@ -1791,6 +1804,7 @@ public class IngameScene : BaseScene {
 
         UpdateEscapeCountdown();
         UpdateTimeoutDisplay();
+        UpdateCompass();
         UpdateAction();
 
         // 인터랙션 UI 업데이트

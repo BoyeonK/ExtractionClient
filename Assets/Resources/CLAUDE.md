@@ -63,7 +63,7 @@ Assets/Resources/
 
 지금 경로로 로드하는 것: `UI/Scene/{클래스명}`, `UI/Popup/{클래스명}`, `UI/EventSystem`, `UI/IngameSceneUI/SingleKillLog`(킬 로그 한 줄), `UI/IngameSceneUI/IngameDamageIndicatorContent`(피격 방향 표시 하나), `UI/GameResultSceneUI/LootContainerSlot`(전리품 한 칸).
 
-나머지 씬 내장 UI(`IngameInventoryUI`·`IngameDragGhost`·`InteractUI`·`IngameHealthBarUI`·`IngameSettingUI`·`IngameKillLogUI`·`IngameWeaponUI`·`IngameStaminaBarUI`·`IngameEscapeCountdownUI`·`IngameTimeoutUI`·`IngameEscUI`·`IngameMapViewUI`·`IngameDamageIndicatorUI`·`GameResultSceneUI`·`LobbySceneUI` 계열)는 **씬에 배치돼 `GameObject.Find`로 잡힌다.** 따라서
+나머지 씬 내장 UI(`IngameInventoryUI`·`IngameDragGhost`·`InteractUI`·`IngameHealthBarUI`·`IngameSettingUI`·`IngameKillLogUI`·`IngameWeaponUI`·`IngameStaminaBarUI`·`IngameEscapeCountdownUI`·`IngameTimeoutUI`·`IngameEscUI`·`IngameMapViewUI`·`IngameDamageIndicatorUI`·`IngameCompassUI`·`GameResultSceneUI`·`LobbySceneUI` 계열)는 **씬에 배치돼 `GameObject.Find`로 잡힌다.** 따라서
 
 - **계약은 프리팹 파일 이름이 아니라 씬 오브젝트 이름이다.** 프리팹 이름을 맞춰도 씬의 인스턴스 이름이 다르면 못 찾는다
 - **씬에는 활성 상태로 저장해야 한다** — `GameObject.Find`는 비활성 오브젝트를 못 찾는다. 필요하면 각 `Init()`이 바인딩 직후 스스로 끈다
@@ -143,6 +143,17 @@ IngameDamageIndicatorContent            ← Prefabs/UI/IngameSceneUI/ (호출마
 
 - **Content 루트는 `anchor 0.5,0.5 / pivot 0.5,0.5 / size 0`이어야 한다.** 자식 이미지가 그 지점에서 위로 떨어져 있어야 루트를 돌렸을 때 화면 중앙을 축으로 공전한다. **루트에 크기를 주면 회전 중심이 어긋난다**
 - 루트의 `anchoredPosition`은 **코드가 0으로 덮으므로** 저작값이 무엇이든 상관없다
+
+```
+IngameCompassUI                         ← 루트. 이름 고정 + 씬에서 활성(코드가 끄지 않는다)
+└ ViewportArea                          (RectMask2D) 보이는 창 — 이 폭이 곧 120도다
+  └ Strips                              ← 눈금 49개가 코드로 이 아래에 만들어진다. 비워둘 것
+```
+
+- **`ViewportArea`에 `RectMask2D`가 없으면** 화면 밖에 있어야 할 복제 구간(-60~420도)까지 **전부 그려진다**
+- **`Strips` 아래에 장식을 넣지 말 것 — 눈금과 함께 흘러간다.** 중앙 기준 마커처럼 고정돼야 하는 것은 `ViewportArea` 직계에 둔다
+- **`ViewportArea`의 폭이 `pxPerDeg`의 출처다**(1920에서 가로 50% = 960px → 8px/도). 코드 상수와 맞추는 값이 아니라 **폭을 바꾸면 눈금 간격이 그만큼 벌어지거나 좁아진다**
+- `Strips`의 **세로 위치는 저작값이 그대로 남는다**(코드는 x만 쓴다)
 
 ```
 GameResultSceneUI                       ← 루트. 이름 고정 + 씬에서 활성

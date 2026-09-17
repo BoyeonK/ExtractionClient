@@ -87,6 +87,7 @@ UIManager가 아닌 씬 자체에 존재하는 MonoBehaviour UI 오브젝트. `I
 | `IngameMapViewUI` | `Init(IngameScene)` | `M`으로 여는 전면 지도. 그림은 **탑뷰 카메라가 `RenderTexture`에 그린 것**이고 이 클래스는 여닫기와 촬영만 한다. 아래 절 참조 |
 | `IngameEscUI` | `Init(IngameScene)` | ESC로 여는 옵션 / 게임 종료 2지 선택. 한 오브젝트가 **선택 패널과 종료 확인 패널 둘을 갈아 끼운다**(`ActiveOptionOrExitUI`/`ActiveExitConfirmOrCancelUI`). 열림 카운트·종료 실행 규칙은 `Scenes/CLAUDE.md`의 'ESC 창과 게임 종료' |
 | `IngameTimeoutUI` | `Init()` | 매치 잔여 시간을 `mm:ss`로 표시. **값을 스스로 구하지 않고 `IngameScene.UpdateTimeoutDisplay()`가 민다**(규칙은 `Scenes/CLAUDE.md`의 '매치 마감 시각'). **이 표에서 유일하게 `Init()`이 스스로 끄지 않는 항목** — 매치 내내 떠 있으므로 비활성화 호출을 넣지 말 것 |
+| `IngameCompassUI` | `Init()` | 화면 상단 방위 strip. 눈금을 `Init()`이 코드로 찍고 씬이 `SetHeading(yaw)`로 민다. 아래 절 참조 |
 | `IngameStaminaBarUI` | `Init()` | 달리기 스태미나 게이지. `SetStamina(current, max)` + `SetVisible(bool)`로 씬이 민다. **평소에는 숨어 있고 달리는 중이거나 스태미나가 문턱 이하일 때만 보인다** — 조건 판단은 씬에 있다(아래). **`StaminaBarFill`의 Image Type이 `Filled`여야 한다**(체력바와 같은 함정) |
 
 ### `IngameKillLogUI` / `SingleKillLog` — 킬 피드
@@ -154,6 +155,17 @@ IngameWeaponUI                  ← GameObject.Find로 잡으므로 이름 고�
 - **`Hide()`에서 카메라를 명시적으로 끈다** — 촬영 코루틴이 끝나기 전에 오브젝트가 비활성화되면 코루틴이 죽어 **카메라가 켜진 채 남는다**(`BeginMatchExit()`이 여는 프레임에 닫는 경로가 그것이다)
 - 카메라는 `[SerializeField]`로 물린다. 못 물리면 `Init()`이 `LogError`를 남기고 **지도는 뜨되 그림만 갱신되지 않는다**
 - **탑뷰 카메라가 Orthographic이 아니라 Perspective인 것은 확정된 선택이다**(입체감, 실측 완료) — 빠뜨린 설정으로 보고 바꾸지 말 것. **대신 높이가 있는 물체는 화면 중심에서 바깥으로 밀려 그려지므로 마커를 높이 띄우면 실제 위치보다 바깥에 찍힌다** — 지붕에 가리는 것을 피하려고 올리지 말 것
+
+### `IngameCompassUI` — 방위 strip (눈금은 코드가 찍고 strip을 통째로 민다)
+
+프리팹 계층 규격은 `Assets/Resources/CLAUDE.md`에 있다. **눈금을 런타임에 만들지만 `IngameCrosshair`의 예외와는 다르다** — 루트·`ViewportArea`·`Strips`는 프리팹이고 코드가 만드는 것은 그 아래 눈금뿐이다.
+
+- **`SPAN_DEG`(보이는 각도 폭, 120)가 유일한 설계 상수다** — `pxPerDeg`도 복제 패딩도 눈금 개수도 여기서 파생된다. 폭과 범위를 각각 상수로 두면 한쪽만 바뀌어 아래 이음매 조건이 깨진다
+- **눈금은 `-PadDeg ~ 360+PadDeg`까지 복제해 갖는다**(120도면 -60~420, 49개). **패딩이 보이는 폭의 절반보다 작으면 0↔360 되감기 프레임에 화면 양 끝이 비어 strip이 튄다.** 큰 눈금 간격(30)의 배수로 올리는 것은 복제 구간의 큰 눈금이 본 구간과 같은 자리에 와야 하기 때문이다
+- **라벨(N/E/S/W·숫자)을 붙일 때는 `Mathf.Repeat(deg, 360)`으로 값을 정할 것** — 원값으로 하면 복제 구간이 `-60`·`420`으로 찍힌다. 큰/작은 눈금 판정만은 360이 30의 배수라 원값으로도 결과가 같다
+- **`pxPerDeg`는 `rect.width`가 바뀐 프레임에만 다시 잡는다**(`RefreshScaleIfNeeded`). `Init()`이 `Awake` 경로라 그 시점 폭이 0일 수 있어, 한 번 재고 끝내면 **눈금 49개가 전부 중앙에 겹쳐 쌓인다**
+- **방위 출처는 `PlayerController.Yaw`(루트 요)이고 `IngameScene.UpdateCompass()`가 민다** — `ViewPoint`는 피치만 들고 있어 수평 방위가 아니다. `Strips`는 **x만 쓰고 세로 위치는 저작값을 남긴다**
+- **`Init()`이 스스로 끄지 않는다** — 매치 내내 떠 있다(`IngameTimeoutUI`와 같다)
 
 ### `IngameCrosshair` — 규칙의 유일한 예외 (유지 확정)
 
