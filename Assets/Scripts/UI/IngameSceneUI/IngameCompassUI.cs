@@ -1,3 +1,4 @@
+using TMPro;
 using UnityEngine;
 using UnityEngine.UI;
 
@@ -12,7 +13,16 @@ public class IngameCompassUI : MonoBehaviour {
     const float MINOR_HEIGHT = 12f;
     const float MAJOR_WIDTH = 3f;
     const float MAJOR_HEIGHT = 26f;
+    const float TICK_OFFSET_Y = -6f;
     static readonly Color TICK_COLOR = new Color(1f, 1f, 1f, 0.85f);
+
+    // strip 중앙이 현재 방위를 가리키고 오른쪽이 방위 증가 방향이므로, 눈금 각도 deg가
+    // 실제로 가리키는 방위는 deg - NORTH_DEG다. "180도 자리가 N"이라는 요구가 이 상수 하나로 들어온다
+    const int NORTH_DEG = 180;
+    const float LABEL_GAP = 4f;
+    const float LABEL_WIDTH = 32f;
+    const float LABEL_HEIGHT = 18f;
+    const float LABEL_FONT_SIZE = 16f;
 
     RectTransform _viewport;
     RectTransform _strips;
@@ -79,9 +89,8 @@ public class IngameCompassUI : MonoBehaviour {
     private RectTransform CreateTick(int index) {
         int deg = TickDeg(index);
 
-        // 360이 MAJOR_STEP_DEG의 배수라 감지 않은 값으로 갈라도 결과가 같다. 다만
-        // 라벨(N/E/S/W·숫자)을 붙일 때는 반드시 Mathf.Repeat(deg, 360)을 쓸 것 —
-        // 복제 구간이 "-60", "420"으로 찍힌다
+        // 360이 MAJOR_STEP_DEG의 배수라 감지 않은 값으로 갈라도 결과가 같다.
+        // 라벨은 그렇지 않아 CardinalLabel이 감아서 판정한다
         bool isMajor = deg % MAJOR_STEP_DEG == 0;
 
         GameObject go = new GameObject(isMajor ? $"Major_{deg}" : $"Minor_{deg}");
@@ -98,13 +107,48 @@ public class IngameCompassUI : MonoBehaviour {
             ? new Vector2(MAJOR_WIDTH, MAJOR_HEIGHT)
             : new Vector2(MINOR_WIDTH, MINOR_HEIGHT);
 
+        if (isMajor) {
+            string label = CardinalLabel(deg);
+            if (label != null) CreateLabel(rt, label);
+        }
+
         return rt;
+    }
+
+    private static string CardinalLabel(int deg) {
+        // 복제 구간(-60·420)도 같은 방위를 내야 하므로 감아서 판정한다
+        int bearing = Mathf.RoundToInt(Mathf.Repeat(deg - NORTH_DEG, 360f));
+        switch (bearing) {
+            case 0: return "N";
+            case 90: return "E";
+            case 180: return "S";
+            case 270: return "W";
+            default: return null;
+        }
+    }
+
+    // 눈금의 자식으로 붙인다 — x는 눈금을 따라가므로 LayoutTicks가 따로 밀 것이 없다
+    private void CreateLabel(RectTransform tick, string text) {
+        GameObject go = new GameObject($"Label_{text}");
+        go.transform.SetParent(tick, false);
+
+        TextMeshProUGUI tmp = go.AddComponent<TextMeshProUGUI>();
+        tmp.text = text;
+        tmp.fontSize = LABEL_FONT_SIZE;
+        tmp.color = TICK_COLOR;
+        tmp.alignment = TextAlignmentOptions.Center;
+        tmp.raycastTarget = false;   // 눈금과 같은 이유 — HUD가 클릭을 가로채지 않는다
+
+        RectTransform rt = go.GetComponent<RectTransform>();
+        rt.anchorMin = rt.anchorMax = rt.pivot = new Vector2(0.5f, 0.5f);
+        rt.sizeDelta = new Vector2(LABEL_WIDTH, LABEL_HEIGHT);
+        rt.anchoredPosition = new Vector2(0f, MAJOR_HEIGHT * 0.5f + LABEL_GAP + LABEL_HEIGHT * 0.5f);
     }
 
     private void LayoutTicks() {
         if (_ticks == null) return;
 
         for (int i = 0; i < _ticks.Length; i++)
-            _ticks[i].anchoredPosition = new Vector2(TickDeg(i) * _pxPerDeg, 0f);
+            _ticks[i].anchoredPosition = new Vector2(TickDeg(i) * _pxPerDeg, TICK_OFFSET_Y);
     }
 }

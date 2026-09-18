@@ -148,6 +148,7 @@ IngameDamageIndicatorContent            ← Prefabs/UI/IngameSceneUI/ (호출마
 IngameCompassUI                         ← 루트. 이름 고정 + 씬에서 활성(코드가 끄지 않는다)
 └ ViewportArea                          (RectMask2D) 보이는 창 — 이 폭이 곧 120도다
   └ Strips                              ← 눈금 49개가 코드로 이 아래에 만들어진다. 비워둘 것
+                                          방위 라벨(N/E/W/S)도 코드가 해당 눈금의 자식으로 붙인다
 ```
 
 - **`ViewportArea`에 `RectMask2D`가 없으면** 화면 밖에 있어야 할 복제 구간(-60~420도)까지 **전부 그려진다**
