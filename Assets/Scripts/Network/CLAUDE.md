@@ -159,6 +159,25 @@
 
 전체 동기화(30)와 재장전 응답(43, `D2CResponseReload.inventory`)이 같은 메시지를 쓴다. 변환은 `ToInventoryItem()`/`ToInventorySlotArray()`로 공유하되 **핸들러는 공유하지 않는다** — 전체 동기화 쪽에는 최초 1회용 초기화가 딸려 있고 버전 비교가 없다(`Scenes/CLAUDE.md`의 '재장전' 참조).
 
+### 적대 오브젝트 (46~51)
+
+| # | 이름 | 채널 | 비고 |
+|---|---|---|---|
+| 46 | `C2DRequestNpcAggro` | reliable | aggro **절대 지정**. 주도권자만, **MIN 지정이 곧 반납 요청**(별도 반납 패킷 없음) |
+| 47 | `C2DRequestNpcAuthority` | reliable | 주도권 이전 요청 |
+| 48 | `C2DReportNpcAttack` | reliable | 공격 보고. 주도권자만 |
+| 49 | `D2CNotifyNpcAuthority` | 룸 전체 | **주도권이 실제로 옮겨갈 때만** 발행(aggro 변경에는 오지 않는다) |
+| 50 | `D2CBroadcastNpcAttack` | unreliable | **보고자 제외** |
+| 51 | `D2CUpdateNpcStates` | unreliable | 클라 주도 오브젝트만. 서버 주도 오브젝트는 실리지 않는다 |
+
+- **거부에는 아무 응답도 오지 않는다**(46·47·48 공통 — 서버가 조용히 무시). 47의 요청 잠금을 푸는 것은 **49 수신 아니면 `HostileNPC`의 워치독뿐**이고, 여기에 '거부 응답'을 가정한 분기를 만들지 말 것
+- **NPC 상태 송신은 별도 패킷이 아니라 `C2DUpdatePlayerState.npc_states`에 얹힌다.** 서버가 **항목마다** 주도권을 확인해 어긋난 것만 버리므로 **부분 거부가 정상**이고, 한 항목이 거부돼도 `state`와 나머지는 반영된다
+- **49에 순서 방어가 없다 — 알고 둔 것이다.** proto 주석은 헤더 `rSeqNum`으로 낡은 통보를 버리라고 하지만 `HandlerFunc`가 `(ReadOnlySpan<byte>)`만 받아 핸들러가 시퀀스를 볼 수 없다. **상태 전송에 실리는 오브젝트 정보로 서버가 불일치를 잡아 원복시키는 쪽을 예정**하고 있으므로, 델리게이트를 바꾸기 전에 그 계획부터 확인할 것
+- **50번이 별도 패킷이라 `D2CBroadcastWeaponFire` 경로는 건드리지 않는다** — 그쪽의 미등록 발사자 `return`은 내 발사 이중 재생을 막는 가드를 겸하므로 NPC를 이유로 풀지 말 것
+- **51번은 룸 전체에 오므로 내가 주도하는 오브젝트의 상태도 돌아온다.** 되먹임 차단은 `HostileNPC.ApplyRemoteState`의 `IsMine` 가드다
+- **`authority_player_id`의 '없음'(`0xFFFFFFFF`)은 `int` 캐스팅만으로 `HostileNPC.NO_TARGET`(-1)이 된다** — 비트가 같으므로 변환 분기를 만들지 말 것
+- **미스폰 objectId에 스폰을 요청하는 것은 49번뿐이다.** 51번은 10Hz라 요청이 폭주하므로 부르지 않는다(발사 브로드캐스트와 같은 판단)
+
 ### `.proto` 주석 정책 (2026-08-27 확정)
 
 `External_Protocol.proto`에 주석을 달거나 정리할 때의 규칙이다.

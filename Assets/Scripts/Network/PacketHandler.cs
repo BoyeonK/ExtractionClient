@@ -121,6 +121,9 @@ public class PacketHandler {
         _handlers.Add((ushort)PktId.D2CNotifyObjectKilled, Handle_D2CNotifyObjectKilled);
         _handlers.Add((ushort)PktId.D2CResponseReload, Handle_D2CResponseReload);
         _handlers.Add((ushort)PktId.D2CNotifyReloadSequence, Handle_D2CNotifyReloadSequence);
+        _handlers.Add((ushort)PktId.D2CNotifyNpcAuthority, Handle_D2CNotifyNpcAuthority);
+        _handlers.Add((ushort)PktId.D2CBroadcastNpcAttack, Handle_D2CBroadcastNpcAttack);
+        _handlers.Add((ushort)PktId.D2CUpdateNpcStates, Handle_D2CUpdateNpcStates);
     }
 
     // ==========================================
@@ -1380,6 +1383,105 @@ public class PacketHandler {
         Managers.ExecuteAtMainThread(() => {
             if (Managers.Scene.CurrentScene is not IngameScene ingameScene) return;
             ingameScene.HandleObjectKilled(victimObjectId, killerObjectId, killerObjectName);
+        });
+    }
+
+    // 적대 오브젝트의 주도권 통보. '내가 이 오브젝트의 주도권자인가'의 유일한 출처이며
+    // 주도권이 실제로 옮겨갈 때만 발행된다(aggro 중간 변경에는 오지 않는다).
+    //
+    // TODO: 낡은 통보를 헤더 rSeqNum으로 버리는 순서 방어가 아직 없다. 지금은 상태 전송에
+    //       실리는 오브젝트 정보로 서버가 불일치를 잡아 원복시키는 쪽을 예정하고 있다
+    private void Handle_D2CNotifyNpcAuthority(ReadOnlySpan<byte> payloadSpan) {
+        D2CNotifyNpcAuthority pkt = null;
+
+        try {
+            pkt = D2CNotifyNpcAuthority.Parser.ParseFrom(payloadSpan);
+        }
+        catch (InvalidProtocolBufferException e) {
+            Managers.ExecuteAtMainThread(() => { Util.LogError($"D2CNotifyNpcAuthority 파싱 실패: {e.Message}"); });
+            return;
+        }
+        catch (Exception e) {
+            Managers.ExecuteAtMainThread(() => { Util.LogError($"D2CNotifyNpcAuthority 처리 중 알 수 없는 에러: {e.Message}"); });
+            return;
+        }
+
+        uint objectId = pkt.ObjectId;
+        // 0xFFFFFFFF(서버 주도)는 int로 캐스팅하면 그대로 HostileNPC.NO_TARGET(-1)이다
+        int targetId = unchecked((int)pkt.AuthorityPlayerId);
+        int aggro = pkt.Aggro;
+
+        Managers.ExecuteAtMainThread(() => {
+            if (Managers.Scene.CurrentScene is not IngameScene ingameScene) return;
+            ingameScene.ApplyNpcAuthority(objectId, targetId, aggro);
+        });
+    }
+
+    // 적대 오브젝트의 공격 연출. 보고자를 제외하고 오므로 내가 주도하는 오브젝트의 것은 오지 않는다
+    private void Handle_D2CBroadcastNpcAttack(ReadOnlySpan<byte> payloadSpan) {
+        D2CBroadcastNpcAttack pkt = null;
+
+        try {
+            pkt = D2CBroadcastNpcAttack.Parser.ParseFrom(payloadSpan);
+        }
+        catch (InvalidProtocolBufferException e) {
+            Managers.ExecuteAtMainThread(() => { Util.LogError($"D2CBroadcastNpcAttack 파싱 실패: {e.Message}"); });
+            return;
+        }
+        catch (Exception e) {
+            Managers.ExecuteAtMainThread(() => { Util.LogError($"D2CBroadcastNpcAttack 처리 중 알 수 없는 에러: {e.Message}"); });
+            return;
+        }
+
+        uint attackerObjectId = pkt.AttackerObjectId;
+        bool hasHitPoint = pkt.HitPoint != null;
+        float hitX = pkt.HitPoint?.X ?? 0f;
+        float hitY = pkt.HitPoint?.Y ?? 0f;
+        float hitZ = pkt.HitPoint?.Z ?? 0f;
+
+        Managers.ExecuteAtMainThread(() => {
+            if (Managers.Scene.CurrentScene is not IngameScene ingameScene) return;
+            ingameScene.HandleNpcAttackBroadcast(attackerObjectId, hasHitPoint,
+                new UnityEngine.Vector3(hitX, hitY, hitZ));
+        });
+    }
+
+    // 클라이언트가 주도하는 적대 오브젝트들의 상태. 룸 전체에 오므로 내가 주도하는 것도 돌아온다 —
+    // 되먹임은 HostileNPC.ApplyRemoteState의 IsMine 가드가 막는다
+    private void Handle_D2CUpdateNpcStates(ReadOnlySpan<byte> payloadSpan) {
+        D2CUpdateNpcStates pkt = null;
+
+        try {
+            pkt = D2CUpdateNpcStates.Parser.ParseFrom(payloadSpan);
+        }
+        catch (InvalidProtocolBufferException e) {
+            Managers.ExecuteAtMainThread(() => { Util.LogError($"D2CUpdateNpcStates 파싱 실패: {e.Message}"); });
+            return;
+        }
+        catch (Exception e) {
+            Managers.ExecuteAtMainThread(() => { Util.LogError($"D2CUpdateNpcStates 처리 중 알 수 없는 에러: {e.Message}"); });
+            return;
+        }
+
+        List<NpcStateData> npcStateDatas = new List<NpcStateData>();
+
+        foreach (GameObjectMovementInfo movementInfo in pkt.NpcStates) {
+            if (movementInfo == null || movementInfo.Transform == null || movementInfo.Transform.Position == null)
+                continue;
+
+            GameProtocol.Vector3 pos = movementInfo.Transform.Position;
+
+            npcStateDatas.Add(new NpcStateData {
+                ObjectId = movementInfo.ObjectId,
+                Position = new UnityEngine.Vector3(pos.X, pos.Y, pos.Z),
+                Yaw = movementInfo.Transform.YawAngle,
+                State = movementInfo.State
+            });
+        }
+
+        Managers.ExecuteAtMainThread(() => {
+            if (Managers.Scene.CurrentScene is not IngameScene ingameScene) return;
+            ingameScene.UpdateNpcStates(npcStateDatas);
         });
     }
 }

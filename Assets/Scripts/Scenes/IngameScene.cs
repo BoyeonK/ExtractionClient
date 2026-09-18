@@ -411,7 +411,8 @@ public class IngameScene : BaseScene {
     // (RecordPlayerKill이 카운터가 아니라 Set인 것과 같은 이유).
     // 씬 인스턴스 필드라 매치가 바뀌면 자연히 비워진다
     private HashSet<uint> _myHostileNpcIds = new HashSet<uint>();
-    private List<uint> _npcUpdateBuffer = new List<uint>();
+    private List<uint> _npcUpdateBuffer = new List<uint>();       // 순회용
+    private List<NpcStateData> _npcStateBuffer = new List<NpcStateData>();   // 송신용
 
     // 주도권 반영의 유일한 지점. NPC의 _targetId 대입과 이 목록 갱신이 한 자리에서 일어나야
     // '목록에는 있는데 자기는 주체가 아니라고 하는' 상태가 생기지 않는다.
@@ -432,10 +433,75 @@ public class IngameScene : BaseScene {
             _myHostileNpcIds.Remove(npcObjectId);
     }
 
-    // 주도권 요청 송신 이음매. HostileNPC.GetAggro()가 문턱을 통과했을 때만 부른다
-    public void RequestNpcAggro(uint npcObjectId, int aggro) {
-        // TODO: 주도권 요청 패킷 전송 — 프로토콜 확정 후 배선
-        Util.Log($"[NPC] 주도권 요청 objectId={npcObjectId} aggro={aggro}");
+    // 주도권 이전 요청. HostileNPC.GetAggro()가 문턱을 통과했을 때만 부른다.
+    // **거부에는 아무 응답도 오지 않는다**(서버가 조용히 무시) — 요청 잠금을 푸는 것은
+    // D2CNotifyNpcAuthority 수신 아니면 NPC 쪽 워치독뿐이다
+    public void RequestNpcAuthority(uint npcObjectId, int aggro) {
+        Managers.Network.udpManager.SendC2DRequestNpcAuthority(npcObjectId, aggro);
+    }
+
+    // aggro 변경 통보. 주도권자만 보낼 수 있고 절대값이라 재전송·순서 역전에 안전하다.
+    // MIN으로 지정하는 것이 곧 주도권 반납 요청이며 별도의 반납 패킷은 없다 —
+    // 다만 **반납을 요청했어도 통보가 오기 전까지 주도권을 놓지 않는다**(서버 계약)
+    public void SendNpcAggro(uint npcObjectId, int aggro) {
+        Managers.Network.udpManager.SendC2DRequestNpcAggro(npcObjectId, aggro);
+    }
+
+    // 적대 오브젝트의 공격 보고. 대상이 언제나 보고자 자신이라 hitObjectId는
+    // 내 objectId 아니면 NO_ATTACKER_OBJECT_ID여야 하고, 그 밖의 값은 서버가 통보 전체를 버린다
+    public void ReportNpcAttack(uint npcObjectId, uint hitObjectId, bool hasHitPoint, Vector3 hitPoint) {
+        Managers.Network.udpManager.SendC2DReportNpcAttack(npcObjectId, hitObjectId, hasHitPoint, hitPoint);
+    }
+
+    // 내가 주도하는 오브젝트들의 상태. 상태 전송 패킷에 실어 보내며, 없으면 null을 돌려
+    // 매 틱 도는 경로에서 빈 목록을 만들지 않는다
+    private List<NpcStateData> BuildMyNpcStates() {
+        if (_myHostileNpcIds.Count == 0) return null;
+
+        _npcStateBuffer.Clear();
+
+        foreach (uint objectId in _myHostileNpcIds) {
+            if (!_sceneObjects.TryGetValue(objectId, out GameObjectController controller)
+                || !(controller is HostileNPC npc))
+                continue;
+
+            _npcStateBuffer.Add(new NpcStateData {
+                ObjectId = objectId,
+                Position = npc.transform.position,
+                Yaw = npc.transform.eulerAngles.y,
+                State = npc.MovementState
+            });
+        }
+
+        return _npcStateBuffer.Count > 0 ? _npcStateBuffer : null;
+    }
+
+    // 수신한 적대 오브젝트 상태. 내가 주도하는 것도 룸 전체 브로드캐스트로 돌아오지만
+    // HostileNPC.ApplyRemoteState의 IsMine 가드가 되먹임을 막는다.
+    // 모르는 objectId에는 스폰을 요청하지 않는다 — 상태 스트림이 10Hz라 reliable이 폭주한다
+    // (발사 브로드캐스트와 같은 판단이며, 주도권 통보 쪽이 스폰을 요청한다)
+    public void UpdateNpcStates(List<NpcStateData> npcStateDatas) {
+        foreach (NpcStateData data in npcStateDatas) {
+            if (_despawnedObjectIds.Contains(data.ObjectId)) continue;
+
+            if (!_sceneObjects.TryGetValue(data.ObjectId, out GameObjectController controller)
+                || !(controller is HostileNPC npc))
+                continue;
+
+            npc.ApplyRemoteState(data.Position, data.Yaw, data.State);
+        }
+    }
+
+    // 남이 주도하는 적대 오브젝트의 공격 연출. 보고자는 제외되어 오므로 내 것은 오지 않는다.
+    // 탄착 좌표가 없으면(빗나감) 방향을 모르므로 그리지 않는다 — 발사 브로드캐스트와 같은 규칙
+    public void HandleNpcAttackBroadcast(uint attackerObjectId, bool hasHitPoint, Vector3 hitPoint) {
+        if (!hasHitPoint) return;
+
+        if (!_sceneObjects.TryGetValue(attackerObjectId, out GameObjectController controller)
+            || !(controller is HostileNPC npc))
+            return;
+
+        BulletTracer.Play(npc.MuzzlePosition, hitPoint);
     }
 
     private void UpdateMyHostileNpcs() {
@@ -1908,7 +1974,8 @@ public class IngameScene : BaseScene {
             _playerController.Pitch,
             _playerController.Velocity,
             _playerController.MovementState,
-            _playerController.ActionState
+            _playerController.ActionState,
+            BuildMyNpcStates()
         );
     }
 }

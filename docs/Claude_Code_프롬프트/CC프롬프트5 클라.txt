@@ -414,3 +414,5 @@ ICombatTarget을 상속받을 클래스인 HostileNPC를 설계하려고 해. Ho
 동시에 IngameScene에서, 우리 클라이언트 주도 하에 움직일 HostileNPC의 objectId들에 대한 정보를 알고 있을 필요가 있어. 그래야, 우리 주도 하에 움직일 HostileNPC의 update문을 실행할 수 있거든. 이에 따라 IngameScene에 uint값들을 저장할 컨테이너를 하나 배치하려고해.
 
  다시 설계 내역을 전체적으로 확인하고 싶어
+
+이 중에서, 프로토콜에 관련된 내용은 별도로 설계하려고 해. 지금 설계 항목에서 제외해줘.

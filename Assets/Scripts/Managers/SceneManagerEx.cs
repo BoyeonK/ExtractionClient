@@ -28,6 +28,15 @@ public struct PlayerStateData {
     public uint ActionState;
 }
 
+// 적대 오브젝트의 상태. 송신(C2DUpdatePlayerState.npc_states)과 수신(D2CUpdateNpcStates)이
+// 같은 구조를 쓰므로 하나로 둔다
+public struct NpcStateData {
+    public uint ObjectId;
+    public UnityEngine.Vector3 Position;
+    public float Yaw;
+    public uint State;
+}
+
 public enum MatchExitReason { Dead, Recalled, ConnectionLost }
 
 // 매치 종료 결과 스냅샷. IngameScene.CompleteMatchExit()이 채우고 결과 씬이 소비한다.

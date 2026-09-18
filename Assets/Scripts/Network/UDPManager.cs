@@ -211,7 +211,10 @@ public class UDPManager {
         SendReliable((ushort)GameProtocol.PktId.C2DNotifyLoadingComplete, pkt);
     }
 
-    public void SendC2DUpdatePlayerState(uint objectId, UnityEngine.Vector3 position, float yaw, float pitch, UnityEngine.Vector3 velocity, uint movementState, uint actionState) {
+    // npcStates에는 '내가 주도권을 가진' 적대 오브젝트만 싣는다(서버 계약). 서버가 항목마다
+    // 주도권을 확인해 어긋난 것만 버리므로 한 항목이 거부돼도 나머지와 state는 정상 반영된다.
+    // 없으면 null을 넘긴다 — 빈 목록을 만들지 않는 것이 매 틱 나가는 경로의 할당을 줄인다
+    public void SendC2DUpdatePlayerState(uint objectId, UnityEngine.Vector3 position, float yaw, float pitch, UnityEngine.Vector3 velocity, uint movementState, uint actionState, List<NpcStateData> npcStates = null) {
         C2DUpdatePlayerState pkt = new C2DUpdatePlayerState {
             State = new PlayerState {
                 MovementInfo = new GameObjectMovementInfo {
@@ -227,6 +230,20 @@ public class UDPManager {
                 ActionState = actionState
             }
         };
+
+        if (npcStates != null) {
+            foreach (NpcStateData npc in npcStates) {
+                pkt.NpcStates.Add(new GameObjectMovementInfo {
+                    ObjectId = npc.ObjectId,
+                    Transform = new TransformInfo {
+                        Position = new GameProtocol.Vector3 { X = npc.Position.x, Y = npc.Position.y, Z = npc.Position.z },
+                        YawAngle = npc.Yaw
+                    },
+                    State = npc.State
+                });
+            }
+        }
+
         SendUnreliable((ushort)GameProtocol.PktId.C2DUpdatePlayerState, pkt);
     }
 
@@ -337,5 +354,43 @@ public class UDPManager {
             RecallSpotIndex = recallSpotIndex
         };
         SendReliable((ushort)GameProtocol.PktId.C2DRequestRecall, pkt);
+    }
+
+    // 적대 오브젝트 관련 셋은 모두 reliable이다(2026-09-18 서버 확인).
+    //
+    // aggro 변경. 주도권자만 보낼 수 있고 그 외에는 서버가 조용히 무시한다.
+    // 증분이 아니라 절대 지정이라 재전송·순서 역전에도 결과가 같다.
+    // MIN으로 지정하는 것이 곧 주도권 반납 요청이며 별도의 반납 패킷은 없다
+    public void SendC2DRequestNpcAggro(uint objectId, int aggro) {
+        C2DRequestNpcAggro pkt = new C2DRequestNpcAggro {
+            ObjectId = objectId,
+            Aggro = aggro
+        };
+        SendReliable((ushort)GameProtocol.PktId.C2DRequestNpcAggro, pkt);
+    }
+
+    // 주도권 이전 요청. 클램프 후 현재값보다 '큰' 경우에만 승인되고 그 외에는 조용히 무시된다
+    // (현재 aggro가 MAX면 어떤 요청도 승인되지 않는다). 결과는 D2CNotifyNpcAuthority로만 온다 —
+    // 거부에는 아무것도 오지 않으므로 호출부의 요청 잠금은 워치독으로만 풀린다
+    public void SendC2DRequestNpcAuthority(uint objectId, int aggro) {
+        C2DRequestNpcAuthority pkt = new C2DRequestNpcAuthority {
+            ObjectId = objectId,
+            Aggro = aggro
+        };
+        SendReliable((ushort)GameProtocol.PktId.C2DRequestNpcAuthority, pkt);
+    }
+
+    // 적대 오브젝트의 공격 보고. 주도권자만 보낼 수 있다.
+    // 공격 대상은 언제나 주도권자 본인이라 hitObjectId는 0xFFFFFFFF(빗나감) 아니면
+    // 보고자 자신의 object_id여야 하며, 그 밖의 값은 통보 전체가 버려진다(서버 계약)
+    public void SendC2DReportNpcAttack(uint objectId, uint hitObjectId, bool hasHitPoint, UnityEngine.Vector3 hitPoint) {
+        C2DReportNpcAttack pkt = new C2DReportNpcAttack {
+            ObjectId = objectId,
+            HitObjectId = hitObjectId
+        };
+        if (hasHitPoint) {
+            pkt.HitPoint = new GameProtocol.Vector3 { X = hitPoint.x, Y = hitPoint.y, Z = hitPoint.z };
+        }
+        SendReliable((ushort)GameProtocol.PktId.C2DReportNpcAttack, pkt);
     }
 }

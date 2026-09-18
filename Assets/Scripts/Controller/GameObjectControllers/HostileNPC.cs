@@ -11,6 +11,10 @@ public class HostileNPC : GameObjectController, ICombatTarget {
     // int로 들고 있어도 그대로 실어 보낼 수 있다. 리터럴 -1을 흩지 말 것
     public const int NO_TARGET = -1;
 
+    // 빗나간 공격 보고에 싣는 값. 값이 같아도 인벤토리 문맥(PLAYER_OBJECT_ID)·전투 문맥
+    // (NO_ATTACKER_OBJECT_ID)과 별개 상수로 유지하는 프로젝트 관례를 따른다
+    private const uint NO_HIT_OBJECT_ID = 0xFFFFFFFF;
+
     // 요청 잠금의 워치독. 주도권을 추측하지 않고 잠금만 푼다(귀환·행동 워치독과 같은 형태) —
     // 없으면 통보가 유실될 때 그 NPC를 그 판 내내 못 뺏는다
     private const float AGGRO_REQUEST_TIMEOUT = 3f;
@@ -31,9 +35,19 @@ public class HostileNPC : GameObjectController, ICombatTarget {
     private float _remoteYaw;
     private bool _hasReceivedState;
 
+    // 수신한 이동 상태. 지금은 쓰는 곳이 없고 움직이는 NPC의 애니메이션이 붙을 자리다
+    protected uint _remoteState;
+
     // 하위 객체마다 다르므로 const가 아니라 virtual이다(const는 override되지 않는다)
     protected virtual int MinAggro => 4;
     protected virtual int MaxAggro => 8;
+
+    // 상태 스트림에 실어 보내는 이동 상태(플레이어 MovementState와 같은 코드 공간).
+    // 터렛은 움직이지 않아 0(IDLE) 고정이며, 움직이는 NPC가 생기면 override한다
+    public virtual uint MovementState => 0;
+
+    // 공격 연출의 궤적 원점. 프리팹에 총구가 생기면 override한다
+    public virtual Vector3 MuzzlePosition => transform.position;
 
     public int TargetId => _targetId;
     public int Aggro => _aggro;
@@ -60,7 +74,12 @@ public class HostileNPC : GameObjectController, ICombatTarget {
     // 아니라 다른 플레이어의 탈취 가능성을 여는 함수다
     public void SetAggro(int value) {
         if (!IsMine) return;
-        _aggro = Mathf.Clamp(value, MinAggro, MaxAggro);
+
+        int clamped = Mathf.Clamp(value, MinAggro, MaxAggro);
+        if (clamped == _aggro) return;   // reliable이라 헛 전송이 in-flight 슬롯을 먹는다
+
+        _aggro = clamped;
+        _ingameScene.SendNpcAggro((uint)_objectId, _aggro);
     }
 
     // 현재 aggro를 넘는 적대 행동을 했을 때 서버에 주도권을 요청한다.
@@ -74,7 +93,16 @@ public class HostileNPC : GameObjectController, ICombatTarget {
 
         _aggroRequested = true;
         _aggroRequestTimer = 0f;
-        _ingameScene.RequestNpcAggro((uint)_objectId, amount);
+        _ingameScene.RequestNpcAuthority((uint)_objectId, amount);
+    }
+
+    // 공격 보고. 대상은 언제나 주도권자 자신이라 호출부는 '맞혔는가'만 넘긴다 —
+    // 피격 대상 id를 직접 만들게 하면 서버가 통보 전체를 버리는 값이 들어갈 수 있다
+    protected void ReportAttack(bool hit, Vector3 hitPoint) {
+        if (!IsMine) return;
+
+        _ingameScene.ReportNpcAttack(
+            (uint)_objectId, hit ? (uint)_targetId : NO_HIT_OBJECT_ID, hit, hitPoint);
     }
 
     // 서버 통보 반영. 주체 가드 밖이며 _targetId를 대입하는 유일한 지점이다 —
@@ -91,10 +119,14 @@ public class HostileNPC : GameObjectController, ICombatTarget {
     // 주도권 전환과 같은 프레임에 함께 뒤집혀야 한다
     protected virtual void OnAuthorityChanged() { }
 
-    // 원격 상태 입력. 프로토콜 배선이 붙기 전까지 호출부가 없다
-    public void ApplyRemoteState(Vector3 position, float yaw) {
+    // 원격 상태 입력. 상태 스트림이 룸 전체에 오므로 내가 주도하는 것도 돌아온다 —
+    // **이 가드가 되먹임을 막는 자리다**(내 구동 결과가 한 틱 낡은 값으로 덮인다)
+    public void ApplyRemoteState(Vector3 position, float yaw, uint state) {
+        if (IsMine) return;
+
         _remotePosition = position;
         _remoteYaw = yaw;
+        _remoteState = state;
 
         // 첫 수신 또는 대규모 이동에서는 즉시 텔레포트(오포와 같은 규칙)
         if (!_hasReceivedState || (transform.position - _remotePosition).sqrMagnitude > TELEPORT_SQR_DIST) {
