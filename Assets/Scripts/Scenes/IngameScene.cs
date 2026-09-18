@@ -56,6 +56,11 @@ public class IngameScene : BaseScene {
     private int _characterType = -1;
     private uint _myObjectId = 0;
 
+    // 0이 실재하는 objectId라 스폰 전에는 비교 자체가 성립하지 않는다 —
+    // 그 조건을 접근자 안에 접어 둔다. 씬 안에 같은 관용구가 여럿 흩어져 있고,
+    // NPC 주도권 판정처럼 밖에서 묻는 자리는 이것만 쓸 것
+    public bool IsMyObjectId(uint objectId) => _spawnCompleted && objectId == _myObjectId;
+
     // 룸 수명 마감. D2CResponseSpawnMeSpawnSpot.remaining_life_ms를 받은 시점을 기점으로 잡는다.
     // 기점은 '룸이 시작한 시각'이 아니라 '내가 스폰 응답을 받은 시각'이므로, 표시 길이
     // (MatchDeadlineSpanMs)는 룸의 총 수명이 아니라 내가 들어온 뒤 남아 있던 시간이다.
@@ -378,6 +383,7 @@ public class IngameScene : BaseScene {
     public void DespawnObject(uint objectId) {
         _despawnedObjectIds.Add(objectId);
         _pendingSpawnRequests.Remove(objectId);
+        _myHostileNpcIds.Remove(objectId);
 
         // 파괴된 컨테이너를 열어둔 상태였다면 UI만 닫는다.
         // 서버가 이미 없앤 오브젝트이므로 C2DCloseContainer는 보내지 않는다.
@@ -389,6 +395,65 @@ public class IngameScene : BaseScene {
 
         _sceneObjects.Remove(objectId);
         Managers.Resource.Destroy(controller.gameObject);
+    }
+
+    // ── 적대 NPC 주도권 ──
+    //
+    // HostileNPC는 targetId가 가리키는 플레이어의 클라이언트가 구동한다. 내가 주체인 것만
+    // 이 목록에 들고 매 프레임 여기서 돌린다 — 비주체 NPC의 보간은 각자의 Update()가 맡으며
+    // 두 경로는 HostileNPC.IsMine으로 상호 배타다.
+    //
+    // 컨트롤러 참조가 아니라 objectId만 드는 것은 실체의 단일 출처가 _sceneObjects이기 때문이다.
+    // 참조를 두 벌로 가지면 디스폰 뒤 죽은 참조가 남는다.
+    //
+    // List가 아니라 HashSet인 것은 같은 주도권 통보가 두 번 반영될 수 있어서다 —
+    // 같은 id가 두 번 등록되면 그 NPC만 한 프레임에 두 번 구동돼 연사 속도가 두 배가 된다
+    // (RecordPlayerKill이 카운터가 아니라 Set인 것과 같은 이유).
+    // 씬 인스턴스 필드라 매치가 바뀌면 자연히 비워진다
+    private HashSet<uint> _myHostileNpcIds = new HashSet<uint>();
+    private List<uint> _npcUpdateBuffer = new List<uint>();
+
+    // 주도권 반영의 유일한 지점. NPC의 _targetId 대입과 이 목록 갱신이 한 자리에서 일어나야
+    // '목록에는 있는데 자기는 주체가 아니라고 하는' 상태가 생기지 않는다.
+    // 아직 스폰되지 않은 NPC에는 보류 목록을 두지 않는다 — 스폰 요청만 걸고, 스폰 뒤에
+    // 주도권을 다시 알려주는 것은 프로토콜 쪽 계약이다
+    public void ApplyNpcAuthority(uint npcObjectId, int targetId, int aggro) {
+        if (!_sceneObjects.TryGetValue(npcObjectId, out GameObjectController controller)
+            || !(controller is HostileNPC npc)) {
+            RequestSpawnIfUnknown(npcObjectId);
+            return;
+        }
+
+        npc.ApplyServerAuthority(targetId, aggro);
+
+        if (targetId != HostileNPC.NO_TARGET && IsMyObjectId((uint)targetId))
+            _myHostileNpcIds.Add(npcObjectId);
+        else
+            _myHostileNpcIds.Remove(npcObjectId);
+    }
+
+    // 주도권 요청 송신 이음매. HostileNPC.GetAggro()가 문턱을 통과했을 때만 부른다
+    public void RequestNpcAggro(uint npcObjectId, int aggro) {
+        // TODO: 주도권 요청 패킷 전송 — 프로토콜 확정 후 배선
+        Util.Log($"[NPC] 주도권 요청 objectId={npcObjectId} aggro={aggro}");
+    }
+
+    private void UpdateMyHostileNpcs() {
+        if (_myHostileNpcIds.Count == 0) return;
+
+        // 구동 중 디스폰·주도권 전환이 목록을 건드리므로 스냅샷을 돌린다
+        _npcUpdateBuffer.Clear();
+        _npcUpdateBuffer.AddRange(_myHostileNpcIds);
+
+        foreach (uint objectId in _npcUpdateBuffer) {
+            if (!_sceneObjects.TryGetValue(objectId, out GameObjectController controller)
+                || !(controller is HostileNPC npc)) {
+                _myHostileNpcIds.Remove(objectId);   // 조회 실패가 곧 정리 신호다
+                continue;
+            }
+
+            npc.OnOwnedUpdate();
+        }
     }
 
     public void DespawnPlayerObject(uint objectId, int reason) {
@@ -1427,16 +1492,17 @@ public class IngameScene : BaseScene {
         }
     }
 
-    // 피격 방향 표시. **가해자 위치를 못 찾는 경로가 정상이다** — 아직 스폰되지 않은 플레이어나
-    // 비플레이어 전투 오브젝트가 쏜 경우이며, 방향을 모르므로 조용히 표시하지 않는다
-    // (발사 브로드캐스트의 hit_point 비대칭과 같은 성격).
+    // 피격 방향 표시. **가해자 위치를 못 찾는 경로가 정상이다** — 아직 스폰되지 않은 가해자이며,
+    // 방향을 모르므로 조용히 표시하지 않는다(발사 브로드캐스트의 hit_point 비대칭과 같은 성격).
     // reason은 보지 않는다 — 회복에는 가해자가 없어 호출부의 NO_ATTACKER 가드가 이미 걸러낸다.
     // 조건을 둘로 늘리면 서버가 사유를 추가할 때 한쪽이 빠진다
     private void ShowDamageIndicator(uint attackerObjectId) {
         if (_ingameDamageIndicatorUI == null || _playerController == null) return;
-        if (!_oppoPlayers.TryGetValue(attackerObjectId, out OppoPlayerController attacker)) return;
 
-        Vector3 toAttacker = attacker.transform.position - _playerController.transform.position;
+        Transform attackerTr = FindCombatObjectTransform(attackerObjectId);
+        if (attackerTr == null) return;
+
+        Vector3 toAttacker = attackerTr.position - _playerController.transform.position;
         toAttacker.y = 0f;
         if (toAttacker.sqrMagnitude < 0.0001f) return;
 
@@ -1446,6 +1512,19 @@ public class IngameScene : BaseScene {
         forward.y = 0f;
 
         _ingameDamageIndicatorUI.ShowIndicator(-Vector3.SignedAngle(forward, toAttacker, Vector3.up));
+    }
+
+    // 가해자는 플레이어일 수도, 비플레이어 전투 오브젝트(HostileNPC 등)일 수도 있다.
+    // objectId 공간이 둘의 공용이므로 레지스트리 둘을 모두 본다 — 한쪽만 보면
+    // NPC에게 맞을 때 피격 방향이 통째로 빠진다
+    private Transform FindCombatObjectTransform(uint objectId) {
+        if (_oppoPlayers.TryGetValue(objectId, out OppoPlayerController oppo))
+            return oppo.transform;
+
+        if (_sceneObjects.TryGetValue(objectId, out GameObjectController controller))
+            return controller.transform;
+
+        return null;
     }
 
     // ── 킬 피드 ──
@@ -1782,6 +1861,11 @@ public class IngameScene : BaseScene {
             }
             return;
         }
+
+        // 상태 전송보다 앞이어야 그 프레임의 구동 결과가 곧바로 나간다.
+        // 이탈 유예 중에는 위에서 조기 반환하므로 구동도 함께 멈춘다 —
+        // BeginMatchExit에 별도 정리를 두지 않는 근거다
+        UpdateMyHostileNpcs();
 
         _playerStateTimer += Time.deltaTime;
         if (_playerStateTimer >= PLAYER_STATE_INTERVAL) {

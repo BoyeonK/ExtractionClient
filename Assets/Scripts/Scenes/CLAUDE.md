@@ -148,7 +148,8 @@
 
 `HandleHealthChange`의 가해자 갱신 자리에서 부른다. 각도는 **플레이어 루트 forward 기준 수평 signed yaw**이고 루트가 요만 따라가므로 `transform.forward`가 곧 수평 시선이다.
 
-- **가해자 위치를 못 찾는 경로가 정상이다** — 아직 스폰되지 않은 플레이어나 비플레이어 전투 오브젝트가 쏘면 `_oppoPlayers`에 없다. 방향을 모르므로 **조용히 표시하지 않는다**(발사 브로드캐스트의 `hit_point` 비대칭과 같은 성격)
+- **가해자 조회는 `_oppoPlayers`와 `_sceneObjects`를 모두 본다**(`FindCombatObjectTransform`) — objectId 공간이 플레이어·비플레이어 공용이라 한쪽만 보면 **NPC에게 맞을 때 방향 표시가 통째로 빠진다**
+- **그래도 못 찾는 경로가 정상이다** — 아직 스폰되지 않은 가해자이며, 방향을 모르므로 **조용히 표시하지 않는다**(발사 브로드캐스트의 `hit_point` 비대칭과 같은 성격)
 - **`reason`을 보지 않는다** — 회복에는 가해자가 없어 `attacker_object_id != 0xFFFFFFFF` 가드가 이미 걸러낸다. 조건을 둘로 늘리면 서버가 사유를 추가할 때 한쪽이 빠진다
 - **UI 회전은 반시계가 양수라 월드 signed yaw와 부호가 반대다** — `-Vector3.SignedAngle(...)`의 마이너스를 빼면 좌우가 뒤집힌다
 
@@ -368,6 +369,19 @@
 - **제거 통보가 둘로 갈린다** — 처치는 `D2CNotifyObjectKilled`(41), 그 외는 `D2CNotifyDespawnObject`(39). **후자는 현재 서버가 보내지 않지만**(컨테이너가 게임 종료까지 유지된다) 사유가 생길 때를 위한 예약이므로 핸들러를 유지하고, 새 제거 경로도 둘 다 `DespawnObject()`로 모을 것
 - 컨테이너 닫기 가드는 위 이유로 지금 도달하지 않지만 **제거하지 말 것** — 컨테이너가 파괴 대상이 되는 순간 되살아나는 방어 코드다
 - `Define.ObjectPaths`에 매핑이 없는 `object_type`은 에러 로그로 드러낸다. `Undefined`는 키가 있어도 경로가 null이라 함께 걸러낸다
+
+### 적대 NPC 주도권 (`_myHostileNpcIds` / `ApplyNpcAuthority` / `UpdateMyHostileNpcs`)
+
+`HostileNPC`는 `targetId`가 가리키는 플레이어의 클라이언트가 구동한다. 씬은 **내가 주체인 것의 objectId만** 들고 매 프레임 그것만 돌린다 — 비주체 NPC의 보간은 각자의 `Update()`가 맡고 둘은 `IsMine`으로 배타다(규칙은 `Controller/CLAUDE.md`).
+
+- **`IsMyObjectId(objectId)`로 물을 것** — `_spawnCompleted` 조건이 접근자 안에 접혀 있다. **`0`이 실재하는 objectId라** 스폰 전에는 비교가 성립하지 않으며, 생으로 비교하면 **`targetId == 0`인 NPC가 전부 '내 것'이 되어** 여러 클라가 동시에 구동한다
+- **컨트롤러 참조가 아니라 objectId만 든다** — 실체의 단일 출처는 `_sceneObjects`이고, 참조를 두 벌로 가지면 디스폰 뒤 죽은 참조가 남는다. 조회 실패가 곧 목록 정리 신호다
+- **`List`가 아니라 `HashSet`이다** — 같은 주도권 통보가 두 번 반영될 수 있고(수신 중복 제거 없음), 그러면 **그 NPC만 한 프레임에 두 번 구동돼 연사 속도가 두 배가 된다**(`RecordPlayerKill`이 Set인 것과 같은 이유)
+- **순회는 재사용 버퍼(`_npcUpdateBuffer`) 스냅샷으로 한다** — 구동 중 디스폰·주도권 전환이 목록을 건드린다
+- **목록 갱신 지점은 둘뿐이다**: `ApplyNpcAuthority`(추가·제거)와 `DespawnObject`(제거). NPC의 `_targetId` 대입과 목록 갱신이 **같은 함수 안에서** 일어나야 "목록에는 있는데 자기는 주체가 아니라고 하는" 상태가 생기지 않는다
+- **`BeginMatchExit`의 정리 목록에 넣지 말 것** — `OnUpdate()`의 이탈 블록이 조기 반환해 자동으로 멈춘다. 별도 정리를 두면 늦게 오는 통보가 목록을 다시 채울 때 처리가 두 벌이 된다
+- **구동은 상태 전송보다 앞이다** — 뒤집으면 그 프레임의 결과가 한 틱 늦게 나간다
+- 미스폰 NPC의 통보에는 `RequestSpawnIfUnknown()`만 걸고 **보류 목록을 두지 않는다**. 스폰 뒤 주도권을 다시 알려주는 것은 프로토콜 쪽 계약이며, 그것이 없으면 늦게 스폰된 NPC의 주도권이 영영 비어 있게 된다
 
 ### 디스폰과 유령 재스폰 차단 (`_despawnedObjectIds`)
 

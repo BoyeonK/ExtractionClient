@@ -44,6 +44,7 @@ public static class Define {
         TenerifeBrownCar,
         TenerifeRedCar,
         TenerifeBus,
+        Turret,     // 첫 HostileNPC 파생
         MaxCount,
     }
 
@@ -62,6 +63,7 @@ public static class Define {
         { (int)ObjectType.TenerifeBrownCar, "GameObject/TenerifeBrownCar" },
         { (int)ObjectType.TenerifeRedCar, "GameObject/TenerifeRedCar" },
         { (int)ObjectType.TenerifeBus, "GameObject/TenerifeBus" },
+        { (int)ObjectType.Turret, "GameObject/Turret" },
     };
 
     public enum Resolution {

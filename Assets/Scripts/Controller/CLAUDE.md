@@ -6,6 +6,8 @@
 GameObjectController (MonoBehaviour)
 ├── PlayerController         : ICombatTarget
 ├── OppoPlayerController     : ICombatTarget
+├── HostileNPC               : ICombatTarget
+│     └── TurretNPC                              (Define.ObjectType 항목당 하나)
 └── InteractableGameObjectController
       ├── ContainerController
       │     ├── TestItemBoxController
@@ -38,6 +40,20 @@ GameObjectController (MonoBehaviour)
 - **`PlayerLoot`(`object_type` 3)는 사망 지점에 스폰되는 전리품 컨테이너다.** 사망자의 인벤토리·장착·탄창이 전부 여기로 옮겨지고 스폰은 `D2CNotifySpawnObject`로 통보된다(서버 계약)
 - **`PlayerLoot`의 상호작용 텍스트도 "열어보기"다** — 여닫기·집기가 일반 컨테이너와 완전히 같으므로 파생 클래스에서 `_interactText`를 건드리지 않는다
 - 프리팹 이름에는 `Controller` 접미사가 없다(`GameObject/PlayerLoot` ↔ `PlayerLootController`). 대응은 `Define.ObjectPaths`가 갖는다
+
+## HostileNPC — 주도권이 클라로 넘어오는 전투 오브젝트
+
+`targetId`가 가리키는 플레이어의 클라이언트가 구동하고, `NO_TARGET`(-1)이면 서버가 구동한다. **주도권과 `aggro`의 판정 권한은 서버에 있고 클라 값은 캐시다** — 클라의 비교는 헛 요청을 줄이는 문턱이다(`CanReload` 진입 문턱과 같은 성격). 목록 보유와 구동 루프는 `IngameScene` 소관이다(`Scenes/CLAUDE.md`).
+
+- **파생 클래스는 `base.Init()`을 반드시 부를 것** — 씬 참조와 `_aggro = MinAggro` 초기화가 거기 있어, 빠뜨리면 **에러 없이 그 NPC만 통째로 죽는다**(`ContainerController`와 같은 함정). `MinAggro`/`MaxAggro`가 `const`가 아니라 `virtual`인 것도 이 때문이다 — `const`는 override되지 않고, virtual이라 필드 초기화 시점에는 파생값이 잡히지 않는다
+- **`_targetId` 대입은 `ApplyServerAuthority` 한 곳뿐이다.** 대입 지점이 늘면 "주체가 아닌데 움직이는" 상태가 남는다. 구동 컴포넌트 on/off도 같은 자리(`OnAuthorityChanged`)에서 뒤집는다
+- **`Increase`/`DecreaseAggro`는 `SetAggro`로 수렴한다** — 주체 가드와 클램프가 각각 한 자리여야 갈래가 늘어도 빠지지 않는다
+- **`GetAggro`만 주체 가드 밖이다**(주체가 아닐 때 부르는 것이 존재 이유). **이름이 '획득'이지 접근자가 아니다** — 값 읽기는 `Aggro` 프로퍼티
+- **`MAX_AGGRO`에 닿으면 주도권이 굳는다 — 의도다.** 비교식을 `>=`로 완화하지 말 것. **`DecreaseAggro`는 주도권을 내려놓는 함수가 아니라** 다른 플레이어의 탈취 가능성을 여는 함수다
+- **클라에 주도권을 스스로 버리는 경로를 만들지 말 것** — 주체가 사라졌을 때의 재설정은 서버가 한다. `_aggroRequested` 워치독은 예외가 아니다(결과를 추측하지 않고 **요청 잠금만** 푼다 — 귀환·행동 워치독과 같은 형태)
+- **`Update()`와 `OnOwnedUpdate()`는 `IsMine`으로 상호 배타다.** 한쪽에 다른 쪽 일을 넣으면 주도권 전환 직후 NPC가 두 방향으로 움직이고, 재현이 어려운 증상으로 남는다
+- **`FindTarget()`은 후보 탐색이 아니다** — 공격 대상은 언제나 주도권자이고 멤버 함수는 주체일 때만 도므로, 대상은 **언제나 이 클라의 로컬 플레이어**다. 남을 후보로 고려하는 코드를 넣지 말 것
+- **비주체 보간은 오포와 같은 값·같은 규칙이다**(첫 수신·대규모 이동은 텔레포트, 그 외 Lerp 15). 갈리면 NPC만 다른 방식으로 떨린다
 
 ## 공용 헬퍼 (`GameObjectController`)
 
