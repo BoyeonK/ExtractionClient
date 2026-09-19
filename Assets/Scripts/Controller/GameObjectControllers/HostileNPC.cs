@@ -46,7 +46,7 @@ public class HostileNPC : GameObjectController, ICombatTarget {
     protected uint _remoteState;
 
     // 하위 객체마다 다르므로 const가 아니라 virtual이다(const는 override되지 않는다)
-    protected virtual int MinAggro => 4;
+    protected virtual int MinAggro => 1;
     protected virtual int MaxAggro => 8;
 
     // 상태 스트림에 실어 보내는 이동 상태(플레이어 MovementState와 같은 코드 공간).

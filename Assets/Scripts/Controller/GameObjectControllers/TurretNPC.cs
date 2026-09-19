@@ -1,7 +1,7 @@
 using UnityEngine;
 
 // 첫 HostileNPC 파생. 이동하지 않고 조준·사격만 하는 전투 오브젝트다 —
-// MinAggro/MaxAggro는 기본값(4/8)을 쓰며, 다른 값이 필요해지면 여기서 override한다
+// MinAggro/MaxAggro는 기본값(1/8)을 쓰며, 다른 값이 필요해지면 여기서 override한다
 public class TurretNPC : HostileNPC {
     // 대상의 루트 피벗이 발밑이고 PlayerObject 스케일이 2라 가슴 높이가 이 부근이다 —
     // 발밑을 겨누면 포신이 지면을 향한다

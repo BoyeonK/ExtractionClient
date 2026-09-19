@@ -451,3 +451,18 @@ x의 반복이동주기와 y의 반복이동주기, z의 반복이동주기는 �
 
 TurretNPC의 /Top object가 soundsource를 포함하고있어. init시점에 참조를 가져와줘.
 
+D2CNotifyObjectKilled로 인해 HostileNPC가 사라졌다는 것을 통보받았을 때,
+1. targetId == -1 (서버 주관)
+2. targetId != -1인 경우에서, 
+	- 내 주관
+	- 내가 아닌 사람의 주관
+인 각각의 경우에 대해서 올바르게 처리되는지 확인해줘.
+
+
+
+
+
+
+
+
+
