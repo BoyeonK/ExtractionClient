@@ -1,6 +1,6 @@
 # 프로젝트 진행 상황
 
-> 최종 수정: 2026-09-18
+> 최종 수정: 2026-09-19
 > 장르: 멀티플레이어 Extraction 게임 (알파 단계)
 > 엔진: Unity 6000.4.0f1 / URP 17.4.0
 
@@ -9,8 +9,6 @@
 ## 완료된 것들
 
 ### 네트워크/UI
-
-- [x] (2026-09-02 #10) **매치 시작 스펙 반영 — FREE 로드아웃 선제 검사 · `MatchStartResult` 6갈래** — `http-api-spec.yaml`이 `inventory`를 FREE·CUSTOM 공통 필수로 올리고 FREE에 'slot 80 이상이 비어 있을 것'(`ERR_LOADOUT_NOT_EMPTY`)을 붙여서, `TryMatchMake`에 `IsLoadoutAreaEmpty()`(인벤토리 25 + 로드아웃 3, **창고 제외** — 서버 조건이 slot 80 이상이라 창고까지 보면 아이템을 가진 계정이 FREE로 아예 못 들어간다) 선제 검사를 넣고 FREE에서 `null`을 보내던 스냅샷 삼항을 걷어냈다. **검사를 `UI_MapSelect`가 아니라 씬에 둔 것은 FREE 진입점이 FREE 버튼과 게스트 즉시 시작 둘이라 UI 쪽에서는 반드시 한쪽이 빠지기 때문이고**, `StartMatchCall`은 `SendRequestWithStatusAsync`로 갈아타 상태 코드 판정을 본문 파싱보다 앞에 둔 뒤(빈 409/400 본문이 `JsonUtility.FromJson`에 닿으면 예외가 `async void` 호출부로 새어 팝업 없이 굳는다) 반환을 `bool` → `MatchStartResult` 6상태로 올렸다. **409를 하나로 묶지 않은 것이 이번 판단의 핵심이다** — `ERR_ALREADY_IN_MATCH`는 서버에만 큐가 있고 클라에 `TicketId`가 없어 폴링도 취소도 못 하므로 재조회가 아무것도 바꾸지 않는 반면 `ERR_SNAPSHOT_MISMATCH`는 재조회하면 다시 시도할 수 있어, **code가 없는 409는 `OutOfSync` 쪽으로 흘린다**(구매가 `Rejected`로 흘리는 것과 갈리는 지점 — 헛도는 재조회는 해가 없지만 반대 방향은 살릴 수 있는 경우를 막다른 길로 안내한다).
 
 - [x] (2026-09-02 #11) **`TenerifeScene` 마감 — 씬 내장 UI 배치 확인 · 컨테이너 프리팹 부착 · 서버 번호 확정** — 우선사항으로 남아 있던 셋(씬 내장 UI 12종의 이름·활성 상태 확인 / 차·버스 프리팹 5개에 컨트롤러 컴포넌트 부착 / 서버 `object_type` 4~8 확정)이 전부 닫혀 맵이 배치·통신 양쪽으로 섰고, **컨트롤러 5종의 `.cs.meta`가 생성돼 부착의 선행 조건이던 Unity 임포트도 지나갔다.** 항목이 닫히며 갈 곳을 잃는 지식 둘은 모듈 문서로 옮겼다 — **서버 스폰 프리팹을 씬에 배경으로도 놓으면 두 벌이 된다**는 제약은 `Controller/CLAUDE.md`의 컨테이너 파생 클래스 절로, **다른 맵 씬을 복제해 만들면 옛 씬 스크립트가 남아도 증상이 없다**(분기를 넣는 순간에야 드러난다)는 함정은 `Scenes/CLAUDE.md`의 맵 씬 진입 절로 갔다. Boundary 관련 둘(경계 사격이 콜라이더에 막히는 것은 의도 / 서버는 경계를 모른다)은 아래 '진행 고려사항'으로 옮겨 남겼다.
 
@@ -30,6 +28,8 @@
 
 - [x] (2026-09-18 #3) **적대 오브젝트 프로토콜(46~51) 배선 — 송신 넷 · 수신 셋** — 서버가 내려준 NPC 패킷 6종을 붙였다: 46·47·48(**전부 reliable**)이 aggro 절대 지정 · 주도권 이전 요청 · 공격 보고이고, 49·50·51이 주도권 통보 · 공격 연출 · 상태 스트림이다. **NPC 상태는 별도 패킷이 아니라 `C2DUpdatePlayerState.npc_states`에 얹혀 나가고**(서버가 항목마다 주도권을 확인해 어긋난 것만 버리므로 **부분 거부가 정상**), 51번이 룸 전체로 와 내 것도 돌아오므로 `ApplyRemoteState`에 `IsMine` 가드를 둬 **내 구동 결과가 한 틱 낡은 값으로 덮이는 되먹임**을 막았다. 계약에 맞춰 이음매를 `SendNpcAggro`(46)/`RequestNpcAuthority`(47)/`ReportNpcAttack`(48)로 갈랐고(46은 aggro 변경, 47은 주도권 요청이라 한 이름이면 헷갈린다), **`DecreaseAggro`로 MIN까지 내리는 것이 곧 반납 요청**이라는 계약을 모듈 문서에 반영했다 — 그래도 주도권은 통보가 오기 전까지 놓지 않는다.
 
+- [x] (2026-09-19 #0) **터렛 조준 — 서버가 통보한 대상을 20Hz로 추적한다** — `TurretNPC`가 좌표(`_targetPos`)가 아니라 대상 참조(`_targetObj`)를 들게 했다: 대상이 움직이므로 좌표는 반드시 낡고, 갱신하려면 매 프레임 변경 함수를 불러 "값이 바뀔 때만 실행"이라는 `AimTargetChange`(주도권 통보 훅, 조준 전환 사운드가 붙을 자리)의 존재 이유가 무너진다. **`_targetObj`는 `_targetId`에서 유도한 캐시라 통보가 대상 스폰보다 먼저 오면 null이고 그때는 `AimTarget`이 다시 푼다**(주도권을 다시 알려주는 패킷이 없어 한 번만 풀면 그 포탑은 판 내내 조준하지 않는다) — 조회는 `IngameScene.FindCombatObjectTransform`을 public으로 올리고 **로컬 플레이어 가지를 더해** 셋(나·오포·씬 오브젝트)을 모두 보게 했다(로컬 플레이어가 어느 레지스트리에도 없어서, 빠뜨리면 정작 총을 쏘는 주체 클라에서만 조준이 죽는다). 조준은 주도권과 무관한 표현이라 `HostileNPC`에 `OnTargetedUpdate(float)` 훅을 새로 둬 주체·비주체 양쪽에서 돌리고(통보가 룸 전체에 오므로 각 클라가 스스로 대상을 찾아 돌릴 수 있어 **상태 스트림에 피치를 싣지 않아도 남의 화면에서 포신이 움직인다**) 회전은 자식 `Top/pointer`의 월드 회전만 건드리며(루트를 돌리면 비주체 쪽 `ProcessRemoteMovement`의 yaw Lerp와 싸운다), 주기는 **기반 클래스의 20Hz 게이트**(발소리·발사 타이머와 같은 `Mathf.Min` 상한 + `-=` 차감, `Init`에서 `Random`으로 위상 분산)가 재고 **tick 간격을 인자로 넘긴다** — 144Hz에서 NPC 대수만큼 헛 계산이 쌓이는 것을 막으려는 것이고, 구현부가 `Time.deltaTime`을 쓰면 프레임률이 높을수록 조준이 느려진다(`FixedUpdate`는 물리 전체의 주기라 쓸 수 없다). 실험은 `IngameScene` 없이 도는 `TestTurretNPC`(`HostileNPC` 상속을 끊은 독립 `MonoBehaviour`)와 x·y·z 주기가 서로 다른 왕복 표적 `TestObj`에서 했고, 프리팹은 **`ObjectPaths`가 찾는 이름과 어긋나 있던 것을 `GameObject/Turret`으로 통일**한 뒤(그대로 두면 로드 실패로 스폰이 통째로 건너뛰어진다) 조준 대상 `Top/pointer`와 `Top`의 `AudioSource`를 `Init()`에서 함께 잡게 했다 — 둘 다 이름이 계약이고 회전 속도·가청 거리는 코드가 아니라 프리팹이 정한다.
+
 ---
 
 ## 진행 중 / 다음 할 것들
@@ -48,9 +48,10 @@
     - **`LobbyScene` 에셋 배치** — 배경·소품 배치로 로비를 꾸민다. 배치용 프리팹은 `Resources/Prefabs/Scene/LobbySceneContent/`에 모으고 있다
     - **`MapSelectUI` 외형 — 남은 것은 레이아웃뿐이다** — 스프라이트·맵 이름 배선이 끝난 데 더해(2026-09-01 #10) `map_sprite_1`이 Tenerife 시안으로 교체됐고 선택창의 초기 선택도 Tenerife다(파일명은 mapId 키라 그대로 둔다)
     - **`LoadingScene` 다듬기**
-4. **적대 NPC(터렛) — 계층과 프로토콜이 다 섰고 남은 것은 자산과 수치다** — (2026-09-18 #2·#3)에서 `HostileNPC`/`TurretNPC`·주도권 구동 루프·`Define` 등록과 패킷 46~51 배선이 끝났다. 남은 것:
-    - **`Resources/Prefabs/GameObject/Turret` 프리팹** — `ObjectPaths`에 경로만 등재돼 있고 자산이 없다. **하위에 붙은 콜라이더는 무엇이든 피격 부위가 된다**(`GetComponentInParent`). 총구가 생기면 `MuzzlePosition`을 override해 궤적 원점을 옮길 것
-    - **전투 동작 수치** — `TurretNPC.FindTarget`/`TryAttack`이 `TODO:`로 비어 있다. 사거리·시야·연사 간격이 설계되지 않았고, **보고는 `ReportAttack(hit, hitPoint)` 한 줄이면 서버까지 닿는다**
+4. **적대 NPC(터렛) — 계층·프로토콜·조준·프리팹이 섰고 남은 것은 사격이다** — (2026-09-18 #2·#3)에서 계층과 패킷 46~51이, (2026-09-19 #0)에서 조준과 프리팹 등재가 닫혔다. 남은 것:
+    - **`Resources/Prefabs/GameObject/Turret` 프리팹이 생겼다**(관례대로 프리팹 이름 = `ObjectType` 항목 이름이고 클래스 접미사를 붙이지 않는다 — `Turret` ↔ `TurretNPC`). **하위 경로 둘이 이름째로 계약이다**: `Top/pointer`(조준 회전 대상)와 `Top`의 `AudioSource`(월드 소리 소스) — 없으면 `BindComponent`가 에러를 남기고 그 기능만 죽는다. 회전 속도 `_aimSpeed`(`[SerializeField]`, 초당 도)와 가청 거리·Rolloff는 **코드에 값이 없고 프리팹이 정한다**. **하위에 붙은 콜라이더는 무엇이든 피격 부위가 된다**(`GetComponentInParent`). 총구가 생기면 `MuzzlePosition`을 override해 궤적 원점을 옮길 것
+    - **전투 동작 수치** — `TurretNPC.FindTarget`/`TryAttack`이 `TODO:`로 비어 있다. 사거리·시야·연사 간격이 설계되지 않았고, **보고는 `ReportAttack(hit, hitPoint)` 한 줄이면 서버까지 닿는다**. 사거리·시야 판정은 `OnOwnedUpdate` 쪽이라 **매 프레임이므로**, 레이캐스트를 넣을 때 조준과 같은 20Hz로 묶을지 함께 볼 것
+    - **조준 전환 사운드(`AimTargetChange`의 `TODO:`)** — 소스(`Top`의 `AudioSource`)는 `Init`에서 잡아 뒀고 남은 것은 클립과 재생 호출이다. 룸 전체가 받는 통보에서 불리므로 2D `Play()`가 아니라 `PlayOneShotAt(path, _soundAudio)`여야 한다
     - **서버 주도 NPC의 이동 정보 경로는 아직 없다** — `D2CUpdateNpcStates`에 서버 주도 오브젝트가 실리지 않는다(서버 계약). 터렛은 움직이지 않아 문제가 없고, **움직이는 HostileNPC가 추가될 때 그 경로를 함께 설계한다**
     - **`ICombatTarget`을 구현하지 않으면 `hit_object_id`에 `0xFFFFFFFF`가 실려 맞아도 아무 일이 없다.** 수신 측은 이미 준비돼 있다 — `D2CNotifyObjectKilled`(41)가 킬 기록과 `DespawnObject()`까지 한다
 5. **사망 연출 — 충돌을 모두 끄고 사망 모션 재생 (로컬·오포 공통)** — 죽는 순간 해당 캐릭터의 **모든 콜라이더를 끄고 사망 모션을 재생**한다. **충돌을 끄는 쪽은 보기 문제가 아니다** — 오포는 `BuildHitboxes`가 본에 붙인 캡슐 11개가 `ICombatTarget` 히트스캔에 그대로 걸려서, 끄지 않으면 **시신이 총알을 계속 먹고 이미 죽은 `objectId`가 `hit_object_id`에 실린다**(로컬 쪽은 `CharacterController` 하나뿐이다). **착수 전에 갈라야 할 것은 오포의 수명이다** — 내 캐릭터는 `BeginMatchExit(Dead)`의 `MATCH_EXIT_DELAY`(4초) 유예 안에서 재생하면 되고 `DeathCameraController`가 이미 그 창을 쓰고 있지만, 남의 캐릭터는 킬 통보(`D2CNotifyPlayerKilled`)와 제거(`D2CDespawnPlayerObject`)가 **별개 패킷이라 모션이 끝날 때까지 오브젝트가 남는다는 보장이 없다.** 애니메이터는 양쪽 다 `_anim`으로 이미 잡혀 있어 배선보다 **사망 클립 자산과 전이 조건**이 먼저다
@@ -60,6 +61,8 @@
 
 > 코드를 고칠 때 지켜야 할 제약·불변식은 **모듈 `CLAUDE.md`**(`Assets/Scripts/*/CLAUDE.md`)에 있다. 여기에는 **아직 코드가 없어 적을 자리가 없는 것**과 **오해를 막기 위한 관찰**만 남긴다.
 
+- **터렛 조준이 20Hz라 계단이 보일 수 있다 (동작 문제는 아니다)** — 90°/s에서 tick당 4.5°씩 꺾이므로 144Hz에서는 7~8프레임 정지 후 도약으로 보인다. 거슬리면 2층으로 나눈다 — **목표 회전(`LookRotation`)만 20Hz로 갱신하고 그쪽으로 다가가는 `RotateTowards`는 매 프레임** 돌리는 형태이며, 앞으로 붙을 사거리·시야 레이캐스트가 20Hz에 남아 비용의 대부분은 그대로 준다. 실험용 `TestTurretNPC`에서 먼저 볼 수 있다
+- **`AIM_TARGET_Y_OFFSET`(조준 높이 1.0)이 `TurretNPC`와 `TestTurretNPC` 두 곳에 있다** — 공용 파일을 만들지 않기로 했으므로 **실험에서 높이를 조정하면 본체도 함께 고칠 것.** 값의 근거는 대상 루트 피벗이 발밑이고 `PlayerObject` 스케일이 2라 가슴이 그 부근이라는 것이다
 - **NPC 주도권 통보(49)에 순서 방어가 없다 — 알고 미룬 것이다** — proto 주석은 헤더 `rSeqNum`으로 낡은 통보를 버리라고 하지만 `HandlerFunc`가 `(ReadOnlySpan<byte>)`만 받아 핸들러가 시퀀스를 볼 수 없고, **델리게이트를 바꾸면 핸들러 28개가 전부 영향을 받는다.** 대신 **상태 전송에 실리는 오브젝트 정보로 서버가 불일치를 잡아 원복시키는 로직을 예정**하고 있으며, 그 전이라도 역전이 성립하는 경우의 수가 매우 한정적이라 감수한다(사용자 판단). 증상이 나온다면 "주도권이 잠깐 되돌아간 것처럼 보임"이다
 - **맵 경계는 클라 콜라이더로만 존재한다 — 서버는 경계를 모른다** — `TenerifeScene`의 투명 `BoundaryObject`가 이탈을 막는 전부이므로 **경계 이탈 처리를 서버에 기대지 말 것**(알려오는 패킷이 없다). **경계 근처 사격이 여기에 막히는 것은 확정된 의도다** — 콜라이더라 히트스캔이 그대로 걸린다
 - **지도 그림의 외형 선택지 셋은 열어둔 채로 뒀다 (동작에는 문제가 없다)** — ① `MapTopView`가 480×270이라 1500×808 표시 영역에서 3.1배 업스케일로 흐리다(1회 촬영이라 해상도를 올려도 비용은 그 한 프레임뿐이다) ② `Clear Flags`가 Skybox라 지형 밖이 하늘로 채워져 프리팹의 남색 배경이 지도 영역에 보이지 않는다 ③ `TopViewCamera`에 `AudioListener`가 꺼진 채 붙어 있어 **켜지면 씬에 리스너가 둘이 되어 경고가 뜨고 소리가 지도 카메라 위치에서 난다**

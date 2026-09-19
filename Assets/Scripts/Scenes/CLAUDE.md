@@ -148,7 +148,8 @@
 
 `HandleHealthChange`의 가해자 갱신 자리에서 부른다. 각도는 **플레이어 루트 forward 기준 수평 signed yaw**이고 루트가 요만 따라가므로 `transform.forward`가 곧 수평 시선이다.
 
-- **가해자 조회는 `_oppoPlayers`와 `_sceneObjects`를 모두 본다**(`FindCombatObjectTransform`) — objectId 공간이 플레이어·비플레이어 공용이라 한쪽만 보면 **NPC에게 맞을 때 방향 표시가 통째로 빠진다**
+- **가해자 조회는 보유처 셋을 모두 본다**(`FindCombatObjectTransform` — 로컬 플레이어 / `_oppoPlayers` / `_sceneObjects`) — objectId 공간이 셋의 공용이라 하나만 빠져도 그 갈래에서만 조회가 실패한다(`_sceneObjects`가 없으면 **NPC에게 맞을 때 방향 표시가 통째로 빠지고**, 로컬 플레이어 가지가 없으면 **NPC가 노리는 대상이 나일 때만 못 찾는다** — 소비자가 `TurretNPC`의 조준이다). **로컬 플레이어는 두 레지스트리 어느 쪽에도 없다**
+- 가해자가 나인 경우는 오지 않지만 `ShowDamageIndicator`는 그래도 안전하다 — 뒤따르는 `sqrMagnitude` 가드가 영벡터를 걸러낸다
 - **그래도 못 찾는 경로가 정상이다** — 아직 스폰되지 않은 가해자이며, 방향을 모르므로 **조용히 표시하지 않는다**(발사 브로드캐스트의 `hit_point` 비대칭과 같은 성격)
 - **`reason`을 보지 않는다** — 회복에는 가해자가 없어 `attacker_object_id != 0xFFFFFFFF` 가드가 이미 걸러낸다. 조건을 둘로 늘리면 서버가 사유를 추가할 때 한쪽이 빠진다
 - **UI 회전은 반시계가 양수라 월드 signed yaw와 부호가 반대다** — `-Vector3.SignedAngle(...)`의 마이너스를 빼면 좌우가 뒤집힌다

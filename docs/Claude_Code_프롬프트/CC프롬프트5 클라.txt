@@ -416,3 +416,38 @@ ICombatTarget을 상속받을 클래스인 HostileNPC를 설계하려고 해. Ho
  다시 설계 내역을 전체적으로 확인하고 싶어
 
 이 중에서, 프로토콜에 관련된 내용은 별도로 설계하려고 해. 지금 설계 항목에서 제외해줘.
+
+4번 사항 순서 방어 없이 진행해줘. 이후에 C2DUpdatePlayerState의 전송시에 클라이언트가 가진 object의 정보를 전송하는데, 이때 발견한 불일치를 통해서 원복시키는 로직을 추후에 추가할 예정이야. 이 로직이 도입되지 않더라도, 그로인해 발생하는 버그의 발생 빈도는 계산상 일어날 경우의 수가 몹시 한정적이기도 해.
+서버에 물어볼 점
+1. 서버 주도 NPC는 dynamic_object의 스폰 시점, 혹은 별도의 스폰 시점에 위치가 특정되고, 그 이후 클라이언트와 동기화 가능한 방법으로서 이동 정보가 주어질거야. 일단, 지금 추가된 turret의 경우 움직임이 존재하지 않으므로 아직 구현 내용이 없지만, 추후에 움직임이 생기는 HostileNPC가 추가되는 경우에 그 로직을 추가하려고 해.
+2. 46,47,48은 reliable이야.
+
+Turret은 다음 멤버 변수와 멤버 함수를 가지고 있어야 해.
+_targetPos : Vector3로서, 바라볼 위치를 담당함.
+AimTarget : _targetPos를 바라보도록 컴포넌트의 일부의 transform을 조작할 멤버 함수 (추후 구현)
+AimTargetChange : 이벤트를 받아 _targetPos가 바뀔 때 명시적으로 실행할 멤버 함수. 추후에 sound발생까지 들어가야 함
+
+_targetPos를 제거하고 _targetObj를 참조하려고 해.
+AimTarget에서는 _targetObj가 유효한지 먼저 확인하고, 유효한 객체라면 해당 obj의 transform.position에, y값에 +1을 한 지점을 바라보도록 할거야.
+이에 대한 의견이 있을까
+
+1. AimTargetChange의 경우 로컬에서 실행되는 함수가 아니야. 서버의 요청으로 해당 HostileNPC의 target이 명시적으로 바뀐 경우에 실행되도록 유도할 함수이고, 이 함수의 동작내 행동으로서 바뀐 _targetObj를 추적하는 형식으로 확장할거야.
+2. PlayerObject와 OppoPlayer는 거의 2배의 스케일을 사용하고 있어. 가슴 높이라 함은 그러면 1.16정도 될거야. 그걸 감안해서 일단 1로 잡았어.
+
+1번으로 가되, targetId가 -1인지를 먼저 검사하고, -1인경우 실행하지 않으려해.
+
+TestTurretNPC는 aim을 실험해보기위한 별도의 컴포넌트야. IngameScene이 존재하지 않는 별도의 환경에서 aim의 동작을 테스트해보려고 하거든.
+TestTurretNPC에서 TurretNPC의 aim과 관련된 부분을 테스트 할 수 있도록 뼈대를 남기되, IngameScene과의 종속성을 해제해줘.
+
+1. 해당 컴포넌트에 존재하는 하위 오브젝트인 /Top/pointer 가, aim시에 각도를 변화시켜야 할 대상이야.
+2. 같은 Scene에 존재하는, "TestAimTarget" 오브젝트를 최초 init시점 혹은 start시점에 _targetObj로서 추가하도록 해줘.
+
+TestAimTarget의 컴포넌트인 TestObj.cs를 변경함으로서, 해당 object가 x : -2 ~ 2 를 시간의 경과에 따라서 움직일 수 있도록 해줘.
+
+TestAimTarget의 위치가 y : 0 ~ 0.5, z : 6 ~ 8 사이를 시간의 경과에 따라서 움직이게 해줘.
+x의 반복이동주기와 y의 반복이동주기, z의 반복이동주기는 각각 달라야해.
+
+만족스러운 결과인데, 본체인 TurretNPC에 적용하기 전에 고려해야 할 부분이 있어. 매 프레임마다 추적이 진행되길 원하지 않아. HostileNPC는 여러 대가 있을 수 있으며 144hz환경에서 이 문제가 도드라질거라 생각해. FixedUpdate와 비슷한 방법으로서 20hz로서 고정할 방법이 있을까?
+
+TurretNPC의 /Top object가 soundsource를 포함하고있어. init시점에 참조를 가져와줘.
+

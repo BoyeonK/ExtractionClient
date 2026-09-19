@@ -23,6 +23,11 @@ public class HostileNPC : GameObjectController, ICombatTarget {
     private const float REMOTE_LERP_SPEED = 15f;
     private const float TELEPORT_SQR_DIST = 100f;
 
+    // 대상 추적(조준·가시성 판정)의 갱신 주기(20Hz). 144Hz에서 매 프레임 돌리면 NPC 대수만큼
+    // 헛 계산이 쌓인다. **FixedUpdate로 대신하지 말 것** — Time.fixedDeltaTime은 물리 전체의 주기라
+    // 여기에 맞춰 늘리면 CharacterController 이동과 히트스캔이 먼저 망가진다
+    private const float TARGETED_TICK_INTERVAL = 0.05f;
+
     protected IngameScene _ingameScene;
 
     private int _targetId = NO_TARGET;
@@ -30,6 +35,8 @@ public class HostileNPC : GameObjectController, ICombatTarget {
 
     private bool _aggroRequested;
     private float _aggroRequestTimer;
+
+    private float _targetedTickTimer;
 
     private Vector3 _remotePosition;
     private float _remoteYaw;
@@ -63,6 +70,10 @@ public class HostileNPC : GameObjectController, ICombatTarget {
     public override void Init() {
         _ingameScene = Managers.Scene.CurrentScene as IngameScene;
         _aggro = MinAggro;   // virtual이라 필드 초기화로는 파생값이 잡히지 않는다
+
+        // 같은 프레임에 스폰된 NPC들이 같은 프레임에 몰려 tick하지 않도록 위상을 흩는다 —
+        // 정적 오브젝트는 매치 시작에 한꺼번에 스폰되므로 0으로 두면 그대로 겹친다
+        _targetedTickTimer = Random.Range(0f, TARGETED_TICK_INTERVAL);
     }
 
     public void IncreaseAggro(int amount) => SetAggro(_aggro + amount);
@@ -136,14 +147,38 @@ public class HostileNPC : GameObjectController, ICombatTarget {
         }
     }
 
-    // 비주체 표현 전용. 주체 구동은 IngameScene이 OnOwnedUpdate()로 부르며
-    // 두 경로는 IsMine으로 상호 배타다 — 한쪽에 다른 쪽 일을 넣으면 주도권 전환 직후
-    // NPC가 두 방향으로 움직이고, 재현이 어려운 증상으로 남는다
+    // 구동은 IngameScene이 OnOwnedUpdate()로 부르고 비주체 보간은 여기가 맡는다 —
+    // 그 둘은 IsMine으로 상호 배타이고, 한쪽에 다른 쪽 일을 넣으면 주도권 전환 직후
+    // NPC가 두 방향으로 움직여 재현이 어려운 증상으로 남는다.
+    // OnTargetedUpdate()는 그 배타에서 빠지는 표현 갱신이며 **보간 뒤에 둔다** —
+    // 자식 트랜스폼의 월드 자세가 루트에서 나오므로 앞에 두면 한 틱 낡은 루트를 기준으로 돈다
     void Update() {
         UpdateAggroRequestWatchdog();
 
-        if (IsMine) return;
-        ProcessRemoteMovement();
+        if (!IsMine) ProcessRemoteMovement();
+
+        UpdateTargetedTick();
+    }
+
+    // 대상이 있는 동안 주체·비주체 양쪽에서 20Hz로 도는 표현 갱신(조준 등).
+    // 주도권과 무관하므로 **여기서 구동을 하지 말 것** — 대상 없음을 게이트로 쓰는 자리라
+    // 공격·이동을 넣으면 주체가 아닌 클라도 함께 움직인다.
+    //
+    // **인자는 Time.deltaTime이 아니라 tick 간격이다** — 매 프레임 돌지 않으므로 구현부가
+    // Time.deltaTime을 쓰면 프레임률이 높을수록 느려진다(144Hz에서 약 1/7 속도)
+    protected virtual void OnTargetedUpdate(float deltaTime) { }
+
+    // 발소리·발사 타이머와 같은 형태다(Mathf.Min 상한 + -= 차감) — 차감이라 남은 시간이 다음
+    // tick으로 넘어가 평균 주기가 정확히 유지되고, 상한이 프레임 저하 시 빚이 무한히 쌓이는 것을
+    // 막는다(그 구간에서는 tick이 늦어지는 만큼 추적이 느려진다)
+    private void UpdateTargetedTick() {
+        if (_targetId == NO_TARGET) return;
+
+        _targetedTickTimer = Mathf.Min(_targetedTickTimer + Time.deltaTime, TARGETED_TICK_INTERVAL * 2f);
+        if (_targetedTickTimer < TARGETED_TICK_INTERVAL) return;
+
+        _targetedTickTimer -= TARGETED_TICK_INTERVAL;
+        OnTargetedUpdate(TARGETED_TICK_INTERVAL);
     }
 
     // 씬 전용 진입점

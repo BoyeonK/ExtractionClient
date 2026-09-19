@@ -8,6 +8,7 @@ GameObjectController (MonoBehaviour)
 ├── OppoPlayerController     : ICombatTarget
 ├── HostileNPC               : ICombatTarget
 │     └── TurretNPC                              (Define.ObjectType 항목당 하나)
+│                                                 ※ TestScene/TestTurretNPC는 계층 밖 (조준 실험용 독립 MonoBehaviour)
 └── InteractableGameObjectController
       ├── ContainerController
       │     ├── TestItemBoxController
@@ -53,10 +54,24 @@ GameObjectController (MonoBehaviour)
 - **`DecreaseAggro`로 MIN까지 내리는 것이 곧 주도권 반납 요청이다**(46번 계약, 별도의 반납 패킷이 없다). **그래도 주도권은 통보가 오기 전까지 놓지 않는다** — 먼저 놓으면 서버가 나를 주도권자로 보는 동안 아무도 그 오브젝트를 몰지 않아 **매치 내내 멈춰 있다**
 - **상태 전환은 `ApplyServerAuthority`(통보) 하나뿐이다** — 요청은 보낼 수 있어도 클라가 스스로 `_targetId`를 바꾸는 경로를 만들지 말 것. `_aggroRequested` 워치독도 예외가 아니다(결과를 추측하지 않고 **요청 잠금만** 푼다 — 귀환·행동 워치독과 같은 형태)
 - **공격 보고는 `ReportAttack(hit, hitPoint)`로 한다** — 피격 대상 id를 호출부가 만들면 **서버가 통보 전체를 버리는 값**이 들어갈 수 있다(자기 자신 또는 `0xFFFFFFFF`만 허용)
-- **`Update()`와 `OnOwnedUpdate()`는 `IsMine`으로 상호 배타다.** 한쪽에 다른 쪽 일을 넣으면 주도권 전환 직후 NPC가 두 방향으로 움직이고, 재현이 어려운 증상으로 남는다
+- **`Update()`의 보간과 `OnOwnedUpdate()`는 `IsMine`으로 상호 배타다.** 한쪽에 다른 쪽 일을 넣으면 주도권 전환 직후 NPC가 두 방향으로 움직이고, 재현이 어려운 증상으로 남는다
+- **`OnTargetedUpdate(float)`만 그 배타에서 빠진다 — 주도권과 무관한 표현(조준 등)의 자리이고 게이트는 `_targetId != NO_TARGET`이다.** 여기에 공격·이동을 넣으면 주체가 아닌 클라도 함께 움직인다. **보간보다 뒤에서 불린다** — 자식 트랜스폼의 월드 자세가 루트에서 나오므로 앞에 두면 한 틱 낡은 루트를 기준으로 돈다
+- **주기는 `TARGETED_TICK_INTERVAL`(20Hz)이고 인자는 `Time.deltaTime`이 아니라 tick 간격이다.** 구현부가 `Time.deltaTime`을 쓰면 **프레임률이 높을수록 동작이 느려진다**(144Hz에서 약 1/7). 타이머는 발소리·발사와 같은 형태(`Mathf.Min` 상한 + `-=` 차감)이고 `Init()`에서 `Random`으로 위상을 흩는다 — 정적 오브젝트는 한꺼번에 스폰되므로 0으로 두면 모두 같은 프레임에 몰린다. **`FixedUpdate`로 대신하지 말 것**: `Time.fixedDeltaTime`은 물리 전체의 주기라 `CharacterController` 이동과 히트스캔이 먼저 망가진다
 - **`FindTarget()`은 후보 탐색이 아니다** — 공격 대상은 언제나 주도권자이고 멤버 함수는 주체일 때만 도므로, 대상은 **언제나 이 클라의 로컬 플레이어**다. 남을 후보로 고려하는 코드를 넣지 말 것
 - **비주체 보간은 오포와 같은 값·같은 규칙이다**(첫 수신·대규모 이동은 텔레포트, 그 외 Lerp 15). 갈리면 NPC만 다른 방식으로 떨린다
 - **`ApplyRemoteState`의 `IsMine` 가드가 되먹임을 막는다** — 상태 스트림이 룸 전체에 오므로 내가 주도하는 오브젝트의 상태도 돌아온다. 가드를 풀면 **내 구동 결과가 한 틱 낡은 값으로 덮인다**
+
+### TurretNPC 조준 (`_targetObj` / `AimTargetChange` / `AimTarget`)
+
+- **`_targetObj`는 `_targetId`에서 유도한 `Transform` 캐시다.** 주도권 통보가 대상의 스폰보다 먼저 올 수 있고 **주도권을 다시 알려주는 패킷이 없으므로**, null이면 `AimTarget()`이 다시 푼다 — 한 번만 풀고 끝내면 그 포탑은 판 내내 조준하지 않는다
+  - **인터페이스(`ICombatTarget` 등)로 들지 말 것** — Unity의 `==` 오버로드가 인터페이스 참조에는 적용되지 않아 파괴된 대상이 non-null로 읽히고 그 자리에서 NRE가 난다
+  - 조회는 `IngameScene.FindCombatObjectTransform` 하나다. **대상은 나일 수도 있다** — 조준 대상은 `FindTarget`의 공격 대상 규칙과 달리 남도 될 수 있으며, 표현일 뿐이라 금지에 걸리지 않는다
+- **`AimTargetChange()`가 `_targetObj`를 대입하는 유일한 지점이고 값이 바뀔 때만 통과시킨다** — 주도권 통보는 중복 수신될 수 있어, 가드가 없으면 같은 대상에도 전환 사운드가 난다. 호출은 `OnAuthorityChanged()`(= 서버 통보) 하나다
+- **프리팹 하위 경로 둘이 이름째로 계약이다** — `Top/pointer`(조준 회전 대상)와 `Top`의 `AudioSource`(월드 소리 소스, `_soundAudio`). 둘 다 `Init()`에서 `Util.BindComponent`로 잡고 **못 찾으면 에러 로그 후 그 기능만 죽는다**(조준이 굳거나 소리가 무음). 가청 거리·Rolloff는 프리팹이 정하므로 코드에 값이 없다
+- **회전은 자식 `Top/pointer`의 월드 회전만 건드린다 — 루트를 돌리지 말 것.** 비주체 클라에서 `ProcessRemoteMovement`가 매 프레임 루트 회전을 상태 스트림 yaw로 덮어 둘이 싸운다. **경로 이름이 계약이다**(`POINTER_PATH`) — 프리팹에 없으면 `BindComponent`가 에러를 남기고 조준만 죽는다
+- **`RotateTowards`이고 `Slerp`가 아니다** — `_aimSpeed`(프리팹 값, 초당 도)가 각속도 상한이어야 "빠른 표적을 놓친다"가 성립한다. 즉시 대입하면 순간 조준이 되어 피할 수 없고 회전음을 붙일 근거도 사라진다
+- 가드 둘은 빼지 말 것: 대상이 포신 위치와 겹쳐 방향을 못 만드는 경우, 조준선이 거의 수직이라 `LookRotation`의 up 힌트와 평행해지는 경우(히트박스·사망 카메라가 이미 밟은 함정)
+- **`TestScene/TestTurretNPC`는 이 계층 밖의 독립 `MonoBehaviour`다** — `IngameScene` 없이 조준만 실험하는 용도라 objectId·aggro·주도권이 없고, 씬에서 `TestAimTarget`을 이름으로 집는다. **회전 코드와 조준 높이가 양쪽에 따로 있으므로 한쪽을 고치면 다른 쪽도 볼 것**
 
 ## 공용 헬퍼 (`GameObjectController`)
 

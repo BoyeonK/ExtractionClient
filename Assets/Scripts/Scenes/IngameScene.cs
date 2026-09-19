@@ -1580,10 +1580,14 @@ public class IngameScene : BaseScene {
         _ingameDamageIndicatorUI.ShowIndicator(-Vector3.SignedAngle(forward, toAttacker, Vector3.up));
     }
 
-    // 가해자는 플레이어일 수도, 비플레이어 전투 오브젝트(HostileNPC 등)일 수도 있다.
-    // objectId 공간이 둘의 공용이므로 레지스트리 둘을 모두 본다 — 한쪽만 보면
-    // NPC에게 맞을 때 피격 방향이 통째로 빠진다
-    private Transform FindCombatObjectTransform(uint objectId) {
+    // 전투 대상은 나일 수도, 다른 플레이어일 수도, 비플레이어 전투 오브젝트(HostileNPC 등)일 수도 있다.
+    // objectId 공간이 셋의 공용이므로 보유처를 모두 본다 — 하나라도 빠뜨리면
+    // 그 갈래에서만 조회가 실패한다(NPC 피격 방향이 통째로 빠지거나, NPC가 노리는 대상이 나일 때만 못 찾는다).
+    // 로컬 플레이어는 두 레지스트리 어느 쪽에도 없어서 별도 가지다
+    public Transform FindCombatObjectTransform(uint objectId) {
+        if (IsMyObjectId(objectId))
+            return _playerController != null ? _playerController.transform : null;
+
         if (_oppoPlayers.TryGetValue(objectId, out OppoPlayerController oppo))
             return oppo.transform;
 
