@@ -1,6 +1,6 @@
 # 프로젝트 진행 상황
 
-> 최종 수정: 2026-09-19
+> 최종 수정: 2026-09-23
 > 장르: 멀티플레이어 Extraction 게임 (알파 단계)
 > 엔진: Unity 6000.4.0f1 / URP 17.4.0
 
@@ -9,8 +9,6 @@
 ## 완료된 것들
 
 ### 네트워크/UI
-
-- [x] (2026-09-03 #0) **캐릭터 Description 3종 다듬기 — 문안 재작성과 설명 패널 확장** — `Define.CharacterDescriptions`의 스크랩·G-EXPlorer-04·프로메테우스 문안을 전면 재작성해, 문단을 짧게 끊고 마지막 한 줄에 결론을 두는 형태로 셋을 통일했다(데이터 교체이고 코드 구조 변경은 없다). 분량이 대략 두 배가 되면서 `UI_CharacterSelect` 프리팹의 `DescriptionPanel`도 680×500 → 820×670으로 함께 키웠는데, **`Description` 텍스트가 오토사이즈도 스크롤도 없는 Overflow라 문안만 늘리면 패널 밖으로 그대로 삐져나간다** — 코드와 프리팹이 짝으로 움직여야 한다는 이 종속을 `UI/CLAUDE.md`에 남겼다.
 
 - [x] (2026-09-04 #0) **`IngameMapViewUI` — M으로 여는 전면 지도, 여는 순간 한 프레임만 촬영한다** — 탑뷰 카메라가 `MapTopView.renderTexture`에 그린 화면을 `RawImage`로 띄우는 구조라 **UI 쪽에 좌표 환산이 없다**: 플레이어 위치는 `ShownOnlyOnMap`(레이어 8)에 놓인 월드 마커가 이미지 안에 함께 찍혀 표현되고, 그래서 `Pcam`은 그 레이어만 빼고(`247`) 탑뷰는 `Terrain`(7)과 함께 담는다(`406`). **카메라는 평소 꺼져 있고 `Show()`가 한 프레임만 켠다** — 상시 렌더는 지도를 보지 않는 동안에도 매 프레임 씬을 한 번 더 그리기 때문이며, 그 대가로 **연 채로 움직이면 마커가 열었던 자리에 멈추는 것을 감수했다**(지도를 보며 이동하는 것이 의도가 아니다). `Camera.Render()`가 URP에서 지원되지 않아 `WaitForEndOfFrame` 코루틴으로 끄고 **`Hide()`가 카메라를 한 번 더 끄는 것은 그 코루틴이 오브젝트 비활성화로 죽어 카메라가 켜진 채 남는 경로 때문이며**, 키 라우팅은 **M이 다른 창이 하나라도 떠 있으면 무시**되게 해(`IsAnyUIOpen`) 지도가 어떤 UI와도 겹치지 않고 ESC 층·`ToggleMyInventory` 가드·`BeginMatchExit` 정리 목록에 모두 편입했다.
 
@@ -29,6 +27,10 @@
 - [x] (2026-09-19 #0) **터렛 조준 — 서버가 통보한 대상을 20Hz로 추적한다** — `TurretNPC`가 좌표(`_targetPos`)가 아니라 대상 참조(`_targetObj`)를 들게 했다: 대상이 움직이므로 좌표는 반드시 낡고, 갱신하려면 매 프레임 변경 함수를 불러 "값이 바뀔 때만 실행"이라는 `AimTargetChange`(주도권 통보 훅, 조준 전환 사운드가 붙을 자리)의 존재 이유가 무너진다. **`_targetObj`는 `_targetId`에서 유도한 캐시라 통보가 대상 스폰보다 먼저 오면 null이고 그때는 `AimTarget`이 다시 푼다**(주도권을 다시 알려주는 패킷이 없어 한 번만 풀면 그 포탑은 판 내내 조준하지 않는다) — 조회는 `IngameScene.FindCombatObjectTransform`을 public으로 올리고 **로컬 플레이어 가지를 더해** 셋(나·오포·씬 오브젝트)을 모두 보게 했다(로컬 플레이어가 어느 레지스트리에도 없어서, 빠뜨리면 정작 총을 쏘는 주체 클라에서만 조준이 죽는다). 조준은 주도권과 무관한 표현이라 `HostileNPC`에 `OnTargetedUpdate(float)` 훅을 새로 둬 주체·비주체 양쪽에서 돌리고(통보가 룸 전체에 오므로 각 클라가 스스로 대상을 찾아 돌릴 수 있어 **상태 스트림에 피치를 싣지 않아도 남의 화면에서 포신이 움직인다**) 회전은 자식 `Top/pointer`의 월드 회전만 건드리며(루트를 돌리면 비주체 쪽 `ProcessRemoteMovement`의 yaw Lerp와 싸운다), 주기는 **기반 클래스의 20Hz 게이트**(발소리·발사 타이머와 같은 `Mathf.Min` 상한 + `-=` 차감, `Init`에서 `Random`으로 위상 분산)가 재고 **tick 간격을 인자로 넘긴다** — 144Hz에서 NPC 대수만큼 헛 계산이 쌓이는 것을 막으려는 것이고, 구현부가 `Time.deltaTime`을 쓰면 프레임률이 높을수록 조준이 느려진다(`FixedUpdate`는 물리 전체의 주기라 쓸 수 없다). 실험은 `IngameScene` 없이 도는 `TestTurretNPC`(`HostileNPC` 상속을 끊은 독립 `MonoBehaviour`)와 x·y·z 주기가 서로 다른 왕복 표적 `TestObj`에서 했고, 프리팹은 **`ObjectPaths`가 찾는 이름과 어긋나 있던 것을 `GameObject/Turret`으로 통일**한 뒤(그대로 두면 로드 실패로 스폰이 통째로 건너뛰어진다) 조준 대상 `Top/pointer`와 `Top`의 `AudioSource`를 `Init()`에서 함께 잡게 했다 — 둘 다 이름이 계약이고 회전 속도·가청 거리는 코드가 아니라 프리팹이 정한다.
 
 - [x] (2026-09-19 #1) **aggro 하한을 1로 내리고 피격 aggro의 소관을 서버로 확정** — `MinAggro`를 4 → 1로 내려 단계가 8칸이 됐다(스폰 초기값과 클램프 두 곳이 모두 이 프로퍼티를 읽어 값 하나만 바꾸면 되고, **MIN 지정이 곧 주도권 반납 요청이라 반납 지점도 함께 1로 옮겨간다**). 피격으로 생기는 aggro는 서버가 정하기로 확정돼 `ProcessHit`에 넣었던 `GetAggro(8)` 호출을 되돌렸다 — 클라가 피격마다 요청하면 판정이 두 곳이 되고, 요청값이 MAX면 **첫 한 발로 주도권이 굳어 아무도 뺏을 수 없으며 터렛이 이미 떠난 사람을 계속 조준한다**. 반영 경로가 통보(49) → `ApplyServerAuthority` 하나라는 것과, **그래도 `GetAggro`는 죽은 코드가 아니라는 것**(피격 외 적대 행동은 여전히 클라가 요청한다)을 모듈 문서에 남겼다.
+
+### 저장소/문서
+
+- [x] (2026-09-23 #0) **`docs/Claude_Code_프롬프트/`를 git 추적에서 제외** — 프롬프트 기록 폴더의 관리 부담이 커져 `.gitignore`에 `docs/Claude_Code_프롬프트/`를 넣고 `git rm -r --cached`로 12개 파일을 인덱스에서 뺐다(`--cached`라 디스크 파일은 남고 과거 커밋 히스토리에도 그대로 남는다). **둘 다 해야 한다** — ignore 규칙은 **이미 추적 중인 파일에는 적용되지 않고**, 거꾸로 추적만 끊고 규칙이 없으면 폴더가 untracked로 떠 다음 `git add .`에 통째로 다시 들어간다. 함께 빠진 `checkprogress-commit/SKILL.md`·`do-props/SKILL.md`는 사본이라 동작에는 영향이 없다(실제 로드 경로는 `~/.claude/skills/`).
 
 ---
 
@@ -92,3 +94,4 @@
 - **`Resources/`는 참조 여부와 무관하게 전량 빌드에 포함된다** — 코드 참조가 없는 자산이 확인된 것만 여럿이다(`Prefabs/Scene/*` 4종, `System/@Managers`, `System/EventSystem`, `TestPlayer`, `TestLobbyScene/`, `LobbySettingUIBackup`). **`System/EventSystem`은 코드가 쓰는 `UI/EventSystem`과 같은 것 두 벌**이다. 알파 단계라 용량이 문제는 아니고 **삭제 판단은 사용자 몫이므로 사실만 남긴다** — 목록은 `Assets/Resources/CLAUDE.md`에 있다
 - **씬 이름 컨벤션 잔여 (판단 보류)** — `TestIngame2.unity`는 컨벤션대로면 `TestIngame2Scene.unity`이지만 `Define.Scene` enum에 없어 코드 영향이 없고, `WinchesterAlpha.unity`는 맵 에셋 성격이다. **enum에 올리는 순간 파일 이름을 맞춰야 한다**(`Scenes/CLAUDE.md`의 씬 이름 규칙). 맵 명칭이 Tenerife로 확정됐으므로 `WinchesterAlpha.unity`의 처분(리네임·삭제·존치)도 함께 볼 것 — **코드 참조는 없다**
 - **맵 리네임이 `http-api-spec.yaml`에도 반영됐다 (`1: MAP_TENERIFE`) — 서버 사본 전달은 사용자 몫이다** — 이 파일은 서버 사본과 동기화되므로 **클라에서만 고친 상태로 두면 두 사본이 갈라진다.** 다만 **계약은 mapId 값(1)이고 이름은 표기일 뿐이라 전달 전에도 통신에는 영향이 없다.** 같은 파일에 `latestVersion` 설명·예시(`"alpha-1"`) 동기화도 함께 들어 있다
+- **skill 정의는 이제 git에 사본이 없다 (동작 영향 없음)** — `checkprogress-commit`·`do-props`가 실제로 로드되는 곳은 `~/.claude/skills/`(repo 밖)이고, repo에 있던 `SKILL.md` 둘은 사본이었는데 (2026-09-23 #0)에서 프롬프트 폴더째로 추적이 끊겼다. **정의를 계속 버전 관리하고 싶다면 `docs/skills/` 같은 별도 폴더로 옮겨야 한다** — 프롬프트 기록과 같은 폴더에 두는 한 ignore 규칙에 함께 걸린다

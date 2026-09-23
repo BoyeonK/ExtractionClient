@@ -459,7 +459,7 @@ components:
         latestVersion:
           type: string
           description: "클라이언트가 문자열 완전 일치로 비교하고, 다르면 즉시 종료한다"
-          example: "alpha-1"
+          example: "alpha-2"
         isMaintenance:
           type: boolean
           description: "서버 점검 중 여부"

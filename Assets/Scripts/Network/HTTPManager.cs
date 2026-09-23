@@ -47,7 +47,7 @@ public class HTTPManager {
 
     // 버전 검사의 클라 쪽 유일한 출처. 서버의 latestVersion과 손으로 맞추는 값이며
     // 어긋나면 아무도 로그인 화면에 못 간다(표시가 틀어지는 정도가 아니라 접속이 막힌다)
-    public const string version = "alpha-1";
+    public const string version = "alpha-2";
     private const string _versionUrl = "api/version";
     private const string _signupUrl = "api/signup";
     private const string _loginUrl = "api/login";
